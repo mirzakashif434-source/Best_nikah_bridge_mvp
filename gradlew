@@ -1,2 +1,28 @@
 #!/bin/sh
-echo "Gradle wrapper placeholder"
+
+APP_HOME=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+if [ -n "$JAVA_HOME" ]; then
+    JAVA_HOME=$JAVA_HOME
+else
+    JAVACMD=java
+fi
+
+if [ -x "$JAVA_HOME/bin/java" ]; then
+    JAVACMD="$JAVA_HOME/bin/java"
+elif command -v java >/dev/null 2>&1; then
+    JAVACMD=java
+else
+    echo "ERROR: JAVA_HOME is not set and no 'java' command could be found."
+    exit 1
+fi
+
+if [ ! -f "$CLASSPATH" ]; then
+    echo "ERROR: Gradle wrapper JAR not found:"
+    echo "$CLASSPATH"
+    exit 1
+fi
+
+exec "$JAVACMD" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
