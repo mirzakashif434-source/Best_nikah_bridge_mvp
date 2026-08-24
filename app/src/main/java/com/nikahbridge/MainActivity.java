@@ -1,20 +1,25 @@
 package com.nikahbridge;
 
 import android.app.Activity;
-import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.os.Bundle;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
-    LinearLayout root;
+    private LinearLayout root;
+    private int blue = Color.rgb(23, 107, 87);
+    private int dark = Color.rgb(24, 50, 44);
+    private int gray = Color.rgb(100, 117, 111);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,54 +31,133 @@ public class MainActivity extends Activity {
         TextView t = new TextView(this);
         t.setText(text);
         t.setTextSize(size);
-        t.setTextColor(Color.BLACK);
+        t.setTextColor(dark);
         t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         t.setGravity(Gravity.CENTER);
-        t.setPadding(10, 20, 10, 20);
+        t.setPadding(12, 12, 12, 12);
         return t;
     }
 
-    private Button button(String text) {
+    private TextView subtitle(String text) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setTextSize(19);
+        t.setTextColor(gray);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(12, 8, 12, 20);
+        return t;
+    }
+
+    private Button appButton(String text) {
         Button b = new Button(this);
         b.setText(text);
         b.setTextSize(17);
         b.setAllCaps(false);
-        b.setPadding(20, 15, 20, 15);
+        b.setTextColor(Color.WHITE);
+        b.setGravity(Gravity.CENTER);
+        b.setMinHeight(64);
+        b.setPadding(20, 10, 20, 10);
+        b.setBackgroundColor(blue);
         return b;
     }
 
     private void setupRoot() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(Color.rgb(247, 250, 249));
+
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER);
-        root.setPadding(40, 40, 40, 40);
-        root.setBackgroundColor(Color.WHITE);
-        setContentView(root);
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setPadding(24, 40, 24, 40);
+
+        scroll.addView(
+                root,
+                new ScrollView.LayoutParams(
+                        ScrollView.LayoutParams.MATCH_PARENT,
+                        ScrollView.LayoutParams.MATCH_PARENT
+                )
+        );
+
+        setContentView(scroll);
+    }
+
+    private void addSpace(int height) {
+        SpaceView space = new SpaceView();
+        root.addView(space, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                height
+        ));
+    }
+
+    private class SpaceView extends View {
+        SpaceView() {
+            super(MainActivity.this);
+        }
     }
 
     private void showHome() {
         setupRoot();
 
-        root.addView(title("Best Nikah Bridge", 30));
+        addSpace(45);
 
-        TextView subtitle = new TextView(this);
-        subtitle.setText("Trusted • Simple • Safe");
-        subtitle.setTextSize(20);
-        subtitle.setTextColor(Color.DKGRAY);
-        subtitle.setGravity(Gravity.CENTER);
-        subtitle.setPadding(10, 10, 10, 50);
-        root.addView(subtitle);
+        root.addView(
+                title("Best Nikah Bridge", 32),
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+        );
 
-        Button createProfile = button("Create Profile");
-        Button viewMatches = button("View Matches");
+        root.addView(
+                subtitle("Trusted • Simple • Safe"),
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+        );
 
-        root.addView(createProfile,
-                new LinearLayout.LayoutParams(-1, 70));
-        root.addView(viewMatches,
-                new LinearLayout.LayoutParams(-1, 70));
+        addSpace(20);
+
+        Button createProfile = appButton("Create Profile");
+        root.addView(
+                createProfile,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        70
+                )
+        );
+
+        addSpace(14);
+
+        Button viewMatches = appButton("View Matches");
+        root.addView(
+                viewMatches,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        70
+                )
+        );
 
         createProfile.setOnClickListener(v -> showCreateProfile());
         viewMatches.setOnClickListener(v -> showMatches());
+
+        addSpace(40);
+
+        TextView info = new TextView(this);
+        info.setText("A serious Muslim matrimonial platform\nfor safe and respectful Nikah.");
+        info.setTextSize(16);
+        info.setTextColor(gray);
+        info.setGravity(Gravity.CENTER);
+        info.setPadding(10, 10, 10, 10);
+
+        root.addView(
+                info,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+        );
     }
 
     private void showCreateProfile() {
@@ -81,52 +165,78 @@ public class MainActivity extends Activity {
 
         root.setGravity(Gravity.TOP);
 
-        root.addView(title("Create Your Profile", 28));
+        root.addView(
+                title("Create Your Profile", 28),
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+        );
 
         EditText name = new EditText(this);
         name.setHint("Name");
         name.setTextSize(17);
-        root.addView(name,
-                new LinearLayout.LayoutParams(-1, 60));
+        addInput(name, 65);
 
         EditText age = new EditText(this);
         age.setHint("Age");
-        age.setInputType(2);
         age.setTextSize(17);
-        root.addView(age,
-                new LinearLayout.LayoutParams(-1, 60));
+        age.setInputType(InputType.TYPE_CLASS_NUMBER);
+        addInput(age, 65);
 
         EditText country = new EditText(this);
         country.setHint("Country");
         country.setTextSize(17);
-        root.addView(country,
-                new LinearLayout.LayoutParams(-1, 60));
+        addInput(country, 65);
 
         EditText about = new EditText(this);
         about.setHint("About yourself");
         about.setTextSize(17);
         about.setGravity(Gravity.TOP);
-        root.addView(about,
-                new LinearLayout.LayoutParams(-1, 120));
+        about.setMinLines(4);
+        about.setPadding(16, 16, 16, 16);
 
-        Button save = button("Save Profile");
-        Button back = button("Back");
+        root.addView(
+                about,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        130
+                )
+        );
 
-        root.addView(save,
-                new LinearLayout.LayoutParams(-1, 70));
-        root.addView(back,
-                new LinearLayout.LayoutParams(-1, 70));
+        addSpace(18);
+
+        Button save = appButton("Save Profile");
+        root.addView(
+                save,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        68
+                )
+        );
+
+        addSpace(12);
+
+        Button back = appButton("Back");
+        root.addView(
+                back,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        68
+                )
+        );
 
         save.setOnClickListener(v -> {
             String n = name.getText().toString().trim();
 
             if (n.isEmpty()) {
                 name.setError("Please enter your name");
+                name.requestFocus();
                 return;
             }
 
             Toast.makeText(
-                    this,
+                    MainActivity.this,
                     "Profile saved successfully",
                     Toast.LENGTH_LONG
             ).show();
@@ -135,12 +245,31 @@ public class MainActivity extends Activity {
         back.setOnClickListener(v -> showHome());
     }
 
+    private void addInput(EditText input, int height) {
+        input.setPadding(16, 8, 16, 8);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        height
+                );
+
+        params.setMargins(0, 8, 0, 8);
+        root.addView(input, params);
+    }
+
     private void showMatches() {
         setupRoot();
 
         root.setGravity(Gravity.TOP);
 
-        root.addView(title("Recommended Matches", 28));
+        root.addView(
+                title("Recommended Matches", 28),
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+        );
 
         addMatch(
                 "Ayesha • 27",
@@ -160,9 +289,16 @@ public class MainActivity extends Activity {
                 "Marriage intention: Serious"
         );
 
-        Button back = button("Back");
-        root.addView(back,
-                new LinearLayout.LayoutParams(-1, 70));
+        addSpace(20);
+
+        Button back = appButton("Back");
+        root.addView(
+                back,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        68
+                )
+        );
 
         back.setOnClickListener(v -> showHome());
     }
@@ -170,22 +306,30 @@ public class MainActivity extends Activity {
     private void addMatch(
             String name,
             String country,
-            String intention) {
-
+            String intention
+    ) {
         TextView match = new TextView(this);
 
         match.setText(
                 name + "\n" +
                 country + "\n" +
                 intention + "\n" +
-                "Verified profile • View Profile"
+                "✓ Verified profile • View Profile"
         );
 
         match.setTextSize(17);
-        match.setTextColor(Color.BLACK);
+        match.setTextColor(dark);
+        match.setGravity(Gravity.CENTER);
         match.setPadding(20, 20, 20, 20);
 
-        root.addView(match,
-                new LinearLayout.LayoutParams(-1, 130));
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        145
+                );
+
+        params.setMargins(0, 8, 0, 8);
+
+        root.addView(match, params);
     }
 }
