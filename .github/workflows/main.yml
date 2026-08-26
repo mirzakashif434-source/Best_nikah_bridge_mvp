@@ -21,10 +21,21 @@ jobs:
           java-version: '17'
           cache: gradle
 
+      - name: Restore release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > best-nikah-bridge-release.jks
+
       - name: Make Gradle executable
         run: chmod +x gradlew
 
       - name: Build Release AAB
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew :app:bundleRelease
 
       - name: Upload Release AAB
