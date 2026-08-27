@@ -1,21 +1,19 @@
 package com.nikahbridge;
 
 import android.app.Activity;
-import android.os.Bundle;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
+import android.os.Bundle;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Spinner;
-import android.widget.ArrayAdapter;
+import android.widget.Space;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,12 +26,12 @@ public class MainActivity extends Activity {
 
     private LinearLayout root;
 
-    private final int BLUE = Color.rgb(43, 107, 87);
-    private final int DARK = Color.rgb(24, 50, 44);
-    private final int GRAY = Color.rgb(100, 117, 111);
-    private final int LIGHT = Color.rgb(247, 250, 249);
-    private final int WHITE = Color.WHITE;
-    private final int GOLD = Color.rgb(190, 145, 45);
+    private final int blue = Color.rgb(43, 107, 87);
+    private final int dark = Color.rgb(24, 50, 44);
+    private final int gray = Color.rgb(100, 117, 111);
+    private final int lightBg = Color.rgb(247, 250, 249);
+    private final int white = Color.WHITE;
+    private final int border = Color.rgb(220, 230, 226);
 
     private SharedPreferences prefs;
 
@@ -52,81 +50,67 @@ public class MainActivity extends Activity {
 
     private TextView title(String text, int size) {
         TextView t = new TextView(this);
-
         t.setText(text);
         t.setTextSize(size);
-        t.setTextColor(DARK);
+        t.setTextColor(dark);
         t.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         t.setGravity(Gravity.CENTER);
         t.setPadding(12, 12, 12, 12);
-
         return t;
     }
 
     private TextView subtitle(String text) {
         TextView t = new TextView(this);
-
         t.setText(text);
         t.setTextSize(17);
-        t.setTextColor(GRAY);
+        t.setTextColor(gray);
         t.setGravity(Gravity.CENTER);
         t.setPadding(12, 8, 12, 20);
+        return t;
+    }
 
+    private TextView bodyText(String text) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setTextSize(16);
+        t.setTextColor(dark);
+        t.setPadding(12, 8, 12, 8);
         return t;
     }
 
     private Button appButton(String text) {
         Button b = new Button(this);
-
         b.setText(text);
         b.setTextSize(16);
         b.setAllCaps(false);
-        b.setTextColor(WHITE);
-        b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        b.setTextColor(Color.WHITE);
         b.setGravity(Gravity.CENTER);
-        b.setMinHeight(60);
-        b.setPadding(16, 8, 16, 8);
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(BLUE);
-        bg.setCornerRadius(18);
-
-        b.setBackground(bg);
-
+        b.setMinHeight(58);
+        b.setPadding(18, 10, 18, 10);
+        b.setBackgroundColor(blue);
         return b;
     }
 
-    private TextView smallText(String text) {
-        TextView t = new TextView(this);
-
-        t.setText(text);
-        t.setTextSize(15);
-        t.setTextColor(GRAY);
-        t.setPadding(12, 8, 12, 8);
-
-        return t;
-    }
-
-    private TextView matchText(String text) {
-        TextView t = new TextView(this);
-
-        t.setText(text);
-        t.setTextSize(17);
-        t.setTextColor(DARK);
-        t.setPadding(18, 8, 18, 8);
-
-        return t;
+    private Button secondaryButton(String text) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setTextSize(15);
+        b.setAllCaps(false);
+        b.setTextColor(blue);
+        b.setGravity(Gravity.CENTER);
+        b.setMinHeight(54);
+        b.setPadding(18, 8, 18, 8);
+        b.setBackgroundColor(Color.rgb(232, 242, 238));
+        return b;
     }
 
     private void setupRoot() {
 
         ScrollView scroll = new ScrollView(this);
-
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(LIGHT);
+        scroll.setBackgroundColor(lightBg);
 
         root = new LinearLayout(this);
-
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setPadding(24, 30, 24, 30);
@@ -134,8 +118,8 @@ public class MainActivity extends Activity {
         scroll.addView(
                 root,
                 new ScrollView.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
+                        ScrollView.LayoutParams.MATCH_PARENT,
+                        ScrollView.LayoutParams.MATCH_PARENT
                 )
         );
 
@@ -143,70 +127,30 @@ public class MainActivity extends Activity {
     }
 
     private void addSpace(int height) {
-
-        View space = new View(this);
+        Space space = new Space(this);
 
         root.addView(
                 space,
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.MATCH_PARENT,
                         height
                 )
         );
     }
 
-    private void addButton(Button button) {
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        64
-                );
-
-        params.setMargins(0, 8, 0, 8);
-
-        root.addView(button, params);
-    }
-
-    private void addInput(EditText input) {
+    private void addInput(EditText input, int height) {
 
         input.setPadding(16, 8, 16, 8);
 
         LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        65
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        height
                 );
 
-        params.setMargins(0, 0, 0, 8);
+        params.setMargins(0, 0, 0, 10);
 
         root.addView(input, params);
-    }
-
-    private Spinner createSpinner(String[] items) {
-
-        Spinner spinner = new Spinner(this);
-
-        ArrayAdapter<String> adapter =
-                new ArrayAdapter<String>(
-                        this,
-                        android.R.layout.simple_spinner_dropdown_item,
-                        items
-                );
-
-        spinner.setAdapter(adapter);
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        60
-                );
-
-        params.setMargins(0, 0, 0, 8);
-
-        root.addView(spinner, params);
-
-        return spinner;
     }
 
     // =========================================================
@@ -217,66 +161,73 @@ public class MainActivity extends Activity {
 
         setupRoot();
 
-        addSpace(25);
+        addSpace(20);
 
         root.addView(
                 title("Best Nikah Bridge", 32),
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                 )
         );
 
         root.addView(
-                subtitle("Trusted • Simple • Safe"),
+                subtitle("Trusted • Simple • Safe • Serious Nikah"),
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                 )
         );
 
-        addSpace(15);
+        addSpace(10);
 
-        Button createProfile =
-                appButton("Create / Update Profile");
+        Button createProfile = appButton("Create / Update Profile");
 
-        Button viewMatches =
-                appButton("View Recommended Matches");
+        root.addView(
+                createProfile,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        70
+                )
+        );
 
-        addButton(createProfile);
+        addSpace(14);
 
-        addButton(viewMatches);
+        Button viewMatches = appButton("View Recommended Matches");
 
-        addSpace(30);
+        root.addView(
+                viewMatches,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        70
+                )
+        );
 
-        TextView info =
-                new TextView(this);
+        createProfile.setOnClickListener(v -> showCreateProfile());
+        viewMatches.setOnClickListener(v -> showMatches());
+
+        addSpace(35);
+
+        TextView info = new TextView(this);
 
         info.setText(
                 "A serious Muslim matrimonial platform\n" +
                 "for safe and respectful Nikah.\n\n" +
-                "Your profile is used to calculate better matches."
+                "Our matching system considers age,\n" +
+                "country and marriage intention."
         );
 
         info.setTextSize(16);
-        info.setTextColor(GRAY);
+        info.setTextColor(gray);
         info.setGravity(Gravity.CENTER);
         info.setPadding(10, 10, 10, 10);
 
         root.addView(
                 info,
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-        );
-
-        createProfile.setOnClickListener(
-                v -> showCreateProfile()
-        );
-
-        viewMatches.setOnClickListener(
-                v -> showMatches()
         );
     }
 
@@ -293,18 +244,19 @@ public class MainActivity extends Activity {
         root.addView(
                 title("Create Your Profile", 28),
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                 )
         );
 
-        root.addView(
-                subtitle("Complete your profile for better matches"),
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                )
+        TextView guide = bodyText(
+                "Complete your profile so we can recommend better Nikah matches."
         );
+        guide.setGravity(Gravity.CENTER);
+
+        root.addView(guide);
+
+        addSpace(10);
 
         EditText name = new EditText(this);
         name.setHint("Full name");
@@ -314,103 +266,40 @@ public class MainActivity extends Activity {
             name.setText(prefs.getString("name", ""));
         }
 
-        addInput(name);
+        addInput(name, 65);
 
         EditText age = new EditText(this);
         age.setHint("Age");
         age.setTextSize(17);
-        age.setInputType(
-                android.text.InputType.TYPE_CLASS_NUMBER
-        );
+        age.setInputType(InputType.TYPE_CLASS_NUMBER);
 
         if (prefs.contains("age")) {
-            age.setText(prefs.getString("age", ""));
+            age.setText(String.valueOf(prefs.getInt("age", 0)));
         }
 
-        addInput(age);
+        addInput(age, 65);
 
         EditText country = new EditText(this);
         country.setHint("Country");
         country.setTextSize(17);
 
         if (prefs.contains("country")) {
-            country.setText(
-                    prefs.getString("country", "")
-            );
+            country.setText(prefs.getString("country", ""));
         }
 
-        addInput(country);
+        addInput(country, 65);
 
-        TextView genderLabel =
-                smallText("Gender");
+        EditText intention = new EditText(this);
+        intention.setHint("Marriage intention — e.g. Serious");
+        intention.setTextSize(17);
 
-        root.addView(genderLabel);
+        if (prefs.contains("intention")) {
+            intention.setText(prefs.getString("intention", "Serious"));
+        }
 
-        String[] genders = {
-                "Select gender",
-                "Male",
-                "Female"
-        };
-
-        Spinner gender =
-                createSpinner(genders);
-
-        String savedGender =
-                prefs.getString("gender", "");
-
-        setSpinnerValue(gender, genders, savedGender);
-
-        TextView seekingLabel =
-                smallText("Looking for");
-
-        root.addView(seekingLabel);
-
-        String[] seekingOptions = {
-                "Select",
-                "Male",
-                "Female"
-        };
-
-        Spinner seeking =
-                createSpinner(seekingOptions);
-
-        String savedSeeking =
-                prefs.getString("seeking", "");
-
-        setSpinnerValue(
-                seeking,
-                seekingOptions,
-                savedSeeking
-        );
-
-        TextView intentionLabel =
-                smallText("Marriage intention");
-
-        root.addView(intentionLabel);
-
-        String[] intentions = {
-                "Serious / Ready for Nikah",
-                "Serious / Soon",
-                "Exploring with marriage intention"
-        };
-
-        Spinner intention =
-                createSpinner(intentions);
-
-        String savedIntention =
-                prefs.getString(
-                        "intention",
-                        "Serious / Ready for Nikah"
-                );
-
-        setSpinnerValue(
-                intention,
-                intentions,
-                savedIntention
-        );
+        addInput(intention, 65);
 
         EditText about = new EditText(this);
-
         about.setHint("About yourself");
         about.setTextSize(17);
         about.setGravity(Gravity.TOP);
@@ -418,233 +307,451 @@ public class MainActivity extends Activity {
         about.setPadding(16, 16, 16, 16);
 
         if (prefs.contains("about")) {
-            about.setText(
-                    prefs.getString("about", "")
-            );
+            about.setText(prefs.getString("about", ""));
         }
 
         root.addView(
                 about,
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        130
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        140
                 )
         );
 
         addSpace(15);
 
-        Button save =
-                appButton("Save Profile");
+        TextView prefTitle = title("Partner Preferences", 22);
 
-        Button back =
-                appButton("Back");
+        root.addView(
+                prefTitle,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+        );
 
-        addButton(save);
+        TextView prefInfo = bodyText(
+                "These preferences help improve your recommended matches."
+        );
+        prefInfo.setGravity(Gravity.CENTER);
 
-        addButton(back);
+        root.addView(prefInfo);
+
+        addSpace(8);
+
+        EditText minAge = new EditText(this);
+        minAge.setHint("Preferred minimum age");
+        minAge.setTextSize(17);
+        minAge.setInputType(InputType.TYPE_CLASS_NUMBER);
+
+        if (prefs.contains("minAge")) {
+            minAge.setText(String.valueOf(prefs.getInt("minAge", 21)));
+        } else {
+            minAge.setText("21");
+        }
+
+        addInput(minAge, 65);
+
+        EditText maxAge = new EditText(this);
+        maxAge.setHint("Preferred maximum age");
+        maxAge.setTextSize(17);
+        maxAge.setInputType(InputType.TYPE_CLASS_NUMBER);
+
+        if (prefs.contains("maxAge")) {
+            maxAge.setText(String.valueOf(prefs.getInt("maxAge", 35)));
+        } else {
+            maxAge.setText("35");
+        }
+
+        addInput(maxAge, 65);
+
+        EditText preferredCountry = new EditText(this);
+        preferredCountry.setHint("Preferred country (optional)");
+        preferredCountry.setTextSize(17);
+
+        if (prefs.contains("preferredCountry")) {
+            preferredCountry.setText(
+                    prefs.getString("preferredCountry", "")
+            );
+        }
+
+        addInput(preferredCountry, 65);
+
+        addSpace(15);
+
+        Button save = appButton("Save Profile & Find Matches");
+
+        root.addView(
+                save,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        68
+                )
+        );
+
+        addSpace(12);
+
+        Button back = secondaryButton("Back");
+
+        root.addView(
+                back,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        60
+                )
+        );
 
         save.setOnClickListener(v -> {
 
-            String n =
-                    name.getText().toString().trim();
-
-            String a =
-                    age.getText().toString().trim();
-
-            String c =
-                    country.getText().toString().trim();
-
-            String g =
-                    gender.getSelectedItem().toString();
-
-            String s =
-                    seeking.getSelectedItem().toString();
-
-            String i =
-                    intention.getSelectedItem().toString();
-
-            String ab =
-                    about.getText().toString().trim();
+            String n = name.getText().toString().trim();
+            String ageText = age.getText().toString().trim();
+            String c = country.getText().toString().trim();
+            String i = intention.getText().toString().trim();
+            String a = about.getText().toString().trim();
 
             if (n.isEmpty()) {
-
-                name.setError(
-                        "Please enter your name"
-                );
-
+                name.setError("Please enter your name");
                 name.requestFocus();
-
                 return;
             }
 
-            if (a.isEmpty()) {
-
-                age.setError(
-                        "Please enter your age"
-                );
-
+            if (ageText.isEmpty()) {
+                age.setError("Please enter your age");
                 age.requestFocus();
-
                 return;
             }
 
-            int ageNumber;
+            int userAge;
 
             try {
-
-                ageNumber =
-                        Integer.parseInt(a);
-
+                userAge = Integer.parseInt(ageText);
             } catch (Exception e) {
-
-                age.setError(
-                        "Please enter a valid age"
-                );
-
+                age.setError("Enter a valid age");
+                age.requestFocus();
                 return;
             }
 
-            if (ageNumber < 18 ||
-                    ageNumber > 80) {
-
-                age.setError(
-                        "Age must be between 18 and 80"
-                );
-
+            if (userAge < 18 || userAge > 80) {
+                age.setError("Age must be between 18 and 80");
+                age.requestFocus();
                 return;
             }
 
             if (c.isEmpty()) {
-
-                country.setError(
-                        "Please enter your country"
-                );
-
+                country.setError("Please enter your country");
                 country.requestFocus();
-
                 return;
             }
 
-            if (g.equals("Select gender")) {
+            int min;
+            int max;
 
-                Toast.makeText(
-                        MainActivity.this,
-                        "Please select your gender",
-                        Toast.LENGTH_SHORT
-                ).show();
-
-                return;
+            try {
+                min = Integer.parseInt(minAge.getText().toString().trim());
+            } catch (Exception e) {
+                min = 21;
             }
 
-            if (s.equals("Select")) {
+            try {
+                max = Integer.parseInt(maxAge.getText().toString().trim());
+            } catch (Exception e) {
+                max = 35;
+            }
 
-                Toast.makeText(
-                        MainActivity.this,
-                        "Please select who you are looking for",
-                        Toast.LENGTH_SHORT
-                ).show();
+            if (min < 18) {
+                min = 18;
+            }
 
-                return;
+            if (max < min) {
+                max = min;
+            }
+
+            if (i.isEmpty()) {
+                i = "Serious";
             }
 
             prefs.edit()
                     .putString("name", n)
-                    .putString("age", a)
+                    .putInt("age", userAge)
                     .putString("country", c)
-                    .putString("gender", g)
-                    .putString("seeking", s)
                     .putString("intention", i)
-                    .putString("about", ab)
-                    .putBoolean("profile_complete", true)
+                    .putString("about", a)
+                    .putInt("minAge", min)
+                    .putInt("maxAge", max)
+                    .putString(
+                            "preferredCountry",
+                            preferredCountry.getText().toString().trim()
+                    )
                     .apply();
 
             Toast.makeText(
                     MainActivity.this,
                     "Profile saved successfully",
-                    Toast.LENGTH_LONG
+                    Toast.LENGTH_SHORT
             ).show();
 
-            showHome();
+            showMatches();
         });
 
-        back.setOnClickListener(
-                v -> showHome()
-        );
-    }
-
-    private void setSpinnerValue(
-            Spinner spinner,
-            String[] values,
-            String value
-    ) {
-
-        if (value == null || value.isEmpty()) {
-            return;
-        }
-
-        for (int x = 0; x < values.length; x++) {
-
-            if (values[x].equalsIgnoreCase(value)) {
-
-                spinner.setSelection(x);
-
-                return;
-            }
-        }
+        back.setOnClickListener(v -> showHome());
     }
 
     // =========================================================
-    // MATCH MODEL
+    // MATCH DATA
     // =========================================================
 
-    private static class Match {
+    private static class MatchCandidate {
 
         String name;
         int age;
         String country;
-        String gender;
         String intention;
         String about;
+        boolean verified;
 
-        Match(
+        MatchCandidate(
                 String name,
                 int age,
                 String country,
-                String gender,
                 String intention,
-                String about
+                String about,
+                boolean verified
         ) {
-
             this.name = name;
             this.age = age;
             this.country = country;
-            this.gender = gender;
             this.intention = intention;
             this.about = about;
+            this.verified = verified;
         }
     }
 
+    private List<MatchCandidate> getCandidates() {
+
+        List<MatchCandidate> list = new ArrayList<>();
+
+        list.add(
+                new MatchCandidate(
+                        "Ayesha",
+                        27,
+                        "Pakistan",
+                        "Serious",
+                        "Looking for a respectful and sincere Nikah.",
+                        true
+                )
+        );
+
+        list.add(
+                new MatchCandidate(
+                        "Fatima",
+                        29,
+                        "Saudi Arabia",
+                        "Serious",
+                        "Family-oriented and looking for marriage.",
+                        true
+                )
+        );
+
+        list.add(
+                new MatchCandidate(
+                        "Maryam",
+                        26,
+                        "Germany",
+                        "Serious",
+                        "Seeking a serious Muslim marriage.",
+                        true
+                )
+        );
+
+        list.add(
+                new MatchCandidate(
+                        "Hafsa",
+                        31,
+                        "United Kingdom",
+                        "Serious",
+                        "Interested in a respectful Islamic marriage.",
+                        true
+                )
+        );
+
+        list.add(
+                new MatchCandidate(
+                        "Zainab",
+                        24,
+                        "Pakistan",
+                        "Serious",
+                        "Serious about finding a suitable spouse.",
+                        true
+                )
+        );
+
+        list.add(
+                new MatchCandidate(
+                        "Sana",
+                        28,
+                        "UAE",
+                        "Serious",
+                        "Family values and halal marriage are important.",
+                        false
+                )
+        );
+
+        return list;
+    }
+
     // =========================================================
-    // MATCHES
+    // MATCH SCORE
+    // =========================================================
+
+    private int calculateScore(MatchCandidate candidate) {
+
+        int userAge = prefs.getInt("age", 0);
+        int minAge = prefs.getInt("minAge", 21);
+        int maxAge = prefs.getInt("maxAge", 35);
+
+        String userCountry =
+                prefs.getString("country", "").trim();
+
+        String preferredCountry =
+                prefs.getString("preferredCountry", "").trim();
+
+        String userIntention =
+                prefs.getString("intention", "Serious").trim();
+
+        int score = 0;
+
+        // Age preference
+        if (candidate.age >= minAge &&
+                candidate.age <= maxAge) {
+
+            score += 35;
+
+        } else {
+
+            int difference = 0;
+
+            if (candidate.age < minAge) {
+                difference = minAge - candidate.age;
+            } else if (candidate.age > maxAge) {
+                difference = candidate.age - maxAge;
+            }
+
+            if (difference <= 2) {
+                score += 25;
+            } else if (difference <= 5) {
+                score += 15;
+            } else {
+                score += 5;
+            }
+        }
+
+        // Country preference
+        if (!preferredCountry.isEmpty() &&
+                candidate.country.equalsIgnoreCase(preferredCountry)) {
+
+            score += 30;
+
+        } else if (
+                candidate.country.equalsIgnoreCase(userCountry)
+        ) {
+
+            score += 20;
+
+        } else {
+
+            score += 10;
+        }
+
+        // Marriage intention
+        if (
+                userIntention.equalsIgnoreCase("Serious") &&
+                candidate.intention.equalsIgnoreCase("Serious")
+        ) {
+
+            score += 25;
+
+        } else {
+
+            score += 10;
+        }
+
+        // Verified profile
+        if (candidate.verified) {
+            score += 10;
+        }
+
+        // Age closeness bonus
+        if (userAge > 0) {
+
+            int difference =
+                    Math.abs(userAge - candidate.age);
+
+            if (difference <= 3) {
+                score += 5;
+            } else if (difference <= 6) {
+                score += 3;
+            }
+        }
+
+        // Maximum score
+        if (score > 100) {
+            score = 100;
+        }
+
+        return score;
+    }
+
+    private String getMatchReasons(MatchCandidate candidate) {
+
+        int minAge = prefs.getInt("minAge", 21);
+        int maxAge = prefs.getInt("maxAge", 35);
+
+        String userCountry =
+                prefs.getString("country", "").trim();
+
+        String preferredCountry =
+                prefs.getString("preferredCountry", "").trim();
+
+        StringBuilder reasons = new StringBuilder();
+
+        if (candidate.age >= minAge &&
+                candidate.age <= maxAge) {
+
+            reasons.append("✓ Age matches your preference\n");
+        }
+
+        if (!preferredCountry.isEmpty() &&
+                candidate.country.equalsIgnoreCase(preferredCountry)) {
+
+            reasons.append("✓ Preferred country\n");
+
+        } else if (
+                candidate.country.equalsIgnoreCase(userCountry)
+        ) {
+
+            reasons.append("✓ Same country\n");
+        }
+
+        if (candidate.intention.equalsIgnoreCase("Serious")) {
+            reasons.append("✓ Serious marriage intention\n");
+        }
+
+        if (candidate.verified) {
+            reasons.append("✓ Verified profile");
+        }
+
+        if (reasons.length() == 0) {
+            reasons.append("✓ Potential Nikah compatibility");
+        }
+
+        return reasons.toString().trim();
+    }
+
+    // =========================================================
+    // MATCHES SCREEN
     // =========================================================
 
     private void showMatches() {
-
-        if (!prefs.getBoolean(
-                "profile_complete",
-                false
-        )) {
-
-            Toast.makeText(
-                    this,
-                    "Please create your profile first",
-                    Toast.LENGTH_LONG
-            ).show();
-
-            showCreateProfile();
-
-            return;
-        }
 
         setupRoot();
 
@@ -653,367 +760,114 @@ public class MainActivity extends Activity {
         root.addView(
                 title("Recommended Matches", 28),
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                 )
         );
 
         String userName =
                 prefs.getString("name", "");
 
-        String userCountry =
-                prefs.getString("country", "");
+        if (userName.isEmpty()) {
 
-        String userGender =
-                prefs.getString("gender", "");
+            TextView warning = bodyText(
+                    "Please create your profile first so we can recommend better matches."
+            );
 
-        String userSeeking =
-                prefs.getString("seeking", "");
+            warning.setGravity(Gravity.CENTER);
 
-        String userIntention =
-                prefs.getString(
-                        "intention",
-                        ""
-                );
+            root.addView(warning);
 
-        int userAge =
-                getSavedAge();
+            addSpace(15);
 
-        TextView intro =
-                new TextView(this);
+            Button create = appButton("Create Profile");
 
-        intro.setText(
-                "Matches selected for " +
-                userName +
-                "\nBased on age, country and Nikah intention."
-        );
-
-        intro.setTextSize(16);
-        intro.setTextColor(GRAY);
-        intro.setGravity(Gravity.CENTER);
-        intro.setPadding(10, 8, 10, 18);
-
-        root.addView(
-                intro,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-        );
-
-        // -----------------------------------------------------
-        // SAMPLE PROFILES
-        // -----------------------------------------------------
-
-        List<Match> candidates =
-                new ArrayList<>();
-
-        candidates.add(
-                new Match(
-                        "Ayesha",
-                        27,
-                        "Pakistan",
-                        "Female",
-                        "Serious / Ready for Nikah",
-                        "Family-oriented, respectful and serious about Nikah."
-                )
-        );
-
-        candidates.add(
-                new Match(
-                        "Fatima",
-                        29,
-                        "Saudi Arabia",
-                        "Female",
-                        "Serious / Soon",
-                        "Values faith, family and a peaceful married life."
-                )
-        );
-
-        candidates.add(
-                new Match(
-                        "Maryam",
-                        26,
-                        "Germany",
-                        "Female",
-                        "Serious / Ready for Nikah",
-                        "Simple, respectful and looking for a serious Muslim marriage."
-                )
-        );
-
-        candidates.add(
-                new Match(
-                        "Zainab",
-                        31,
-                        "United Kingdom",
-                        "Female",
-                        "Serious / Soon",
-                        "Family values, honesty and long-term commitment."
-                )
-        );
-
-        candidates.add(
-                new Match(
-                        "Hira",
-                        25,
-                        "Pakistan",
-                        "Female",
-                        "Serious / Ready for Nikah",
-                        "Interested in building a respectful and halal family life."
-                )
-        );
-
-        candidates.add(
-                new Match(
-                        "Sana",
-                        28,
-                        "United Arab Emirates",
-                        "Female",
-                        "Serious / Soon",
-                        "Looking for compatibility, respect and serious commitment."
-                )
-        );
-
-        // -----------------------------------------------------
-        // FILTER + SORT BY COMPATIBILITY
-        // -----------------------------------------------------
-
-        List<MatchScore> results =
-                new ArrayList<>();
-
-        for (Match candidate : candidates) {
-
-            // If user selected a gender preference,
-            // only show that gender.
-            if (!userSeeking.isEmpty()
-                    && !userSeeking.equals("Select")
-                    && !candidate.gender.equalsIgnoreCase(userSeeking)) {
-
-                continue;
-            }
-
-            int score =
-                    calculateCompatibility(
-                            userAge,
-                            userCountry,
-                            userIntention,
-                            candidate
-                    );
-
-            results.add(
-                    new MatchScore(
-                            candidate,
-                            score
+            root.addView(
+                    create,
+                    new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            65
                     )
             );
+
+            create.setOnClickListener(v -> showCreateProfile());
+
+            return;
         }
 
-        // Sort highest score first
-        for (int i = 0; i < results.size(); i++) {
+        TextView intro = bodyText(
+                "Assalamu Alaikum " +
+                        userName +
+                        "\n\nHere are profiles recommended using your preferences."
+        );
 
-            for (int j = i + 1; j < results.size(); j++) {
+        intro.setGravity(Gravity.CENTER);
 
-                if (results.get(j).score >
-                        results.get(i).score) {
+        root.addView(intro);
 
-                    MatchScore temp =
-                            results.get(i);
+        addSpace(10);
 
-                    results.set(
-                            i,
-                            results.get(j)
-                    );
+        List<MatchCandidate> candidates =
+                getCandidates();
 
-                    results.set(
-                            j,
-                            temp
-                    );
-                }
+        int shown = 0;
+
+        for (MatchCandidate candidate : candidates) {
+
+            int score = calculateScore(candidate);
+
+            // Only show suitable profiles
+            if (score >= 45) {
+
+                addMatchCard(candidate, score);
+
+                shown++;
             }
         }
 
-        // -----------------------------------------------------
-        // SHOW RESULTS
-        // -----------------------------------------------------
+        if (shown == 0) {
 
-        if (results.isEmpty()) {
+            addSpace(20);
 
-            TextView empty =
-                    matchText(
-                            "No matches found with your current preferences.\n\n" +
-                            "Try updating your profile or Looking For preference."
-                    );
+            TextView empty = bodyText(
+                    "No strong matches found yet.\n\n" +
+                    "Try widening your preferred age range or country."
+            );
 
             empty.setGravity(Gravity.CENTER);
 
-            root.addView(
-                    empty,
-                    new LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-            );
-
-        } else {
-
-            for (MatchScore result : results) {
-
-                addMatchCard(result);
-            }
+            root.addView(empty);
         }
 
-        addSpace(20);
+        addSpace(25);
 
-        Button update =
-                appButton("Update Profile");
-
-        Button back =
-                appButton("Back");
-
-        addButton(update);
-
-        addButton(back);
-
-        update.setOnClickListener(
-                v -> showCreateProfile()
+        Button refresh = secondaryButton(
+                "Refresh Recommendations"
         );
 
-        back.setOnClickListener(
-                v -> showHome()
+        root.addView(
+                refresh,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        60
+                )
         );
-    }
 
-    // =========================================================
-    // MATCH SCORE
-    // =========================================================
+        refresh.setOnClickListener(v -> showMatches());
 
-    private static class MatchScore {
+        addSpace(10);
 
-        Match match;
-        int score;
+        Button back = secondaryButton("Back to Home");
 
-        MatchScore(
-                Match match,
-                int score
-        ) {
-
-            this.match = match;
-            this.score = score;
-        }
-    }
-
-    private int calculateCompatibility(
-            int userAge,
-            String userCountry,
-            String userIntention,
-            Match candidate
-    ) {
-
-        int score = 50;
-
-        // -----------------------------------------------------
-        // AGE COMPATIBILITY
-        // -----------------------------------------------------
-
-        int ageDifference =
-                Math.abs(
-                        userAge -
-                        candidate.age
-                );
-
-        if (ageDifference == 0) {
-
-            score += 20;
-
-        } else if (ageDifference <= 2) {
-
-            score += 18;
-
-        } else if (ageDifference <= 4) {
-
-            score += 14;
-
-        } else if (ageDifference <= 6) {
-
-            score += 10;
-
-        } else if (ageDifference <= 9) {
-
-            score += 5;
-
-        } else {
-
-            score -= 5;
-        }
-
-        // -----------------------------------------------------
-        // COUNTRY COMPATIBILITY
-        // -----------------------------------------------------
-
-        if (!userCountry.isEmpty()
-                && userCountry.equalsIgnoreCase(
-                        candidate.country
-                )) {
-
-            score += 15;
-
-        } else if (
-                candidate.country.equalsIgnoreCase(
-                        "Saudi Arabia"
+        root.addView(
+                back,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        60
                 )
-                || candidate.country.equalsIgnoreCase(
-                        "Pakistan"
-                )
-                || candidate.country.equalsIgnoreCase(
-                        "United Arab Emirates"
-                )
-        ) {
+        );
 
-            score += 7;
-        }
-
-        // -----------------------------------------------------
-        // MARRIAGE INTENTION
-        // -----------------------------------------------------
-
-        if (!userIntention.isEmpty()
-                && candidate.intention.equalsIgnoreCase(
-                        userIntention
-                )) {
-
-            score += 15;
-
-        } else if (
-                candidate.intention.contains("Serious")
-        ) {
-
-            score += 8;
-        }
-
-        // Keep score between 1 and 99
-        if (score > 99) {
-            score = 99;
-        }
-
-        if (score < 1) {
-            score = 1;
-        }
-
-        return score;
-    }
-
-    private int getSavedAge() {
-
-        try {
-
-            return Integer.parseInt(
-                    prefs.getString("age", "25")
-            );
-
-        } catch (Exception e) {
-
-            return 25;
-        }
+        back.setOnClickListener(v -> showHome());
     }
 
     // =========================================================
@@ -1021,299 +875,182 @@ public class MainActivity extends Activity {
     // =========================================================
 
     private void addMatchCard(
-            MatchScore result
+            MatchCandidate candidate,
+            int score
     ) {
 
-        Match match =
-                result.match;
+        LinearLayout card = new LinearLayout(this);
 
-        int score =
-                result.score;
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(18, 18, 18, 18);
+        card.setBackgroundColor(white);
 
-        LinearLayout card =
-                new LinearLayout(this);
+        LinearLayout.LayoutParams cardParams =
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                );
 
-        card.setOrientation(
-                LinearLayout.VERTICAL
-        );
+        cardParams.setMargins(0, 0, 0, 16);
 
-        card.setPadding(
-                18,
-                18,
-                18,
-                18
-        );
+        root.addView(card, cardParams);
 
-        GradientDrawable background =
-                new GradientDrawable();
+        // Name
+        TextView name = new TextView(this);
 
-        background.setColor(
-                Color.WHITE
-        );
-
-        background.setCornerRadius(22);
-
-        background.setStroke(
-                2,
-                Color.rgb(225, 233, 229)
-        );
-
-        card.setBackground(background);
-
-        TextView name =
-                new TextView(this);
+        String verified =
+                candidate.verified
+                        ? "  ✓ Verified"
+                        : "";
 
         name.setText(
-                match.name +
-                " • " +
-                match.age
+                candidate.name +
+                        " • " +
+                        candidate.age +
+                        verified
         );
 
-        name.setTextSize(22);
-        name.setTextColor(DARK);
+        name.setTextSize(21);
+        name.setTextColor(dark);
         name.setTypeface(
                 Typeface.DEFAULT,
                 Typeface.BOLD
         );
 
-        name.setGravity(Gravity.CENTER);
+        name.setPadding(5, 5, 5, 10);
 
-        card.addView(
-                name,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                )
+        card.addView(name);
+
+        // Country
+        TextView country = bodyText(
+                "Country: " + candidate.country
         );
 
-        TextView compatibility =
-                new TextView(this);
+        card.addView(country);
+
+        // Intention
+        TextView intention = bodyText(
+                "Marriage intention: " +
+                        candidate.intention
+        );
+
+        card.addView(intention);
+
+        // Compatibility
+        TextView compatibility = new TextView(this);
 
         compatibility.setText(
                 "Compatibility: " +
-                score +
-                "%"
+                        score +
+                        "%"
         );
 
-        compatibility.setTextSize(19);
-        compatibility.setTextColor(
-                score >= 80
-                        ? BLUE
-                        : GOLD
-        );
-
+        compatibility.setTextSize(20);
+        compatibility.setTextColor(blue);
         compatibility.setTypeface(
                 Typeface.DEFAULT,
                 Typeface.BOLD
         );
 
-        compatibility.setGravity(
-                Gravity.CENTER
-        );
-
-        compatibility.setPadding(
-                8,
-                8,
-                8,
-                8
-        );
+        compatibility.setGravity(Gravity.CENTER);
+        compatibility.setPadding(8, 12, 8, 12);
 
         card.addView(compatibility);
 
-        TextView details =
-                new TextView(this);
+        // Reasons
+        TextView reasonsTitle = new TextView(this);
 
-        details.setText(
-                "📍 " +
-                match.country +
-                "\n" +
-                "💍 " +
-                match.intention +
-                "\n\n" +
-                match.about
+        reasonsTitle.setText("Why this may be a good match");
+
+        reasonsTitle.setTextSize(16);
+        reasonsTitle.setTextColor(dark);
+        reasonsTitle.setTypeface(
+                Typeface.DEFAULT,
+                Typeface.BOLD
         );
 
-        details.setTextSize(16);
-        details.setTextColor(GRAY);
-        details.setPadding(
-                8,
-                8,
-                8,
-                8
-        );
+        reasonsTitle.setPadding(8, 8, 8, 4);
 
-        card.addView(details);
+        card.addView(reasonsTitle);
 
-        TextView reasons =
-                new TextView(this);
+        TextView reasons = new TextView(this);
 
         reasons.setText(
-                buildMatchReasons(match)
+                getMatchReasons(candidate)
         );
 
         reasons.setTextSize(15);
-        reasons.setTextColor(DARK);
-        reasons.setPadding(
-                8,
-                8,
-                8,
-                8
-        );
+        reasons.setTextColor(gray);
+        reasons.setPadding(8, 4, 8, 12);
 
         card.addView(reasons);
 
-        Button viewProfile =
-                appButton("View Profile");
+        // About
+        TextView about = bodyText(
+                candidate.about
+        );
 
-        Button interest =
-                appButton(
-                        "Express Interest"
-                );
+        card.addView(about);
+
+        addSpaceToCard(card, 6);
+
+        // View profile button
+        Button viewProfile =
+                secondaryButton("View Profile");
 
         card.addView(
                 viewProfile,
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        60
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        55
                 )
         );
+
+        viewProfile.setOnClickListener(
+                v -> showProfileDetails(candidate, score)
+        );
+
+        addSpaceToCard(card, 8);
+
+        // Interest button
+        Button interest =
+                appButton("Express Interest");
 
         card.addView(
                 interest,
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        60
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        58
                 )
         );
 
-        LinearLayout.LayoutParams cardParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        cardParams.setMargins(
-                0,
-                0,
-                0,
-                18
+        interest.setOnClickListener(
+                v -> expressInterest(candidate)
         );
-
-        root.addView(
-                card,
-                cardParams
-        );
-
-        viewProfile.setOnClickListener(
-                v -> showFullProfile(match, score)
-        );
-
-        updateInterestButton(
-                interest,
-                match.name
-        );
-
-        interest.setOnClickListener(v -> {
-
-            expressInterest(
-                    match.name
-            );
-
-            updateInterestButton(
-                    interest,
-                    match.name
-            );
-        });
     }
 
-    // =========================================================
-    // MATCH REASONS
-    // =========================================================
-
-    private String buildMatchReasons(
-            Match candidate
+    private void addSpaceToCard(
+            LinearLayout card,
+            int height
     ) {
 
-        int userAge =
-                getSavedAge();
+        Space space = new Space(this);
 
-        String userCountry =
-                prefs.getString(
-                        "country",
-                        ""
-                );
-
-        String userIntention =
-                prefs.getString(
-                        "intention",
-                        ""
-                );
-
-        List<String> reasons =
-                new ArrayList<>();
-
-        int ageDifference =
-                Math.abs(
-                        userAge -
-                        candidate.age
-                );
-
-        if (ageDifference <= 4) {
-
-            reasons.add(
-                    "✓ Similar age range"
-            );
-        }
-
-        if (!userCountry.isEmpty()
-                && userCountry.equalsIgnoreCase(
-                        candidate.country
-                )) {
-
-            reasons.add(
-                    "✓ Same country"
-            );
-        }
-
-        if (!userIntention.isEmpty()
-                && candidate.intention.equalsIgnoreCase(
-                        userIntention
-                )) {
-
-            reasons.add(
-                    "✓ Same marriage intention"
-            );
-        }
-
-        if (reasons.isEmpty()) {
-
-            reasons.add(
-                    "✓ Serious Nikah profile"
-            );
-        }
-
-        StringBuilder result =
-                new StringBuilder();
-
-        result.append(
-                "Why this match:\n"
+        card.addView(
+                space,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        height
+                )
         );
-
-        for (String reason : reasons) {
-
-            result.append(reason)
-                    .append("\n");
-        }
-
-        return result.toString();
     }
 
     // =========================================================
-    // FULL PROFILE
+    // PROFILE DETAILS
     // =========================================================
 
-    private void showFullProfile(
-            Match match,
+    private void showProfileDetails(
+            MatchCandidate candidate,
             int score
     ) {
 
@@ -1322,115 +1059,88 @@ public class MainActivity extends Activity {
         root.setGravity(Gravity.TOP);
 
         root.addView(
-                title(
-                        match.name +
-                        " • " +
-                        match.age,
-                        28
-                ),
+                title(candidate.name, 30),
                 new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
                 )
         );
 
-        TextView verified =
-                new TextView(this);
-
-        verified.setText(
-                "✓ Verified-style demo profile"
+        TextView verified = bodyText(
+                candidate.verified
+                        ? "✓ Verified Profile"
+                        : "Profile verification pending"
         );
 
-        verified.setTextSize(16);
-        verified.setTextColor(BLUE);
         verified.setGravity(Gravity.CENTER);
-        verified.setPadding(
-                8,
-                8,
-                8,
-                12
-        );
+
+        root.addView(verified);
+
+        addSpace(10);
 
         root.addView(
-                verified,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                bodyText(
+                        "Age: " +
+                                candidate.age +
+                                "\n\nCountry: " +
+                                candidate.country +
+                                "\n\nMarriage intention: " +
+                                candidate.intention +
+                                "\n\nCompatibility: " +
+                                score +
+                                "%"
                 )
         );
 
-        TextView profile =
-                new TextView(this);
+        addSpace(10);
 
-        profile.setText(
-                "Compatibility: " +
-                score +
-                "%\n\n" +
-
-                "Country: " +
-                match.country +
-                "\n\n" +
-
-                "Marriage intention:\n" +
-                match.intention +
-                "\n\n" +
-
-                "About:\n" +
-                match.about +
-                "\n\n" +
-
-                buildMatchReasons(match)
+        TextView about = bodyText(
+                "About\n\n" +
+                        candidate.about
         );
 
-        profile.setTextSize(17);
-        profile.setTextColor(DARK);
-        profile.setPadding(
-                12,
-                12,
-                12,
-                20
-        );
+        root.addView(about);
+
+        addSpace(15);
 
         root.addView(
-                profile,
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+                bodyText(
+                        "Why this match\n\n" +
+                                getMatchReasons(candidate)
                 )
         );
+
+        addSpace(20);
 
         Button interest =
-                appButton(
-                        "Express Interest"
-                );
+                appButton("Express Interest");
+
+        root.addView(
+                interest,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        65
+                )
+        );
+
+        interest.setOnClickListener(
+                v -> expressInterest(candidate)
+        );
+
+        addSpace(10);
 
         Button back =
-                appButton("Back to Matches");
+                secondaryButton("Back to Matches");
 
-        addButton(interest);
-
-        addButton(back);
-
-        updateInterestButton(
-                interest,
-                match.name
+        root.addView(
+                back,
+                new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        60
+                )
         );
 
-        interest.setOnClickListener(v -> {
-
-            expressInterest(
-                    match.name
-            );
-
-            updateInterestButton(
-                    interest,
-                    match.name
-            );
-        });
-
-        back.setOnClickListener(
-                v -> showMatches()
-        );
+        back.setOnClickListener(v -> showMatches());
     }
 
     // =========================================================
@@ -1438,7 +1148,7 @@ public class MainActivity extends Activity {
     // =========================================================
 
     private void expressInterest(
-            String name
+            MatchCandidate candidate
     ) {
 
         Set<String> interests =
@@ -1449,72 +1159,30 @@ public class MainActivity extends Activity {
                         )
                 );
 
-        if (interests.contains(name)) {
+        if (interests.contains(candidate.name)) {
 
             Toast.makeText(
                     this,
                     "Interest already sent to " +
-                    name,
-                    Toast.LENGTH_SHORT
+                            candidate.name,
+                    Toast.LENGTH_LONG
             ).show();
 
             return;
         }
 
-        interests.add(name);
+        interests.add(candidate.name);
 
         prefs.edit()
-                .putStringSet(
-                        "interests",
-                        interests
-                )
+                .putStringSet("interests", interests)
                 .apply();
 
         Toast.makeText(
                 this,
-                "Interest sent successfully to " +
-                name,
+                "Interest sent safely to " +
+                        candidate.name +
+                        ". Wait for mutual acceptance.",
                 Toast.LENGTH_LONG
         ).show();
     }
-
-    private boolean hasInterest(
-            String name
-    ) {
-
-        Set<String> interests =
-                prefs.getStringSet(
-                        "interests",
-                        new HashSet<>()
-                );
-
-        return interests.contains(name);
-    }
-
-    private void updateInterestButton(
-            Button button,
-            String name
-    ) {
-
-        if (hasInterest(name)) {
-
-            button.setText(
-                    "✓ Interest Sent"
-            );
-
-            button.setEnabled(false);
-
-            button.setAlpha(0.65f);
-
-        } else {
-
-            button.setText(
-                    "Express Interest"
-            );
-
-            button.setEnabled(true);
-
-            button.setAlpha(1.0f);
-        }
-    }
-}
+                         }
