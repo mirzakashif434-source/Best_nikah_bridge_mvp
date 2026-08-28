@@ -1,0 +1,76 @@
+package com.nikahbridge;
+
+/**
+ * Best Nikah Bridge
+ *
+ * Central configuration for content moderation and user-safety controls.
+ * Keeps moderation rules consistent across the application.
+ */
+public final class ModerationConfig {
+
+    private ModerationConfig() {
+        // Utility class; no instances.
+    }
+
+    // Moderation is enabled by default.
+    public static final boolean MODERATION_ENABLED = true;
+
+    // User-generated content controls.
+    public static final boolean CHECK_PROFILE_CONTENT = true;
+    public static final boolean CHECK_MESSAGES = true;
+    public static final boolean CHECK_PROFILE_PHOTOS = true;
+    public static final boolean CHECK_REPORTS = true;
+
+    // Safety actions.
+    public static final boolean ALLOW_USER_REPORTS = true;
+    public static final boolean ALLOW_USER_BLOCKING = true;
+    public static final boolean REQUIRE_REVIEW_FOR_SERIOUS_REPORTS = true;
+
+    // Automatic moderation thresholds.
+    public static final int MAX_WARNINGS_BEFORE_REVIEW = 3;
+    public static final int MAX_REPORTS_BEFORE_REVIEW = 5;
+
+    // Temporary moderation lock duration.
+    public static final long TEMPORARY_RESTRICTION_HOURS = 24L;
+
+    // Content limits.
+    public static final int MAX_MESSAGE_LENGTH = 1000;
+    public static final int MAX_PROFILE_ABOUT_LENGTH = 1000;
+
+    // Prohibited-content checks.
+    public static final boolean BLOCK_ABUSIVE_LANGUAGE = true;
+    public static final boolean BLOCK_SPAM = true;
+    public static final boolean BLOCK_SCAMS = true;
+    public static final boolean BLOCK_IMPERSONATION = true;
+    public static final boolean BLOCK_UNSAFE_CONTACT_SHARING = true;
+
+    // Privacy-first moderation.
+    public static final boolean MINIMIZE_MODERATION_DATA = true;
+    public static final boolean KEEP_MODERATION_AUDIT_LOG = true;
+
+    /**
+     * Returns whether moderation should be active.
+     */
+    public static boolean isEnabled() {
+        return MODERATION_ENABLED;
+    }
+
+    /**
+     * Returns whether content should be sent through moderation checks.
+     */
+    public static boolean shouldModerateContent() {
+        return MODERATION_ENABLED
+                && (CHECK_PROFILE_CONTENT
+                || CHECK_MESSAGES
+                || CHECK_PROFILE_PHOTOS);
+    }
+
+    /**
+     * Determines whether a user should be sent for additional review.
+     */
+    public static boolean requiresReview(int warnings, int reports) {
+        return REQUIRE_REVIEW_FOR_SERIOUS_REPORTS
+                && (warnings >= MAX_WARNINGS_BEFORE_REVIEW
+                || reports >= MAX_REPORTS_BEFORE_REVIEW);
+    }
+}
