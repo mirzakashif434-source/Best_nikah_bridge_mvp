@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "569107480403",
+    "project_id": "best-nikah-bridge",
+    "storage_bucket": "best-nikah-bridge.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:569107480403:android:3edcea1a2ef617a6276ba6",
+        "android_client_info": {
+          "package_name": "com.nikahbridge"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "569107480403-hrcl9001lk3p4slr05j53hu3dl3ja6mc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.nikahbridge",
+            "certificate_hash": "85a52e954f31dfac2c1062a8d64eda2d9b485b48"
+          }
+        },
+        {
+          "client_id": "569107480403-r5dj6os7ccp3ekcnopbt9m1qd6lon6u3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8F8hGbd1HnCnsjNk7YxI6vLKUVSc_2Ow"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "569107480403-r5dj6os7ccp3ekcnopbt9m1qd6lon6u3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
