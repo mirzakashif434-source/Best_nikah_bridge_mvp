@@ -44,6 +44,44 @@ jobs:
             exit 1
           fi
 
+          echo "Release keystore prepared successfully."
+
+      - name: Show SHA-1 and SHA-256
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "ERROR: KEYSTORE_PASSWORD secret is missing."
+            exit 1
+          fi
+
+          if [ -z "$KEY_ALIAS" ]; then
+            echo "ERROR: KEY_ALIAS secret is missing."
+            exit 1
+          fi
+
+          if [ -z "$KEY_PASSWORD" ]; then
+            echo "ERROR: KEY_PASSWORD secret is missing."
+            exit 1
+          fi
+
+          echo "========================================"
+          echo "Release Keystore Fingerprints"
+          echo "========================================"
+
+          keytool -list -v \
+            -keystore "$GITHUB_WORKSPACE/app/release-key.jks" \
+            -alias "$KEY_ALIAS" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            | grep -E "SHA1:|SHA256:" || true
+
+          echo "========================================"
+          echo "End Fingerprints"
+          echo "========================================"
+
       - name: Build signed Release AAB
         env:
           KEYSTORE_FILE: ${{ github.workspace }}/app/release-key.jks
@@ -77,8 +115,11 @@ jobs:
             exit 1
           fi
 
+          echo "========================================"
           echo "Release AAB generated successfully:"
           echo "$AAB_FILE"
+          echo "========================================"
+
           ls -lh "$AAB_FILE"
 
       - name: Upload Release AAB
