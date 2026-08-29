@@ -20,7 +20,8 @@ import android.widget.ScrollView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -48,7 +49,7 @@ public class MainActivity extends Activity {
 
     private LinearLayout root;
     private SharedPreferences prefs;
-
+    private FirebaseAuth mAuth;
     private static final String PREFS = "best_nikah_bridge_v2";
 
     private static final String K_ONBOARDING = "onboarding_done";
@@ -146,8 +147,9 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        loadSets();
-
+        mAuth = FirebaseAuth.getInstance();
+         loadSets();
+        
         if (!prefs.getBoolean(K_ONBOARDING, false)) {
             showWelcome();
         } else {
