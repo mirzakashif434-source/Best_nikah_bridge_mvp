@@ -23,9 +23,11 @@ jobs:
           cache: gradle
 
       - name: Make Gradle wrapper executable
+        working-directory: Gradle-Root
         run: chmod +x ./gradlew
 
       - name: Verify Gradle wrapper
+        working-directory: Gradle-Root
         run: ./gradlew --version
 
       - name: Prepare release keystore
@@ -37,9 +39,9 @@ jobs:
             exit 1
           fi
 
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/app/release-key.jks"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/Gradle-Root/app/release-key.jks"
 
-          if [ ! -s "$GITHUB_WORKSPACE/app/release-key.jks" ]; then
+          if [ ! -s "$GITHUB_WORKSPACE/Gradle-Root/app/release-key.jks" ]; then
             echo "ERROR: Keystore file was not created."
             exit 1
           fi
@@ -51,6 +53,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        working-directory: Gradle-Root
         run: |
           if [ -z "$KEYSTORE_PASSWORD" ]; then
             echo "ERROR: KEYSTORE_PASSWORD secret is missing."
@@ -72,7 +75,7 @@ jobs:
           echo "========================================"
 
           keytool -list -v \
-            -keystore "$GITHUB_WORKSPACE/app/release-key.jks" \
+            -keystore "$GITHUB_WORKSPACE/Gradle-Root/app/release-key.jks" \
             -alias "$KEY_ALIAS" \
             -storepass "$KEYSTORE_PASSWORD" \
             -keypass "$KEY_PASSWORD" \
@@ -84,10 +87,11 @@ jobs:
 
       - name: Build signed Release AAB
         env:
-          KEYSTORE_FILE: ${{ github.workspace }}/app/release-key.jks
+          KEYSTORE_FILE: ${{ github.workspace }}/Gradle-Root/app/release-key.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        working-directory: Gradle-Root
         run: |
           if [ -z "$KEYSTORE_PASSWORD" ]; then
             echo "ERROR: KEYSTORE_PASSWORD secret is missing."
@@ -107,6 +111,7 @@ jobs:
           ./gradlew clean bundleRelease --stacktrace
 
       - name: Verify AAB
+        working-directory: Gradle-Root
         run: |
           AAB_FILE=$(find app/build/outputs/bundle/release -type f -name "*.aab" | head -n 1)
 
@@ -126,11 +131,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: best-nikah-bridge-release-aab
-          path: app/build/outputs/bundle/release/*.aab
+          path: Gradle-Root/app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 30
 
       - name: Clean temporary keystore
         if: always()
         run: |
-          rm -f "$GITHUB_WORKSPACE/app/release-key.jks"
+          rm -f "$GITHUB_WORKSPACE/Gradle-Root/app/release-key.jks"
