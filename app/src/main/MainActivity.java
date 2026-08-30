@@ -1110,50 +1110,345 @@ public class MainActivity extends Activity {
     }
 
     private void showMatches() {
-        setupRoot(true);
+    setuRoot(true);
 
-        root.addView(title(
-                tr("Recommended Matches", "تجویز کردہ میچز"), 28));
+    root.addView(title(
+            tr("Recommended Matches", "تجویز کردہ رشتے"),
+            28
+    ));
 
-        if (!prefs.getBoolean(K_PROFILE, false)) {
-            root.addView(subtitle(tr(
-                    "Complete your profile before viewing recommended matches.",
-                    "تجویز کردہ میچز دیکھنے سے پہلے پروفائل مکمل کریں۔"
-            )));
-            Button create = appButton(tr("Create Profile", "پروفائل بنائیں"));
-            Button back = outlineButton(tr("Back", "واپس"));
-            addFull(create);
-            addFull(back);
-            create.setOnClickListener(v -> showProfile());
-            back.setOnClickListener(v -> showHome());
-            return;
-        }
+    root.addView(subtitle(tr(
+            "Real profiles from Best Nikah Bridge",
+            "Best Nikah Bridge کے حقیقی پروفائلز"
+    )));
 
+    if (mAuth.getCurrentUser() == null) {
         root.addView(subtitle(tr(
-                "Compatibility is a client-side demo score in this build. A production server must calculate matches from real user data.",
-                "اس بلڈ میں compatibility صرف ڈیمو اسکور ہے۔ پروڈکشن سرور کو حقیقی صارف ڈیٹا سے میچ بنانا ہوگا۔"
+                "Please sign in first.",
+                "براہ کرم پہلے سائن اِن کریں۔"
         )));
-
-        boolean any = false;
-
-        for (int i = 0; i < DEMO_NAMES.length; i++) {
-            String key = profileKey(i);
-            if (blockedProfiles.contains(key)) continue;
-
-            any = true;
-            addMatchCard(i);
-        }
-
-        if (!any) {
-            root.addView(subtitle(tr(
-                    "No profiles are currently visible.",
-                    "اس وقت کوئی پروفائل نظر نہیں آ رہا۔"
-            )));
-        }
 
         Button back = outlineButton(tr("Back", "واپس"));
         addFull(back);
         back.setOnClickListener(v -> showHome());
+        return;
+    }
+
+    String currentUid = mAuth.getCurrentUser().getUid();
+
+    root.addView(subtitle(tr(
+            "Loading real profiles...",
+            "حقیقی پروفائلز لوڈ ہو رہے ہیں..."
+    )));
+
+    firestore.collection("users")
+            .get()
+            .addOnSuccessListener(snapshot -> {
+
+                root.removeAllViews();
+
+                root.addView(title(
+                        tr("Recommended Matches", "تجویز کردہ رشتے"),
+                        28
+                ));
+
+                root.addView(subtitle(tr(
+                        "Real profiles from Best Nikah Bridge",
+                        "Best Nikah Bridge کے حقیقی پروفائلز"
+                )));
+
+                boolean found = false;
+
+                for (com.google.firebase.firestore.DocumentSnapshot doc
+                        : snapshot.getDocuments()) {
+
+                    String uid = doc.getString("uid");
+
+                    if (uid == null || uid.equals(currentUid)) {
+                        continue;
+                    }
+
+                    Boolean active = doc.getBoolean("profileActive");
+
+                    if (active != null && !active) {
+                        continue;
+                    }
+
+                    if (blockedProfiles.contains(uid)) {
+                        continue;
+                    }
+
+                    String name = doc.getString("name");
+                    String country = doc.getString("country");
+                    String city = doc.getString("city");
+                    String gender = doc.getString("gender");
+                    String maritalStatus = doc.getString("maritalStatus");
+                    String intention = doc.getString("marriageIntent");
+                    String practice = doc.getString("religiousPractice");
+                    String about = doc.getString("about");
+                    String verification =
+                            doc.getString("verificationStatus");
+
+                    Long ageValue = doc.getLong("age");
+
+                    if (name == null || name.trim().isEmpty()) {
+                        name = tr("Member", "رکن");
+                    }
+
+                    if (country == null) country = "";
+                    if (city == null) city = "";
+                    if (maritalStatus == null) maritalStatus = "";
+                    if (intention == null) intention = "";
+                    if (practice == null) practice = "";
+                    if (about == null) about = "";
+                    if (verification == null) {
+                        verification = "Not requested";
+                    }
+
+                    String location = city.trim();
+
+                    if (!location.isEmpty()
+                            && !country.trim().isEmpty()) {
+                        location += ", " + country.trim();
+                    } else if (location.isEmpty()) {
+                        location = country.trim();
+                    }
+
+                    String ageText = "";
+
+                    if (ageValue != null) {
+                        ageText = String.valueOf(ageValue);
+                    }
+
+                    LinearLayout card = card();
+
+                    String heading = name;
+
+                    if (!ageText.isEmpty()) {
+                        heading += " • " + ageText;
+                    }
+
+                    card.addView(cardText(
+                            heading,
+                            21,
+                            dark
+                    ));
+
+                    if (!location.isEmpty()) {
+                        card.addView(cardText(
+                                tr("Location: ", "مقام: ") + location,
+                                15,
+                                gray
+                        ));
+                    }
+
+                    if (!maritalStatus.isEmpty()) {
+                        card.addView(cardText(
+                                tr("Marital status: ",
+                                        "ازدواجی حیثیت: ")
+                                        + maritalStatus,
+                                15,
+                                gray
+                        ));
+                    }
+
+                    if (!intention.isEmpty()) {
+                        card.addView(cardText(
+                                tr("Marriage intention: ",
+                                        "نکاح کا ارادہ: ")
+                                        + intention,
+                                15,
+                                gray
+                        ));
+                    }
+
+                    if (!practice.isEmpty()) {
+                        card.addView(cardText(
+                                tr("Religious practice: ",
+                                        "دینی عمل: ")
+                                        + practice,
+                                15,
+                                gray
+                        ));
+                    }
+
+                    card.addView(cardText(
+                            tr("Verification: ",
+                                    "تصدیق: ")
+                                    + verification,
+                            15,
+                            gray
+                    ));
+
+                    if (!about.isEmpty()) {
+                        String shortAbout = about;
+
+                        if (shortAbout.length() > 180) {
+                            shortAbout =
+                                    shortAbout.substring(0, 180)
+                                            + "...";
+                        }
+
+                        card.addView(cardText(
+                                tr("About: ", "تعارف: ")
+                                        + shortAbout,
+                                15,
+                                gray
+                        ));
+                    }
+
+                    Button viewProfile = appButton(
+                            tr("View Profile", "پروفائل دیکھیں")
+                    );
+
+                    Button interest = outlineButton(
+                            tr("Express Interest",
+                                    "رغبت کا اظہار کریں")
+                    );
+
+                    card.addView(viewProfile);
+                    card.addView(interest);
+
+                    final String profileUid = uid;
+                    final String profileName = name;
+
+                    viewProfile.setOnClickListener(v -> {
+
+                        new android.app.AlertDialog.Builder(this)
+                                .setTitle(profileName)
+                                .setMessage(
+                                        tr(
+                                                "Profile details are shown from the real Best Nikah Bridge account.",
+                                                "یہ پروفائل Best Nikah Bridge کے حقیقی اکاؤنٹ سے لیا گیا ہے۔"
+                                        )
+                                )
+                                .setPositiveButton(
+                                        tr("Close", "بند کریں"),
+                                        null
+                                )
+                                .show();
+                    });
+
+                    interest.setOnClickListener(v -> {
+
+                        if (sentInterests.contains(profileUid)) {
+                            toast(
+                                    tr(
+                                            "Interest already sent.",
+                                            "رغبت پہلے ہی بھیجی جا چکی ہے۔"
+                                    )
+                            );
+                            return;
+                        }
+
+                        if (profileUid.equals(currentUid)) {
+                            return;
+                        }
+
+                        Map<String, Object> interestData =
+                                new HashMap<>();
+
+                        interestData.put("fromUid", currentUid);
+                        interestData.put("toUid", profileUid);
+                        interestData.put("status", "pending");
+                        interestData.put(
+                                "createdAt",
+                                com.google.firebase.firestore.FieldValue
+                                        .serverTimestamp()
+                        );
+
+                        firestore.collection("interests")
+                                .add(interestData)
+                                .addOnSuccessListener(ref -> {
+
+                                    sentInterests.add(profileUid);
+
+                                    toast(
+                                            tr(
+                                                    "Interest sent securely.",
+                                                    "رغبت محفوظ طریقے سے بھیج دی گئی۔"
+                                            )
+                                    );
+
+                                    interest.setEnabled(false);
+                                    interest.setText(
+                                            tr(
+                                                    "Interest Sent",
+                                                    "رغبت بھیج دی گئی"
+                                            )
+                                    );
+                                })
+                                .addOnFailureListener(e -> {
+
+                                    toast(
+                                            tr(
+                                                    "Could not send interest. Please try again.",
+                                                    "رغبت نہیں بھیجی جا سکی۔ دوبارہ کوشش کریں۔"
+                                            )
+                                    );
+                                });
+                    });
+
+                    addFull(card);
+
+                    found = true;
+                }
+
+                if (!found) {
+                    root.addView(subtitle(
+                            tr(
+                                    "No suitable real profiles are available yet.",
+                                    "ابھی کوئی مناسب حقیقی پروفائل دستیاب نہیں۔"
+                            )
+                    ));
+                }
+
+                Button back = outlineButton(
+                        tr("Back", "واپس")
+                );
+
+                addFull(back);
+
+                back.setOnClickListener(
+                        v -> showHome()
+                );
+            })
+            .addOnFailureListener(e -> {
+
+                root.removeAllViews();
+
+                root.addView(title(
+                        tr("Recommended Matches",
+                                "تجویز کردہ رشتے"),
+                        28
+                ));
+
+                root.addView(subtitle(
+                        tr(
+                                "Could not load real profiles. Please try again.",
+                                "حقیقی پروفائلز لوڈ نہیں ہو سکے۔ دوبارہ کوشش کریں۔"
+                        )
+                ));
+
+                Button retry = appButton(
+                        tr("Try Again", "دوبارہ کوشش کریں")
+                );
+
+                Button back = outlineButton(
+                        tr("Back", "واپس")
+                );
+
+                addFull(retry);
+                addFull(back);
+
+                retry.setOnClickListener(
+                        v -> showMatches()
+                );
+
+                back.setOnClickListener(
+                        v -> showHome()
+                );
+            });
     }
 
     private void addMatchCard(int i) {
