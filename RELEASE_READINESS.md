@@ -1,40 +1,47 @@
-# Best Nikah Bridge — Release Readiness
+# Best Nikah Bridge — Production Release Gate
 
-## Product identity
-- Product name: **Best Nikah Bridge**
-- Android application ID: `com.nikahbridge`
-- Current release: `1.2` (`versionCode 4`)
-- Target/compile SDK: 36
+## Current build
+- Product: **Best Nikah Bridge**
+- Application ID: `com.nikahbridge`
+- Release candidate: **2.1** (`versionCode 6`)
+- Compile/target SDK: **36**
+- Launcher: `ProductionMainActivity`
+- Backend: Firebase Authentication + Firestore + callable Cloud Functions
 
-## Product pillars
+## Core production pillars
 1. Nikah Readiness Score
 2. Family/Wali Connect
 3. Why We Matched
 4. Intent Verification
 5. Scam Shield
-6. Privacy Control Center
+6. Privacy / Delete Account
 7. Mutual-Only Communication
 8. Compatibility Deal-Breakers
-9. Marriage Timeline Matching
-10. AI Nikah Assistant
+9. Marriage Timeline
+10. Nikah Assistant / Help
 
-## Current repository status
-- Firebase Authentication and Firestore dependencies are configured.
+## Implemented and hardened
+- Real Firebase email/password authentication.
+- Real Firestore profile storage and active-profile matching.
+- Mutual-interest flow with Firebase-backed connection authorization.
+- Firestore rules restrict chat to active mutual connections and block unauthorized connection writes.
+- Verification requests are stored in Firebase; verification status is admin-controlled by Cloud Functions.
+- Reports are stored and queued for moderation.
+- Wali connection requests use a trusted callable function.
+- Account deletion is handled by a trusted callable function and removes the user's primary data plus related records.
 - Release signing is supplied through GitHub Actions secrets.
-- Release AAB workflow builds `bundleRelease` and uploads the AAB artifact.
-- Gradle wrapper is committed to the repository.
-- The Android manifest uses the single visible product name `Best Nikah Bridge`.
+- Android Release AAB workflow successfully builds and uploads the signed artifact.
+- API 36 is used, which meets the Google Play target requirement effective August 31, 2026.
 
-## Production blockers that must not be faked as complete
-The client application alone cannot safely implement server-authoritative identity verification, moderation, Firestore security rules, abuse/rate limiting, secure mutual-chat authorization, account deletion, or an actual AI service key. These require backend/admin configuration and must be verified before public launch.
+## Remaining launch gates — do not pretend these are complete
+These items require real operational setup/testing and are not safely solved by UI text alone:
+- Actual identity/document verification process and admin verification operations.
+- Full server-side matching/compatibility scoring rather than generic match explanations.
+- A real AI provider/service and secured server-side API credential for the Nikah Assistant.
+- Complete block/unblock UI and abuse/rate-limit automation.
+- Production privacy policy URL, support contact, Data Safety declarations and Play Console forms.
+- Real-device smoke tests covering account creation, profile, interest, mutual chat, report, Wali request and account deletion.
+- Firebase production rules/functions deployment must be confirmed after the latest commit.
 
-## Release gate
-A build succeeding is necessary but not sufficient for Play Store launch. Before production publication, verify:
-- Firestore Security Rules deny unauthorized reads/writes.
-- Interest acceptance is server-authoritative and cannot be forged by a client.
-- Chat access is allowed only after mutual acceptance.
-- Verification status can only be changed by the trusted verification/admin path.
-- Report/block and moderation flows are enforced server-side.
-- Account deletion removes or anonymizes the user's data as required.
-- Privacy policy, data-safety declarations, support contact, and Play Console forms are complete.
-- The signed release AAB installs and passes a real-device smoke test.
+## Release rule
+A green GitHub Actions build is necessary but **not sufficient** for public Play Store launch. The final AAB should only be submitted after the remaining operational gates above pass.
