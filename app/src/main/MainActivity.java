@@ -3319,7 +3319,7 @@ batch.commit()
             );
         });
 
-back.setOnClickListener(v -> showMatches());
+
 
         back.setOnClickListener(v -> showMatches());
     }
