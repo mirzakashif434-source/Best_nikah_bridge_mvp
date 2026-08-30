@@ -3511,70 +3511,178 @@ private void showPrivacy() {
     }
 
     private void showTrustFamily() {
-        setupRoot(true);
+    setupRoot(true);
 
-        root.addView(title(
-                tr("Trust & Family Mode", "اعتماد اور فیملی موڈ"), 28));
-        root.addView(subtitle(tr(
-                "Give serious matches a safer path toward family involvement without exposing private contact details.",
-                "سنجیدہ رشتے کے لیے خاندان کی شمولیت کا محفوظ راستہ بنائیں، بغیر ذاتی رابطہ معلومات ظاہر کیے۔"
-        )));
+    root.addView(title(
+            tr("Trust & Family Mode", "اعتماد اور فیملی موڈ"), 28));
 
-        CheckBox chaperone = new CheckBox(this);
-        chaperone.setText(tr(
-                "Enable Family / Wali Mode",
-                "فیملی / ولی موڈ فعال کریں"));
-        chaperone.setTextSize(16);
-        chaperone.setTextColor(dark);
-        chaperone.setChecked(prefs.getBoolean(K_CHAPERONE, false));
-        root.addView(chaperone);
+    root.addView(subtitle(tr(
+            "Family/Wali participation is optional and consent-based.",
+            "فیملی یا ولی کی شمولیت رضامندی کے ساتھ اختیاری ہے۔"
+    )));
 
-        EditText email = new EditText(this);
-        email.setHint(tr(
-                "Trusted family/wali email (optional)",
-                "قابلِ اعتماد خاندان/ولی کا ای میل (اختیاری)"));
-        email.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        email.setText(prefs.getString(K_CHAPERONE_EMAIL, ""));
-        addInput(email, 80);
+    CheckBox chaperone = new CheckBox(this);
+    chaperone.setText(tr(
+            "Enable Family / Wali Mode",
+            "فیملی / ولی موڈ فعال کریں"
+    ));
+    chaperone.setTextSize(16);
+    chaperone.setTextColor(dark);
 
-        String[] privacyOptions = {
-                tr("Select photo visibility", "تصویر کی رازداری منتخب کریں"),
-                tr("Visible to matches", "میچز کو نظر آئے"),
-                tr("Private until mutual interest", "باہمی دلچسپی تک نجی"),
-                tr("Private until I choose to reveal", "میری مرضی تک نجی")
-        };
-        Spinner photoPrivacy = addSpinner(privacyOptions);
-        photoPrivacy.setSelection(indexOf(privacyOptions,
-                prefs.getString(K_PHOTO_PRIVACY, "")));
+    chaperone.setChecked(
+            prefs.getBoolean(K_CHAPERONE, false)
+    );
 
-        root.addView(body(tr(
-                "Best practice: family participation should be voluntary and consent-based. In production, invitations and transcript access must be authenticated and server-controlled.",
-                "بہتر طریقہ: خاندانی شمولیت رضاکارانہ اور رضامندی پر مبنی ہونی چاہیے۔ پروڈکشن میں دعوت اور چیٹ رسائی authenticated اور server-controlled ہونی چاہیے۔"
-        )));
+    root.addView(chaperone);
 
-        Button save = appButton(tr("Save Trust Settings", "اعتماد کی سیٹنگز محفوظ کریں"));
-        Button safety = outlineButton(tr("Open Safety Center", "سیفٹی سینٹر کھولیں"));
-        Button back = outlineButton(tr("Back", "واپس"));
-        addFull(save); addFull(safety); addFull(back);
+    EditText email = new EditText(this);
+    email.setHint(tr(
+            "Trusted family/wali email (optional)",
+            "قابل اعتماد فیملی/ولی ای میل (اختیاری)"
+    ));
+    email.setInputType(
+            InputType.TYPE_CLASS_TEXT |
+            InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+    );
+    email.setText(
+            prefs.getString(K_CHAPERONE_EMAIL, "")
+    );
+    addInput(email, 80);
 
-        save.setOnClickListener(v -> {
-            String emailText = email.getText().toString().trim();
-            if (chaperone.isChecked() && !emailText.isEmpty() && !emailText.contains("@")) {
-                email.setError(tr("Enter a valid email", "درست ای میل درج کریں"));
-                return;
-            }
-            prefs.edit()
-                    .putBoolean(K_CHAPERONE, chaperone.isChecked())
-                    .putString(K_CHAPERONE_EMAIL, emailText)
-                    .putString(K_PHOTO_PRIVACY, photoPrivacy.getSelectedItem().toString())
-                    .apply();
+    String[] privacyOptions = {
+            tr("Select photo visibility",
+                    "تصویر کی رازداری منتخب کریں"),
+            tr("Visible to matches",
+                    "صرف میچز کو نظر آئے"),
+            tr("Private until mutual interest",
+                    "باہمی دلچسپی تک نجی"),
+            tr("Private until I choose to share",
+                    "جب تک میں شیئر نہ کروں نجی")
+    };
+
+    Spinner photoPrivacy = addSpinner(privacyOptions);
+
+    photoPrivacy.setSelection(
+            indexOf(
+                    privacyOptions,
+                    prefs.getString(K_PHOTO_PRIVACY, "")
+            )
+    );
+
+    root.addView(body(tr(
+            "Family participation is voluntary. Your trusted contact information is stored only with your account settings.",
+            "فیملی کی شمولیت اختیاری ہے۔ آپ کے قابل اعتماد رابطے کی معلومات صرف آپ کی اکاؤنٹ سیٹنگز کے ساتھ محفوظ کی جاتی ہیں۔"
+    )));
+
+    Button save = appButton(
+            tr("Save Trust Settings", "اعتماد کی سیٹنگ محفوظ کریں")
+    );
+
+    Button safety = outlineButton(
+            tr("Open Safety Center", "سیفٹی سینٹر کھولیں")
+    );
+
+    Button back = outlineButton(
+            tr("Back", "واپس")
+    );
+
+    addFull(save);
+    addFull(safety);
+    addFull(back);
+
+    save.setOnClickListener(v -> {
+
+        String emailText = email.getText()
+                .toString()
+                .trim();
+
+        if (chaperone.isChecked()
+                && !emailText.isEmpty()
+                && !emailText.contains("@")) {
+
+            email.setError(
+                    tr("Enter a valid email",
+                       "درست ای میل درج کریں")
+            );
+            return;
+        }
+
+        prefs.edit()
+                .putBoolean(
+                        K_CHAPERONE,
+                        chaperone.isChecked()
+                )
+                .putString(
+                        K_CHAPERONE_EMAIL,
+                        emailText
+                )
+                .putString(
+                        K_PHOTO_PRIVACY,
+                        photoPrivacy.getSelectedItem().toString()
+                )
+                .apply();
+
+        FirebaseUser user =
+                FirebaseAuth.getInstance().getCurrentUser();
+
+        if (user == null) {
             toast(
-                    "Trust settings saved. Production family access must be server-authorized.",
-                    "اعتماد کی سیٹنگز محفوظ ہوگئیں۔ پروڈکشن فیملی رسائی سرور سے مجاز ہونی چاہیے۔");
-            showHome();
-        });
-        safety.setOnClickListener(v -> showSafety());
-        back.setOnClickListener(v -> showHome());
+                    tr("Please sign in again.",
+                       "براہ کرم دوبارہ سائن اِن کریں۔")
+            );
+            return;
+        }
+
+        Map<String, Object> trustData =
+                new HashMap<>();
+
+        trustData.put(
+                "familyWaliEnabled",
+                chaperone.isChecked()
+        );
+
+        trustData.put(
+                "trustedFamilyWaliEmail",
+                emailText
+        );
+
+        trustData.put(
+                "photoPrivacy",
+                photoPrivacy.getSelectedItem().toString()
+        );
+
+        trustData.put(
+                "updatedAt",
+                FieldValue.serverTimestamp()
+        );
+
+        FirebaseFirestore.getInstance()
+                .collection("users")
+                .document(user.getUid())
+                .collection("settings")
+                .document("trust")
+                .set(trustData)
+                .addOnSuccessListener(unused -> {
+
+                    toast(
+                            tr("Trust settings saved.",
+                               "اعتماد کی سیٹنگ محفوظ ہوگئی ہے۔")
+                    );
+
+                    showHome();
+                })
+                .addOnFailureListener(e -> {
+
+                    toast(
+                            tr("Could not save trust settings. Please try again.",
+                               "اعتماد کی سیٹنگ محفوظ نہیں ہو سکی۔ دوبارہ کوشش کریں۔")
+                    );
+                });
+    });
+
+    safety.setOnClickListener(v -> showSafety());
+
+    back.setOnClickListener(v -> showHome());
     }
 
     private void showSettings() {
