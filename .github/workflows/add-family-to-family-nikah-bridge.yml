@@ -1,0 +1,119 @@
+name: Add Family-to-Family Nikah Bridge
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  production-family-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production branch
+        uses: actions/checkout@v4
+      - name: Patch production Family Bridge
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('functions/index.js'); s=p.read_text()
+          if 'exports.createFamilyInvite=onCall' not in s:
+              s=s.replace("const {google} = require('googleapis');", "const {google} = require('googleapis');\nconst crypto = require('crypto');", 1)
+              marker="exports.requestWaliConnection=onCall(async req=>{"
+              code=r'''// Real Family-to-Family Nikah Bridge: server-authoritative family membership and bridge requests.
+exports.createFamilyInvite=onCall(async req=>{
+  const uid=auth(req); await activeUser(uid);
+  const groupRef=db.collection('familyGroups').doc(uid);
+  await groupRef.set({groupId:uid,ownerUid:uid,members:F.arrayUnion(uid),createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()},{merge:true});
+  await db.collection('familyMemberships').doc(uid).set({userUid:uid,groupId:uid,role:'owner',active:true,updatedAt:F.serverTimestamp()},{merge:true});
+  let code=''; for(let i=0;i<8;i++) code+=crypto.randomInt(0,36).toString(36).toUpperCase();
+  await db.collection('familyInvites').doc(code).set({code,groupId:uid,ownerUid:uid,used:false,createdAt:F.serverTimestamp(),expiresAt:admin.firestore.Timestamp.fromDate(new Date(Date.now()+7*24*60*60*1000))});
+  return {code,expiresInDays:7};
+});
+
+exports.redeemFamilyInvite=onCall(async req=>{
+  const uid=auth(req); await activeUser(uid);
+  const code=String(req.data?.code||'').trim().toUpperCase();
+  if(!/^[A-Z0-9]{8}$/.test(code)) throw new HttpsError('invalid-argument','Enter the 8-character family invite code.');
+  const ref=db.collection('familyInvites').doc(code),snap=await ref.get();
+  if(!snap.exists) throw new HttpsError('not-found','Family invite not found.');
+  const inv=snap.data(); if(inv.used===true) throw new HttpsError('failed-precondition','This family invite has already been used.');
+  if(inv.ownerUid===uid) throw new HttpsError('invalid-argument','You cannot join your own family invite.');
+  const exp=inv.expiresAt?.toDate?.(); if(exp&&exp.getTime()<Date.now()) throw new HttpsError('deadline-exceeded','This family invite has expired.');
+  const groupRef=db.collection('familyGroups').doc(String(inv.groupId)),memberRef=db.collection('familyMemberships').doc(uid);
+  await db.runTransaction(async tx=>{const group=await tx.get(groupRef); if(!group.exists) throw new HttpsError('not-found','Family group no longer exists.'); tx.set(memberRef,{userUid:uid,groupId:String(inv.groupId),role:'member',active:true,updatedAt:F.serverTimestamp()},{merge:true}); tx.set(groupRef,{members:F.arrayUnion(uid),updatedAt:F.serverTimestamp()},{merge:true}); tx.update(ref,{used:true,usedBy:uid,usedAt:F.serverTimestamp()});});
+  return {status:'active',groupId:String(inv.groupId)};
+});
+
+exports.requestFamilyBridge=onCall(async req=>{
+  const uid=auth(req),other=String(req.data?.otherUid||''); if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid connection.');
+  await activeUser(uid); await activeUser(other); const connectionId=pair(uid,other),c=await db.collection('connections').doc(connectionId).get();
+  if(!c.exists||c.data().status!=='active') throw new HttpsError('failed-precondition','A mutual active connection is required first.');
+  const [a,b]=await Promise.all([db.collection('familyMemberships').doc(uid).get(),db.collection('familyMemberships').doc(other).get()]);
+  if(!a.exists||a.data().active!==true||!b.exists||b.data().active!==true) throw new HttpsError('failed-precondition','Both people must connect a family member first.');
+  const familyA=String(a.data().groupId),familyB=String(b.data().groupId); if(familyA===familyB) throw new HttpsError('failed-precondition','Both accounts are already in the same family group.');
+  const ref=db.collection('familyBridges').doc(connectionId),old=await ref.get(); if(old.exists&&['pending','active'].includes(String(old.data().status||''))) throw new HttpsError('already-exists','A family bridge already exists for this connection.');
+  await ref.set({connectionId,userA:uid,userB:other,familyA,familyB,status:'pending',requestedBy:uid,createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()},{merge:true}); return {status:'pending',connectionId};
+});
+
+exports.respondFamilyBridge=onCall(async req=>{
+  const uid=auth(req),connectionId=String(req.data?.connectionId||''),decision=String(req.data?.decision||'');
+  if(!connectionId||!['accepted','declined'].includes(decision)) throw new HttpsError('invalid-argument','Invalid family bridge response.');
+  const ref=db.collection('familyBridges').doc(connectionId),snap=await ref.get(); if(!snap.exists) throw new HttpsError('not-found','Family bridge not found.');
+  const data=snap.data(); if(data.userB!==uid||data.status!=='pending') throw new HttpsError('permission-denied','You cannot respond to this family bridge.');
+  await ref.update({status:decision,respondedBy:uid,respondedAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()}); return {status:decision};
+});
+
+'''
+              if marker not in s: raise SystemExit('Family insertion marker not found')
+              s=s.replace(marker,code+marker,1); p.write_text(s)
+
+          p=Path('firestore.rules'); s=p.read_text()
+          marker="    match /waliConnections/{id} { allow read: if signedIn() && (resource.data.userUid == request.auth.uid || resource.data.waliUid == request.auth.uid); allow write,delete: if false; }"
+          rules="""    match /familyGroups/{id} { allow read: if signedIn() && request.auth.uid in resource.data.members; allow write,delete: if false; }
+    match /familyMemberships/{uid} { allow read: if owner(uid); allow write,delete: if false; }
+    match /familyInvites/{id} { allow read,write,delete: if false; }
+    match /familyBridges/{id} { allow read: if signedIn() && (resource.data.userA == request.auth.uid || resource.data.userB == request.auth.uid); allow write,delete: if false; }
+"""
+          if 'match /familyGroups/{id}' not in s:
+              if marker not in s: raise SystemExit('Rules insertion marker not found')
+              s=s.replace(marker,marker+'\n'+rules,1); p.write_text(s)
+
+          p=Path('app/src/main/MainActivity.java'); s=p.read_text()
+          if 'private void familyBridge()' not in s:
+              s=s.replace('w=button("Family / Wali Connect",true)','w=button("Family-to-Family Nikah Bridge",true)',1)
+              s=s.replace('w.setOnClickListener(x->wali())','w.setOnClickListener(x->familyBridge())',1)
+              methods=r'''
+    private void familyBridge(){
+        base(); title("Family-to-Family Nikah Bridge");
+        root.addView(text("Our signature feature: a Nikah is not only between two people — it can become a respectful bridge between two families. Family members join through a real invite, and family-to-family contact unlocks only after a mutual connection.",15,false));
+        Button invite=button("Create Family Invite Code",true),join=button("Join With Family Invite Code",false);
+        invite.setOnClickListener(v->{functions.getHttpsCallable("createFamilyInvite").call(new HashMap<String,Object>()).addOnSuccessListener(r->{Map<?,?> data=(Map<?,?>)r.getData();String code=String.valueOf(data.get("code"));new AlertDialog.Builder(this).setTitle("Your Family Invite").setMessage("Share this code with your trusted Wali or family member:\n\n"+code+"\n\nIt expires in 7 days and can be used once.").setPositiveButton("OK",null).show();}).addOnFailureListener(e->toast("Could not create the family invite."));});
+        join.setOnClickListener(v->{EditText e=input("8-character family invite code");Button submit=button("Join Family",true);submit.setOnClickListener(x->{String code=e.getText().toString().trim().toUpperCase();Map<String,Object> m=new HashMap<>();m.put("code",code);functions.getHttpsCallable("redeemFamilyInvite").call(m).addOnSuccessListener(r->{toast("Family member connected securely.");familyBridge();}).addOnFailureListener(err->toast(err.getMessage()==null?"Family invite could not be used.":err.getMessage()));});});
+        db.collection("familyMemberships").document(auth.getUid()).get().addOnSuccessListener(d->{if(d.exists()&&Boolean.TRUE.equals(d.getBoolean("active"))){root.addView(text("✓ Family member connected. You can now request a Family-to-Family Bridge after a mutual match.",16,true));loadFamilyBridgeConnections();}else root.addView(text("No family member connected yet. Create an invite and share it with your trusted Wali/family member.",15,false));});
+        Button b=button("Back",false);b.setOnClickListener(v->home());
+    }
+
+    private void loadFamilyBridgeConnections(){
+        final Set<String> ids=new HashSet<>();
+        db.collection("connections").whereEqualTo("uid1",auth.getUid()).whereEqualTo("status","active").get().addOnSuccessListener(a->{for(DocumentSnapshot d:a)ids.add(val(d,"uid2"));db.collection("connections").whereEqualTo("uid2",auth.getUid()).whereEqualTo("status","active").get().addOnSuccessListener(b->{for(DocumentSnapshot d:b)ids.add(val(d,"uid1"));if(ids.isEmpty()){root.addView(text("Family Bridge becomes available when you have a mutual active connection.",15,false));return;}root.addView(text("Your mutual connections",19,true));for(String other:ids){db.collection("users").document(other).get().addOnSuccessListener(u->{String name=val(u,"name");Button bridge=button("Bridge families with "+(name.isEmpty()?"this match":name),true);bridge.setOnClickListener(v->{Map<String,Object> m=new HashMap<>();m.put("otherUid",other);functions.getHttpsCallable("requestFamilyBridge").call(m).addOnSuccessListener(r->{toast("Family-to-Family Bridge request sent.");familyBridge();}).addOnFailureListener(e->toast(e.getMessage()==null?"Family Bridge request failed.":e.getMessage()));});});}});});
+        db.collection("familyBridges").whereEqualTo("userB",auth.getUid()).whereEqualTo("status","pending").get().addOnSuccessListener(q->{for(DocumentSnapshot d:q){String cid=d.getId();Button accept=button("Accept Family Bridge request",true);accept.setOnClickListener(v->{Map<String,Object> m=new HashMap<>();m.put("connectionId",cid);m.put("decision","accepted");functions.getHttpsCallable("respondFamilyBridge").call(m).addOnSuccessListener(r->{toast("Families are now bridged securely.");familyBridge();}).addOnFailureListener(e->toast("Could not accept Family Bridge."));});}});
+    }
+'''
+              pos=s.rfind('\n}')
+              if pos<0: raise SystemExit('MainActivity closing brace not found')
+              s=s[:pos]+methods+s[pos:];p.write_text(s)
+
+      - name: Validate
+        run: |
+          node --check functions/index.js
+          git diff --check
+      - name: Commit production changes
+        run: |
+          if git diff --quiet; then echo "No changes needed"; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add functions/index.js firestore.rules app/src/main/MainActivity.java
+          git commit -m "Add Family-to-Family Nikah Bridge signature feature"
+          git push
