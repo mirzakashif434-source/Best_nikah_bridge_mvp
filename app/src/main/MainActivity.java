@@ -783,27 +783,24 @@ public class MainActivity extends Activity {
                 return;
             }
 
-            prefs.edit()
-                    .putBoolean(K_PROFILE, true)
-                    .putString(K_NAME, n)
-                    .putString(K_AGE, a)
-                    .putString(K_COUNTRY, c)
-                    .putString(K_CITY, ci)
-                    .putString(K_GENDER, g)
-                    .putString(K_MARITAL, m)
-                    .putString(K_INTENTION, in)
-                    .putString(K_PRACTICE, pr)
-                    .putString(K_ABOUT, ab)
-                    .putString(K_PREFERENCE, pref)
-                    .putString(K_TIMELINE, timeline)
-                    .putString(K_FAMILY, familyOption)
-                    .putString(K_DEALBREAKERS, deal)
-                    .apply();
-
-            toast("Profile saved • " + profileCompletion() + "% complete",
-                    "پروفائل محفوظ • " + profileCompletion() + "% مکمل");
-            showHome();
-        });
+            if (mAuth.getCurrentUser() == null) {
+    mAuth.signInAnonymously()
+            .addOnSuccessListener(authResult -> saveRealProfile(
+                    n, a, c, ci, g, m, in, pr, ab, pref,
+                    timeline, familyOption, deal
+            ))
+            .addOnFailureListener(e ->
+                    toast(
+                            "Account setup failed. Please try again.",
+                            "اکاؤنٹ بنانے میں مسئلہ آیا، دوبارہ کوشش کریں۔"
+                    )
+            );
+} else {
+    saveRealProfile(
+            n, a, c, ci, g, m, in, pr, ab, pref,
+            timeline, familyOption, deal
+    );
+            }
 
         verify.setOnClickListener(v -> {
             if (!prefs.getBoolean(K_PROFILE, false) || profileCompletion() < 100) {
@@ -820,8 +817,92 @@ public class MainActivity extends Activity {
 
         back.setOnClickListener(v -> showHome());
     }
+    }   // line 819 — showProfile() ka closing 
 
-    private void showDashboard() {
+    private void saveRealProfile(
+        String n,
+        String a,
+        String c,
+        String ci,
+        String g,
+        String m,
+        String in,
+        String pr,
+        String ab,
+        String pref,
+        String timeline,
+        String familyOption,
+        String deal
+) {
+    if (mAuth.getCurrentUser() == null) {
+        toast(
+                "Account is not ready. Please try again.",
+                "اکاؤنٹ ابھی تیار نہیں، دوبارہ کوشش کریں۔"
+        );
+        return;
+    }
+
+    String uid = mAuth.getCurrentUser().getUid();
+
+    Map<String, Object> profile = new HashMap<>();
+
+    profile.put("uid", uid);
+    profile.put("name", n);
+    profile.put("age", Integer.parseInt(a));
+    profile.put("country", c);
+    profile.put("city", ci);
+    profile.put("gender", g);
+    profile.put("maritalStatus", m);
+    profile.put("marriageIntent", in);
+    profile.put("religiousPractice", pr);
+    profile.put("about", ab);
+    profile.put("partnerPreference", pref);
+    profile.put("marriageTimeline", timeline);
+    profile.put("familyInvolvement", familyOption);
+    profile.put("dealbreakers", deal);
+    profile.put("verificationStatus", "Not requested");
+    profile.put("profileActive", true);
+    profile.put("updatedAt", FieldValue.serverTimestamp());
+
+    firestore.collection("users")
+            .document(uid)
+            .set(profile)
+            .addOnSuccessListener(unused -> {
+
+                prefs.edit()
+                        .putBoolean(K_PROFILE, true)
+                        .putString(K_NAME, n)
+                        .putString(K_AGE, a)
+                        .putString(K_COUNTRY, c)
+                        .putString(K_CITY, ci)
+                        .putString(K_GENDER, g)
+                        .putString(K_MARITAL, m)
+                        .putString(K_INTENTION, in)
+                        .putString(K_PRACTICE, pr)
+                        .putString(K_ABOUT, ab)
+                        .putString(K_PREFERENCE, pref)
+                        .putString(K_TIMELINE, timeline)
+                        .putString(K_FAMILY, familyOption)
+                        .putString(K_DEALBREAKERS, deal)
+                        .apply();
+
+                toast(
+                        "Profile saved securely.",
+                        "پروفائل محفوظ ہو گیا۔"
+                );
+
+                showHome();
+            })
+            .addOnFailureListener(e ->
+                    toast(
+                            "Profile could not be saved. Please try again.",
+                            "پروفائل محفوظ نہیں ہو سکا، دوبارہ کوشش کریں۔"
+                    )
+            );
+    }
+
+
+  private void showDashboard() {
         setupRoot(true);
 
         root.addView(title(tr("My Dashboard", "میرا ڈیش بورڈ"), 28));
@@ -893,54 +974,75 @@ public class MainActivity extends Activity {
     }
 
     private int calculateCompatibility(int i) {
-        int score = 72;
+    int score = 72;
 
-        String myCountry = prefs.getString(K_COUNTRY, "");
-        String pref = prefs.getString(K_PREFERENCE, "").toLowerCase(Locale.US);
-        String myIntention = prefs.getString(K_INTENTION, "").toLowerCase(Locale.US);
+    String myCountry = prefs.getString(K_COUNTRY, "");
+    String pref = prefs.getString(K_PREFERENCE, "").toLowerCase(Locale.US);
+    String myIntention = prefs.getString(K_INTENTION, "").toLowerCase(Locale.US);
 
-        if (!myCountry.isEmpty()
-                && DEMO_COUNTRIES[i].equalsIgnoreCase(myCountry)) {
-            score += 8;
-        }
+    // Country compatibility
+    if (!myCountry.isEmpty()
+            && DEMO_COUNTRIES[i].equalsIgnoreCase(myCountry)) {
+        score += 8;
+    }
 
-        if (!pref.isEmpty()
-                && (pref.contains(DEMO_COUNTRIES[i].toLowerCase(Locale.US))
-                || pref.contains(DEMO_CITIES[i].toLowerCase(Locale.US)))) {
+    // Partner preference compatibility
+    if (!pref.isEmpty()
+            && (pref.contains(DEMO_COUNTRIES[i].toLowerCase(Locale.US))
+            || pref.contains(DEMO_CITIES[i].toLowerCase(Locale.US)))) {
+        score += 7;
+    }
+
+    // Marriage intention compatibility
+    if (myIntention.contains("serious")
+            || myIntention.contains("ready")) {
+        score += 4;
+    }
+
+    // Marriage timeline compatibility
+    String timeline = prefs.getString(K_TIMELINE, "").toLowerCase(Locale.US);
+    if (timeline.contains("6 months")
+            || timeline.contains("as soon")) {
+        score += 3;
+    }
+
+    // Family involvement compatibility
+    String familyPref = prefs.getString(K_FAMILY, "").toLowerCase(Locale.US);
+    if (familyPref.contains("yes")
+            || familyPref.contains("wali")) {
+        score += 2;
+    }
+
+    // Age compatibility
+    String age = prefs.getString(K_AGE, "");
+
+    try {
+        int mine = Integer.parseInt(age);
+        int theirs = Integer.parseInt(DEMO_AGES[i]);
+        int diff = Math.abs(mine - theirs);
+
+        if (diff <= 3) {
             score += 7;
-        }
-
-        if (myIntention.contains("serious")
-                || myIntention.contains("ready")) {
+        } else if (diff <= 7) {
             score += 4;
         }
+    } catch (Exception ignored) {
+        // Keep base score if age is unavailable.
+    }
 
-        String timeline = prefs.getString(K_TIMELINE, "").toLowerCase(Locale.US);
-        if (timeline.contains("6 months")
-                || timeline.contains("as soon")) {
-            score += 3;
-        }
+    // Small deterministic variation so demo matches are not identical.
+    score += (i % 3);
 
-        String familyPref = prefs.getString(K_FAMILY, "").toLowerCase(Locale.US);
-        if (familyPref.contains("family")
-                || familyPref.contains("wali")) {
-            score += 2;
-        }
+    // Keep compatibility within a sensible range.
+    if (score > 97) {
+        score = 97;
+    }
 
-        String age = prefs.getString(K_AGE, "");
-        try {
-            int mine = Integer.parseInt(age);
-            int theirs = Integer.parseInt(DEMO_AGES[i]);
-            int diff = Math.abs(mine - theirs);
-            if (diff <= 3) score += 7;
-            else if (diff <= 7) score += 4;
-        } catch (Exception ignored) {
-        }
+    if (score < 60) {
+        score = 60;
+    }
 
-        score += (i % 3);
-        if (score > 97) score = 97;
-        if (score < 60) score = 60;
-        return score;
+    return score;
     }
 
     private String profileQualityLabel() {
