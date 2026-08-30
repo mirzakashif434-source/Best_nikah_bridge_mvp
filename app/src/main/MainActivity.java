@@ -2867,95 +2867,308 @@ addFull(back);
 
 back.setOnClickListener(v -> showHome());
     private void showChat(int i) {
-        setupRoot(true);
+    setRoot(true);
 
-        String key = profileKey(i);
+    String key = profileKey(i);
 
-        if (!acceptedConnections.contains(key)) {
-            root.addView(title(tr("Safe Chat Locked", "محفوظ چیٹ بند ہے"), 28));
-            root.addView(body(tr(
-                    "Chat is available only after mutual acceptance.",
-                    "چیٹ صرف باہمی رضامندی کے بعد دستیاب ہے۔"
-            )));
-            Button back = outlineButton(tr("Back", "واپس"));
-            addFull(back);
-            back.setOnClickListener(v -> showInterests());
+    if (!acceptedConnections.contains(key)) {
+        root.addView(title(
+                tr("Safe Chat • محفوظ چیٹ", "محفوظ چیٹ • Safe Chat"), 28
+        ));
+
+        root.addView(body(tr(
+                "Chat is available only after mutual acceptance.",
+                "چیٹ صرف باہمی رضامندی کے بعد دستیاب ہے۔"
+        )));
+
+        Button back = outlineButton(tr("Back", "واپس"));
+        addFull(back);
+        back.setOnClickListener(v -> showInterests());
+        return;
+    }
+
+    com.google.firebase.auth.FirebaseUser firebaseUser =
+            com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
+
+    if (firebaseUser == null) {
+        root.addView(title(
+                tr("Sign in required", "لاگ اِن ضروری ہے"), 27
+        ));
+
+        root.addView(body(tr(
+                "Please sign in again to use Safe Chat.",
+                "محفوظ چیٹ استعمال کرنے کے لیے دوبارہ لاگ اِن کریں۔"
+        )));
+
+        Button back = outlineButton(tr("Back", "واپس"));
+        addFull(back);
+        back.setOnClickListener(v -> showInterests());
+        return;
+    }
+
+    final String myUid = firebaseUser.getUid();
+
+    root.addView(title(
+            tr("Safe Chat • محفوظ چیٹ", "محفوظ چیٹ • Safe Chat"), 27
+    ));
+
+    root.addView(subtitle(tr(
+            "Private communication is available only after mutual acceptance.",
+            "نجی گفتگو صرف باہمی رضامندی کے بعد دستیاب ہے۔"
+    )));
+
+    if (prefs.getBoolean(K_CHAPERONE, false)) {
+        root.addView(body(tr(
+                "Family / Wali Mode is enabled for this account.",
+                "اس اکاؤنٹ کے لیے Family / Wali Mode فعال ہے۔"
+        )));
+    }
+
+    TextView statusView = body(tr(
+            "Checking secure connection...",
+            "محفوظ رابطہ چیک کیا جا رہا ہے..."
+    ));
+    root.addView(statusView);
+
+    EditText message = new EditText(this);
+    message.setHint(tr(
+            "Write a respectful message...",
+            "باوقار پیغام لکھیں..."
+    ));
+    message.setGravity(Gravity.TOP);
+    message.setMinLines(3);
+    message.setInputType(
+            android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+    );
+
+    Button send = appButton(tr("Send Message", "پیغام بھیجیں"));
+    Button report = dangerButton(tr("Report / Block", "رپورٹ / بلاک"));
+    Button back = outlineButton(tr("Back", "واپس"));
+
+    /*
+     * REAL FIRESTORE CHAT
+     *
+     * Connection documents are stored as:
+     * connections/{uidA_uidB}
+     *
+     * Messages are stored as:
+     * connections/{uidA_uidB}/messages/{messageId}
+     */
+
+    com.google.firebase.firestore.FirebaseFirestore db = firestore;
+
+    final String[] otherUid = new String[]{null};
+    final String[] connectionId = new String[]{null};
+
+    /*
+     * Find an active connection where current user is uid1.
+     */
+    db.collection("connections")
+            .whereEqualTo("uid1", myUid)
+            .whereEqualTo("status", "active")
+            .get()
+            .addOnSuccessListener(first -> {
+
+                if (!first.isEmpty()) {
+                    com.google.firebase.firestore.DocumentSnapshot doc =
+                            first.getDocuments().get(0);
+
+                    String foundUid = doc.getString("uid2");
+
+                    if (foundUid != null && !foundUid.equals(myUid)) {
+                        otherUid[0] = foundUid;
+                        connectionId[0] = doc.getId();
+                    }
+                }
+
+                /*
+                 * If not found, check uid2.
+                 */
+                if (otherUid[0] == null) {
+                    db.collection("connections")
+                            .whereEqualTo("uid2", myUid)
+                            .whereEqualTo("status", "active")
+                            .get()
+                            .addOnSuccessListener(second -> {
+
+                                if (!second.isEmpty()) {
+                                    com.google.firebase.firestore.DocumentSnapshot doc =
+                                            second.getDocuments().get(0);
+
+                                    String foundUid = doc.getString("uid1");
+
+                                    if (foundUid != null && !foundUid.equals(myUid)) {
+                                        otherUid[0] = foundUid;
+                                        connectionId[0] = doc.getId();
+                                    }
+                                }
+
+                                if (otherUid[0] == null) {
+                                    statusView.setText(tr(
+                                            "No active mutual connection was found.",
+                                            "کوئی فعال باہمی رابطہ نہیں ملا۔"
+                                    ));
+                                    return;
+                                }
+
+                                statusView.setText(tr(
+                                        "Secure chat connected.",
+                                        "محفوظ چیٹ منسلک ہے۔"
+                                ));
+
+                                loadRealChatMessages(
+                                        db,
+                                        connectionId[0],
+                                        myUid,
+                                        root
+                                );
+
+                            })
+                            .addOnFailureListener(e -> statusView.setText(
+                                    tr(
+                                            "Could not verify your connection.",
+                                            "آپ کا رابطہ تصدیق نہیں ہو سکا۔"
+                                    )
+                            ));
+
+                } else {
+
+                    statusView.setText(tr(
+                            "Secure chat connected.",
+                            "محفوظ چیٹ منسلک ہے۔"
+                    ));
+
+                    loadRealChatMessages(
+                            db,
+                            connectionId[0],
+                            myUid,
+                            root
+                    );
+                }
+
+            })
+            .addOnFailureListener(e -> {
+
+                /*
+                 * Try the second direction if the first query fails.
+                 */
+                db.collection("connections")
+                        .whereEqualTo("uid2", myUid)
+                        .whereEqualTo("status", "active")
+                        .get()
+                        .addOnSuccessListener(second -> {
+
+                            if (!second.isEmpty()) {
+
+                                com.google.firebase.firestore.DocumentSnapshot doc =
+                                        second.getDocuments().get(0);
+
+                                String foundUid = doc.getString("uid1");
+
+                                if (foundUid != null && !foundUid.equals(myUid)) {
+                                    otherUid[0] = foundUid;
+                                    connectionId[0] = doc.getId();
+                                }
+                            }
+
+                            if (otherUid[0] == null) {
+                                statusView.setText(tr(
+                                        "No active mutual connection was found.",
+                                        "کوئی فعال باہمی رابطہ نہیں ملا۔"
+                                ));
+                                return;
+                            }
+
+                            statusView.setText(tr(
+                                    "Secure chat connected.",
+                                    "محفوظ چیٹ منسلک ہے۔"
+                            ));
+
+                            loadRealChatMessages(
+                                    db,
+                                    connectionId[0],
+                                    myUid,
+                                    root
+                            );
+
+                        })
+                        .addOnFailureListener(error -> statusView.setText(
+                                tr(
+                                        "Could not verify secure connection.",
+                                        "محفوظ رابطہ تصدیق نہیں ہو سکا۔"
+                                )
+                        ));
+            });
+
+    addInput(message, 120);
+    addFull(send);
+    addFull(report);
+    addFull(back);
+
+    send.setOnClickListener(v -> {
+
+        String text = message.getText().toString().trim();
+
+        if (text.isEmpty()) {
+            toast(
+                    "Write a message first.",
+                    "پہلے پیغام لکھیں۔"
+            );
             return;
         }
 
-        root.addView(title(
-                tr("Safe Chat • ", "محفوظ چیٹ • ") + DEMO_NAMES[i], 27));
-
-        root.addView(subtitle(tr(
-                "Local demo chat. Production chat must use authenticated server authorization.",
-                "مقامی ڈیمو چیٹ۔ پروڈکشن چیٹ کو محفوظ سرور اجازت درکار ہے۔"
-        )));
-
-        if (prefs.getBoolean(K_CHAPERONE, false)) {
-            root.addView(body(tr(
-                    "Family / Wali Mode is enabled for this account.",
-                    "اس اکاؤنٹ کے لیے Family / Wali Mode فعال ہے۔")));
+        if (otherUid[0] == null || connectionId[0] == null) {
+            toast(
+                    "Secure connection is not ready.",
+                    "محفوظ رابطہ ابھی تیار نہیں۔"
+            );
+            return;
         }
 
-        String chatKey = "chat_" + key;
-        String history = prefs.getString(chatKey, "");
+        send.setEnabled(false);
 
-        if (history.isEmpty()) {
-            root.addView(body(tr(
-                    "No messages yet. Keep communication respectful and avoid sharing passwords, OTPs, money or private documents.",
-                    "ابھی کوئی پیغام نہیں۔ گفتگو باوقار رکھیں اور پاس ورڈ، OTP، رقم یا نجی دستاویزات شیئر نہ کریں۔"
-            )));
-        } else {
-            root.addView(body(history));
-        }
+        java.util.Map<String, Object> msg =
+                new java.util.HashMap<>();
 
-        EditText message = new EditText(this);
-        message.setHint(tr("Write a respectful message...", "باوقار پیغام لکھیں..."));
-        message.setGravity(Gravity.TOP);
-        message.setMinLines(3);
-        message.setInputType(InputType.TYPE_CLASS_TEXT
-                | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        addInput(message, 120);
+        msg.put("fromUid", myUid);
+        msg.put("toUid", otherUid[0]);
+        msg.put("text", text);
+        msg.put(
+                "sentAt",
+                com.google.firebase.firestore.FieldValue.serverTimestamp()
+        );
 
-        Button send = appButton(tr("Send Message", "پیغام بھیجیں"));
-        Button report = dangerButton(tr("Report / Block", "رپورٹ / بلاک"));
-        Button back = outlineButton(tr("Back", "واپس"));
+        db.collection("connections")
+                .document(connectionId[0])
+                .collection("messages")
+                .add(msg)
+                .addOnSuccessListener(messageRef -> {
 
-        addFull(send);
-        addFull(report);
-        addFull(back);
+                    message.setText("");
+                    send.setEnabled(true);
 
-        send.setOnClickListener(v -> {
-            String text = message.getText().toString().trim();
+                    toast(
+                            "Message sent.",
+                            "پیغام بھیج دیا گیا۔"
+                    );
 
-            if (text.isEmpty()) {
-                toast("Write a message first.", "پہلے پیغام لکھیں۔");
-                return;
+                })
+                .addOnFailureListener(e -> {
+
+                    send.setEnabled(true);
+
+                    toast(
+                            "Message could not be sent. Please try again.",
+                            "پیغام نہیں بھیجا جا سکا۔ دوبارہ کوشش کریں۔"
+                    );
+                });
+    });
+
+    report.setOnClickListener(v -> showReportBlock(i));
+
+    back.setOnClickListener(v -> showInterests());
             }
-
-            if (!consumeMessageAllowance()) {
-                toast(
-                        "Demo daily message allowance is finished. Production ads/entitlements must be server-controlled.",
-                        "ڈیمو روزانہ پیغام کی حد ختم ہوگئی۔ پروڈکشن ads/entitlement سرور سے کنٹرول ہونے چاہیے۔"
-                );
-                return;
-            }
-
-            String stamp = new SimpleDateFormat(
-                    "HH:mm", Locale.US).format(new Date());
-
-            String old = prefs.getString(chatKey, "");
-            String updated = old
-                    + (old.isEmpty() ? "" : "\n\n")
-                    + tr("You", "آپ") + " • " + stamp + "\n" + text;
-
-            prefs.edit().putString(chatKey, updated).apply();
-            showChat(i);
-        });
-
-        report.setOnClickListener(v -> showReportBlock(i));
-        back.setOnClickListener(v -> showInterests());
-    }
 
     private int remainingAdMessages() {
         String day = prefs.getString(K_AD_DAY, "");
