@@ -7,7 +7,7 @@
         android:label="Best Nikah Bridge"
         android:supportsRtl="true"
         android:theme="@style/Theme.NikahBridge">
-        <activity android:name=".ProductionMainActivity" android:exported="true">
+        <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
