@@ -1,6 +1,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
+const {google} = require('googleapis');
 admin.initializeApp();
 const db = admin.firestore();
 const F = admin.firestore.FieldValue;
@@ -39,21 +40,10 @@ exports.respondToInterest=onCall(async req=>{
   if(!snap.exists) throw new HttpsError('not-found','Interest not found.');
   const data=snap.data();
   if(data.toUid!==uid||data.status!=='pending') throw new HttpsError('permission-denied','You cannot change this interest.');
-
   await ref.update({status:decision,updatedAt:F.serverTimestamp(),respondedAt:F.serverTimestamp()});
   if(decision==='declined') return {status:'declined',mutual:false};
-
-  // The recipient's explicit acceptance of the sender's interest is the
-  // mutual-consent event. No second hidden interest is required.
   const connectionId=pair(data.fromUid,data.toUid);
-  await db.collection('connections').doc(connectionId).set({
-    uid1:connectionId.split('_')[0],
-    uid2:connectionId.split('_')[1],
-    status:'active',
-    createdAt:F.serverTimestamp(),
-    updatedAt:F.serverTimestamp(),
-    createdBy:uid
-  },{merge:true});
+  await db.collection('connections').doc(connectionId).set({uid1:connectionId.split('_')[0],uid2:connectionId.split('_')[1],status:'active',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp(),createdBy:uid},{merge:true});
   return {status:'accepted',mutual:true,connectionId};
 });
 
@@ -97,12 +87,66 @@ exports.deleteMyAccount=onCall(async req=>{
     db.collection('interests').where('fromUid','==',uid),db.collection('interests').where('toUid','==',uid),
     db.collection('reports').where('reporterUid','==',uid),db.collection('reports').where('reportedUid','==',uid),
     db.collection('verifications').where('userUid','==',uid),db.collection('waliConnections').where('userUid','==',uid),
-    db.collection('waliConnections').where('waliUid','==',uid),db.collection('blocks').where('blockerUid','==',uid),db.collection('blocks').where('blockedUid','==',uid)
+    db.collection('waliConnections').where('waliUid','==',uid),db.collection('blocks').where('blockerUid','==',uid),db.collection('blocks').where('blockedUid','==',uid),
+    db.collection('entitlements').where('uid','==',uid)
   ]) await deleteQuery(q);
   const[c1,c2]=await Promise.all([db.collection('connections').where('uid1','==',uid).get(),db.collection('connections').where('uid2','==',uid).get()]);
   await Promise.all([...c1.docs,...c2.docs].map(d=>db.recursiveDelete(d.ref)));
   await admin.auth().deleteUser(uid);
   return {deleted:true};
+});
+
+// Free benefit: exactly one boost per 8-day window. The server timestamp is authoritative.
+exports.claimFreeBoost=onCall(async req=>{
+  const uid=auth(req); await activeUser(uid);
+  const ref=db.collection('entitlements').doc(uid);
+  return db.runTransaction(async tx=>{
+    const snap=await tx.get(ref); const data=snap.exists?snap.data():{};
+    const now=Date.now(); const last=data.freeBoostClaimedAt?.toMillis?.()||0;
+    if(last && now-last < 8*24*60*60*1000){
+      const remaining=Math.ceil((8*24*60*60*1000-(now-last))/86400000);
+      throw new HttpsError('failed-precondition',`Free boost is available again in about ${remaining} day(s).`);
+    }
+    tx.set(ref,{uid,freeBoostClaimedAt:admin.firestore.Timestamp.now(),boostActive:true,boostSource:'free_8_day',updatedAt:admin.firestore.Timestamp.now()},{merge:true});
+    return {claimed:true,windowDays:8};
+  });
+});
+
+// Secure purchase verification. Product IDs must be created in Play Console with the same IDs.
+const PAID_PRODUCTS={
+  bnb_plus_20:{tier:'plus20',messageCredits:10},
+  bnb_plus_40:{tier:'plus40',messageCredits:30},
+  bnb_plus_60:{tier:'plus60',messageCredits:60}
+};
+let publisherPromise=null;
+async function publisher(){
+  if(!publisherPromise){
+    const raw=process.env.PLAY_SERVICE_ACCOUNT_JSON;
+    if(!raw) throw new Error('PLAY_SERVICE_ACCOUNT_JSON is not configured.');
+    const credentials=JSON.parse(raw);
+    const authClient=new google.auth.GoogleAuth({credentials,scopes:['https://www.googleapis.com/auth/androidpublisher']});
+    publisherPromise=authClient.getClient().then(client=>{google.options({auth:client});return google.androidpublisher('v3');});
+  }
+  return publisherPromise;
+}
+exports.verifyGooglePlayPurchase=onCall(async req=>{
+  const uid=auth(req); const productId=String(req.data?.productId||''); const token=String(req.data?.purchaseToken||'');
+  const product=PAID_PRODUCTS[productId];
+  if(!product||!token) throw new HttpsError('invalid-argument','Invalid purchase.');
+  let api;
+  try{api=await publisher();}catch(e){throw new HttpsError('failed-precondition','Purchase verification service is not configured.');}
+  let purchase;
+  try{purchase=(await api.purchases.products.get({packageName:'com.nikahbridge',productId,token})).data;}catch(e){throw new HttpsError('permission-denied','Google Play purchase could not be verified.');}
+  if(Number(purchase.purchaseState)!==0) throw new HttpsError('failed-precondition','Purchase is not in a completed state.');
+  const purchaseRef=db.collection('playPurchases').doc(String(purchase.orderId||token));
+  const existing=await purchaseRef.get();
+  if(existing.exists && existing.data().uid!==uid) throw new HttpsError('permission-denied','Purchase already belongs to another account.');
+  await purchaseRef.set({uid,productId,orderId:purchase.orderId||null,purchaseToken:token,verifiedAt:F.serverTimestamp(),tier:product.tier,messageCredits:product.messageCredits},{merge:true});
+  await db.collection('entitlements').doc(uid).set({uid,paidTier:product.tier,messageCredits:F.increment(product.messageCredits),lastPurchaseId:purchase.orderId||token,updatedAt:F.serverTimestamp()},{merge:true});
+  if(Number(purchase.acknowledgementState)===0){
+    try{await api.purchases.products.acknowledge({packageName:'com.nikahbridge',productId,token,requestBody:{}});}catch(e){/* entitlement remains server-recorded; acknowledgement can be retried */}
+  }
+  return {verified:true,tier:product.tier,messageCredits:product.messageCredits};
 });
 
 exports.queueReport=onDocumentCreated('reports/{reportId}',async event=>{
