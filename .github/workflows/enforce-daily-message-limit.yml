@@ -1,0 +1,109 @@
+name: Enforce Daily Message Limit
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  enforce:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply production 20-message limit
+        shell: python
+        run: |
+          from pathlib import Path
+
+          # 1) Harden the Firebase backend with an atomic, server-authoritative quota.
+          p = Path("functions/index.js")
+          s = p.read_text()
+          marker = "exports.queueReport=onDocumentCreated('reports/{reportId}',async event=>{"
+          fn = r'''// Server-authoritative chat sending: 20 free messages per UTC calendar day.
+// Purchased message credits are usable only after the daily free quota is exhausted.
+exports.sendMessage=onCall(async req=>{
+  const uid=auth(req);
+  const connectionId=String(req.data?.connectionId||'');
+  const toUid=String(req.data?.toUid||'');
+  const text=String(req.data?.text||'').trim();
+  if(!connectionId||!toUid||toUid===uid||!text||text.length>4000) throw new HttpsError('invalid-argument','Invalid message.');
+  const connectionRef=db.collection('connections').doc(connectionId);
+  const connection=await connectionRef.get();
+  if(!connection.exists||connection.data().status!=='active') throw new HttpsError('failed-precondition','This connection is not active.');
+  const c=connection.data();
+  if(!((c.uid1===uid&&c.uid2===toUid)||(c.uid1===toUid&&c.uid2===uid))) throw new HttpsError('permission-denied','You are not part of this connection.');
+  const block=await db.collection('blocks').doc(pair(uid,toUid)).get();
+  if(block.exists) throw new HttpsError('permission-denied','This connection is blocked.');
+
+  const usageRef=db.collection('messageUsage').doc(uid);
+  const entitlementRef=db.collection('entitlements').doc(uid);
+  const now=new Date();
+  const dayKey=now.toISOString().slice(0,10);
+  let result;
+  await db.runTransaction(async tx=>{
+    const usageSnap=await tx.get(usageRef);
+    const entitlementSnap=await tx.get(entitlementRef);
+    const usage=usageSnap.exists?usageSnap.data():{};
+    const ent=entitlementSnap.exists?entitlementSnap.data():{};
+    const used=usage.dayKey===dayKey?Number(usage.dailyCount||0):0;
+    const credits=Math.max(0,Number(ent.messageCredits||0));
+    let dailyCount=used;
+    let purchasedCredits=credits;
+    let source;
+    if(used<20){
+      dailyCount=used+1;
+      source='daily_free';
+    }else if(credits>0){
+      purchasedCredits=credits-1;
+      source='purchased_credit';
+    }else{
+      throw new HttpsError('resource-exhausted','Daily message limit reached: 20 messages. Try again tomorrow or use a purchased message credit.');
+    }
+    const msgRef=connectionRef.collection('messages').doc();
+    tx.set(msgRef,{fromUid:uid,toUid,text,sentAt:admin.firestore.Timestamp.now(),source});
+    tx.set(usageRef,{uid,dayKey,dailyCount,updatedAt:F.serverTimestamp()},{merge:true});
+    if(source==='purchased_credit') tx.set(entitlementRef,{uid,messageCredits:purchasedCredits,updatedAt:F.serverTimestamp()},{merge:true});
+    result={messageId:msgRef.id,source,dailyUsed:dailyCount,dailyRemaining:Math.max(0,20-dailyCount),purchasedCreditsRemaining:purchasedCredits};
+  });
+  return result;
+});
+
+'''
+          if "exports.sendMessage=onCall" not in s:
+              if marker not in s:
+                  raise SystemExit("Could not find functions insertion point")
+              s=s.replace(marker, fn+marker, 1)
+              p.write_text(s)
+
+          # 2) Direct client writes to messages are disabled; only sendMessage can create them.
+          p = Path("firestore.rules")
+          s = p.read_text()
+          old="allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 4000 && connected(request.auth.uid,request.resource.data.toUid) && request.resource.data.sentAt != null;"
+          if old in s:
+              s=s.replace(old,"allow create: if false;",1)
+              p.write_text(s)
+
+          # 3) Route the Android send button through the server-authoritative function.
+          p = Path("app/src/main/MainActivity.java")
+          s = p.read_text()
+          old='db.collection("connections").document(cid).collection("messages").add(m).addOnSuccessListener(y->{e.setText("");msgs.addView(text("You: "+msg,15,false));}).addOnFailureListener(y->toast("Message blocked by secure rules."));'
+          new='functions.getHttpsCallable("sendMessage").call(new HashMap<String,Object>(){{put("connectionId",cid);put("toUid",other);put("text",msg);}}).addOnSuccessListener(y->{e.setText("");msgs.addView(text("You: "+msg,15,false));}).addOnFailureListener(y->{String err=y.getMessage();toast(err==null?"Message could not be sent.":err);});'
+          if old in s:
+              s=s.replace(old,new,1)
+              p.write_text(s)
+
+      - name: Commit production quota changes
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add functions/index.js firestore.rules app/src/main/MainActivity.java
+          git commit -m "Enforce real daily 20-message chat limit"
+          git push
