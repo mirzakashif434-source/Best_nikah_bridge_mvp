@@ -3785,38 +3785,105 @@ private void showPrivacy() {
     }
 
     private void confirmDelete() {
-        setupRoot(true);
+    setupRoot(true);
 
-        root.addView(title(
-                tr("Delete Account Data", "اکاؤنٹ ڈیٹا حذف کریں"), 27));
+    root.addView(title(
+            tr("Delete Account", "اکاؤنٹ حذف کریں"), 27));
 
-        root.addView(body(tr(
-                "This current build can delete its local device data. A production account must also delete server-side account data and associated user data through the real backend.",
-                "یہ موجودہ بلڈ ڈیوائس کا مقامی ڈیٹا حذف کرسکتا ہے۔ پروڈکشن اکاؤنٹ میں حقیقی بیک اینڈ کے ذریعے server-side account اور متعلقہ user data بھی حذف ہونا چاہیے۔"
-        )));
+    root.addView(body(tr(
+            "This permanently deletes your Best Nikah Bridge account and available account data. This action cannot be undone.",
+            "یہ آپ کا Best Nikah Bridge اکاؤنٹ اور دستیاب اکاؤنٹ ڈیٹا مستقل طور پر حذف کر دے گا۔ یہ عمل واپس نہیں کیا جا سکتا۔"
+    )));
 
-        Button delete = dangerButton(
-                tr("Delete Local Data", "مقامی ڈیٹا حذف کریں"));
-        Button cancel = outlineButton(tr("Cancel", "منسوخ"));
+    Button delete = dangerButton(
+            tr("Delete My Account", "میرا اکاؤنٹ حذف کریں"));
 
-        addFull(delete);
-        addFull(cancel);
+    Button cancel = outlineButton(
+            tr("Cancel", "منسوخ کریں"));
 
-        delete.setOnClickListener(v -> {
-            prefs.edit().clear().apply();
+    addFull(delete);
+    addFull(cancel);
 
-            sentInterests.clear();
-            incomingInterests.clear();
-            acceptedConnections.clear();
-            blockedProfiles.clear();
-            reportedProfiles.clear();
+    delete.setOnClickListener(v -> {
 
-            toast("Local account data deleted.",
-                    "مقامی اکاؤنٹ ڈیٹا حذف ہوگیا۔");
+        FirebaseUser user =
+                FirebaseAuth.getInstance().getCurrentUser();
 
+        if (user == null) {
+            toast(
+                    tr("Please sign in again.",
+                       "براہ کرم دوبارہ سائن اِن کریں۔")
+            );
             showWelcome();
-        });
+            return;
+        }
 
-        cancel.setOnClickListener(v -> showHome());
-    }
+        String uid = user.getUid();
+
+        delete.setEnabled(false);
+
+        FirebaseFirestore db =
+                FirebaseFirestore.getInstance();
+
+        db.collection("users")
+                .document(uid)
+                .collection("settings")
+                .document("trust")
+                .delete()
+                .continueWithTask(task ->
+                        db.collection("users")
+                                .document(uid)
+                                .delete()
+                )
+                .addOnSuccessListener(unused -> {
+
+                    user.delete()
+                            .addOnSuccessListener(unusedAuth -> {
+
+                                prefs.edit()
+                                        .clear()
+                                        .apply();
+
+                                sentInterests.clear();
+                                incomingInterests.clear();
+                                acceptedConnections.clear();
+                                blockedProfiles.clear();
+                                reportedProfiles.clear();
+
+                                toast(
+                                        tr(
+                                                "Your account has been permanently deleted.",
+                                                "آپ کا اکاؤنٹ مستقل طور پر حذف کر دیا گیا ہے۔"
+                                        )
+                                );
+
+                                showWelcome();
+                            })
+                            .addOnFailureListener(e -> {
+
+                                delete.setEnabled(true);
+
+                                toast(
+                                        tr(
+                                                "For security, please sign in again and then delete your account.",
+                                                "سیکیورٹی کی وجہ سے براہ کرم دوبارہ سائن اِن کریں، پھر اکاؤنٹ حذف کریں۔"
+                                        )
+                                );
+                            });
+                })
+                .addOnFailureListener(e -> {
+
+                    delete.setEnabled(true);
+
+                    toast(
+                            tr(
+                                    "Could not delete account data. Please try again.",
+                                    "اکاؤنٹ ڈیٹا حذف نہیں ہو سکا۔ دوبارہ کوشش کریں۔"
+                            )
+                    );
+                });
+    });
+
+    cancel.setOnClickListener(v -> showHome());
 }
+                        }
