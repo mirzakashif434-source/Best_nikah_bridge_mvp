@@ -3371,38 +3371,77 @@ batch.commit()
         back.setOnClickListener(v -> showHome());
     }
 
-    private void showPrivacy() {
-        setupRoot(true);
+private void showPrivacy() {
+    setupRoot(true);
 
-        root.addView(title(
-                tr("Privacy & Data", "رازداری اور ڈیٹا"), 28));
+    root.addView(title(
+            tr("Privacy & Data", "رازداری اور ڈیٹا"), 28));
 
-        root.addView(body(
-                tr(
-                        "Best Nikah Bridge should collect only information needed for matrimonial functionality. "
-                                + "Production privacy controls must explain exactly what data is collected, why it is used, "
-                                + "who receives it, retention periods and deletion procedures.\n\n"
-                                + "This current client stores profile/demo information locally on the device. "
-                                + "It does not claim that local storage is secure cloud account storage.\n\n"
-                                + "Before Play publication, add a real public privacy-policy URL and keep the in-app policy consistent with the Play Console Data Safety declaration.",
-                        "Best Nikah Bridge کو صرف نکاح کی بنیادی فعالیت کے لیے ضروری معلومات لینی چاہئیں۔ "
-                                + "پروڈکشن privacy policy میں واضح ہونا چاہیے کہ کون سا ڈیٹا لیا جاتا ہے، کیوں استعمال ہوتا ہے، "
-                                + "کس کے ساتھ شیئر ہوتا ہے، کتنی مدت رکھا جاتا ہے اور کیسے حذف ہوتا ہے۔\n\n"
-                                + "یہ موجودہ کلائنٹ پروفائل/ڈیمو معلومات ڈیوائس پر مقامی طور پر رکھتا ہے۔ "
-                                + "یہ محفوظ cloud account ہونے کا دعویٰ نہیں کرتا۔\n\n"
-                                + "Play publication سے پہلے حقیقی public privacy-policy URL شامل کریں اور اسے Play Console Data Safety declaration کے مطابق رکھیں۔"
-                )));
+    root.addView(subtitle(tr(
+            "Best Nikah Bridge respects your privacy and uses information needed to provide matrimonial services.",
+            "Best Nikah Bridge آپ کی رازداری کا احترام کرتا ہے اور نکاح کی خدمات کے لیے ضروری معلومات استعمال کرتا ہے."
+    )));
 
-        Button terms = outlineButton(
-                tr("Terms & Community Rules", "شرائط اور کمیونٹی اصول"));
-        Button back = outlineButton(tr("Back", "واپس"));
+    root.addView(body(
+            "• " + tr(
+                    "Profile information is used to create your matrimonial profile and provide suitable matches.",
+                    "آپ کی پروفائل معلومات نکاح کی پروفائل بنانے اور مناسب رشتے دکھانے کے لیے استعمال ہوتی ہیں."
+            ) + "\n\n" +
 
-        addFull(terms);
-        addFull(back);
+            "• " + tr(
+                    "Information submitted to the service may be stored securely using configured backend services.",
+                    "سروس کو فراہم کی گئی معلومات configured backend services کے ذریعے محفوظ طریقے سے محفوظ کی جا سکتی ہیں."
+            ) + "\n\n" +
 
-        terms.setOnClickListener(v -> showTerms());
-        back.setOnClickListener(v -> showSafety());
-    }
+            "• " + tr(
+                    "Your information is used for matrimonial functionality and service safety.",
+                    "آپ کی معلومات نکاح کی سہولت اور سروس کی حفاظت کے لیے استعمال ہوتی ہیں."
+            ) + "\n\n" +
+
+            "• " + tr(
+                    "Never share passwords, OTPs, financial information, or unnecessary private documents in chat.",
+                    "چیٹ میں پاس ورڈ، OTP، مالی معلومات یا غیر ضروری نجی دستاویزات شیئر نہ کریں."
+            ) + "\n\n" +
+
+            "• " + tr(
+                    "Keep personal contact details private until you are comfortable and mutual communication is established.",
+                    "اپنی ذاتی رابطے کی معلومات اس وقت تک نجی رکھیں جب تک آپ مطمئن نہ ہوں اور باہمی رابطہ قائم نہ ہو."
+            ) + "\n\n" +
+
+            "• " + tr(
+                    "You can use the available privacy controls and request deletion of your account data.",
+                    "آپ دستیاب privacy controls استعمال کر سکتے ہیں اور اپنے اکاؤنٹ کے ڈیٹا کو حذف کرنے کی درخواست کر سکتے ہیں."
+            ) + "\n\n" +
+
+            "• " + tr(
+                    "Some information may be retained when required for security, fraud prevention, legal compliance, or legitimate service purposes.",
+                    "سیکیورٹی، فراڈ سے بچاؤ، قانونی تقاضوں یا جائز سروس مقاصد کے لیے کچھ معلومات مخصوص حالات میں محفوظ رکھی جا سکتی ہیں."
+            ) + "\n\n" +
+
+            "• " + tr(
+                    "Do not send money to another member because of requests made through the service. Report suspicious requests.",
+                    "سروس کے ذریعے کسی ممبر کی درخواست پر پیسے نہ بھیجیں۔ مشکوک درخواست فوراً رپورٹ کریں."
+            ) + "\n\n" +
+
+            "• " + tr(
+                    "Only provide information that you are comfortable sharing for the purpose of marriage.",
+                    "صرف وہی معلومات فراہم کریں جو آپ نکاح کے مقصد کے لیے شیئر کرنے میں مطمئن ہوں."
+            ) + "\n\n" +
+
+            "• " + tr(
+                    "For privacy, account deletion, or data questions, use the available in-app controls or contact support.",
+                    "رازداری، اکاؤنٹ حذف کرنے یا ڈیٹا سے متعلق سوالات کے لیے دستیاب in-app controls استعمال کریں یا support سے رابطہ کریں."
+            )
+    ));
+
+    Button back = outlineButton(
+            tr("Back", "واپس")
+    );
+
+    addFull(back);
+
+    back.setOnClickListener(v -> showSafety());
+}
 
     private void showTerms() {
         setupRoot(true);
