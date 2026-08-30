@@ -1,123 +1,62 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
-
 admin.initializeApp();
 const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
+const F = admin.firestore.FieldValue;
+function auth(req){if(!req.auth)throw new HttpsError('unauthenticated','Sign-in required.');return req.auth.uid;}
+function pair(a,b){if(!a||!b||a===b)throw new HttpsError('invalid-argument','Two different users are required.');return [a,b].sort().join('_');}
+function isAdmin(req){return !!(req.auth&&req.auth.token&&req.auth.token.admin===true);}
 
-function requireAuth(request) {
-  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in required.');
-  return request.auth.uid;
-}
-
-function pairId(a, b) {
-  if (!a || !b || a === b) throw new HttpsError('invalid-argument', 'Two different users are required.');
-  return [a, b].sort().join('_');
-}
-
-function isAdmin(request) {
-  return request.auth && request.auth.token && request.auth.token.admin === true;
-}
-
-// Creates an active connection only after both sides have an accepted interest.
-exports.createMutualConnection = onCall(async (request) => {
-  const uid = requireAuth(request);
-  const otherUid = String(request.data?.otherUid || '');
-  if (!otherUid || otherUid === uid) throw new HttpsError('invalid-argument', 'Invalid match.');
-
-  const id = pairId(uid, otherUid);
-  const connectionRef = db.collection('connections').doc(id);
-  const [forward, reverse] = await Promise.all([
-    db.collection('interests').where('fromUid', '==', uid).where('toUid', '==', otherUid).where('status', '==', 'accepted').limit(1).get(),
-    db.collection('interests').where('fromUid', '==', otherUid).where('toUid', '==', uid).where('status', '==', 'accepted').limit(1).get()
-  ]);
-
-  if (forward.empty || reverse.empty) {
-    throw new HttpsError('failed-precondition', 'A mutual accepted interest is required.');
-  }
-
-  await connectionRef.set({
-    uid1: id.split('_')[0],
-    uid2: id.split('_')[1],
-    status: 'active',
-    createdAt: FieldValue.serverTimestamp(),
-    createdBy: uid
-  }, { merge: false });
-
-  return { connectionId: id, status: 'active' };
+exports.createMutualConnection=onCall(async req=>{
+ const uid=auth(req), other=String(req.data?.otherUid||''); if(!other||other===uid)throw new HttpsError('invalid-argument','Invalid match.');
+ const id=pair(uid,other), ref=db.collection('connections').doc(id);
+ const [a,b]=await Promise.all([
+  db.collection('interests').where('fromUid','==',uid).where('toUid','==',other).where('status','==','accepted').limit(1).get(),
+  db.collection('interests').where('fromUid','==',other).where('toUid','==',uid).where('status','==','accepted').limit(1).get()
+ ]);
+ if(a.empty||b.empty)throw new HttpsError('failed-precondition','Both users must accept the interest.');
+ await ref.set({uid1:id.split('_')[0],uid2:id.split('_')[1],status:'active',createdAt:F.serverTimestamp(),createdBy:uid},{merge:true});
+ return {connectionId:id,status:'active'};
 });
 
-// Creates/updates a Wali relationship without exposing privileged verification fields.
-exports.requestWaliConnection = onCall(async (request) => {
-  const uid = requireAuth(request);
-  const waliUid = String(request.data?.waliUid || '');
-  if (!waliUid || waliUid === uid) throw new HttpsError('invalid-argument', 'Invalid Wali.');
-
-  const ref = db.collection('waliConnections').doc(`${uid}_${waliUid}`);
-  await ref.set({
-    userUid: uid,
-    waliUid,
-    status: 'pending',
-    requestedBy: uid,
-    updatedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
-  return { status: 'pending' };
+exports.requestWaliConnection=onCall(async req=>{
+ const uid=auth(req), wali=String(req.data?.waliUid||''); if(!wali||wali===uid)throw new HttpsError('invalid-argument','Invalid Wali.');
+ if(!(await db.collection('users').doc(wali).get()).exists)throw new HttpsError('not-found','Wali account not found.');
+ await db.collection('waliConnections').doc(`${uid}_${wali}`).set({userUid:uid,waliUid:wali,status:'pending',requestedBy:uid,updatedAt:F.serverTimestamp()},{merge:true});
+ return {status:'pending'};
 });
 
-// User requests deletion; trusted backend recursively removes owned data.
-exports.deleteMyAccount = onCall(async (request) => {
-  const uid = requireAuth(request);
-  const collections = ['users', 'interests', 'connections', 'reports', 'verifications', 'privacy', 'blocks', 'waliConnections', 'aiConversations', 'deletionRequests'];
-  const batchLimit = 400;
-
-  for (const name of collections) {
-    let snap = await db.collection(name).where('userUid', '==', uid).limit(batchLimit).get();
-    if (name === 'users' || name === 'privacy') {
-      const own = await db.collection(name).doc(uid).get();
-      if (own.exists) {
-        const b = db.batch();
-        b.delete(own.ref);
-        await b.commit();
-      }
-    }
-    while (!snap.empty) {
-      const b = db.batch();
-      snap.docs.forEach((d) => b.delete(d.ref));
-      await b.commit();
-      snap = await db.collection(name).where('userUid', '==', uid).limit(batchLimit).get();
-    }
-  }
-
-  await admin.auth().deleteUser(uid);
-  return { deleted: true };
+exports.deleteMyAccount=onCall(async req=>{
+ const uid=auth(req);
+ const deleteQuery=async(q)=>{let snap=await q.limit(400).get();while(!snap.empty){await Promise.all(snap.docs.map(d=>db.recursiveDelete(d.ref)));snap=await q.limit(400).get();}};
+ await db.recursiveDelete(db.collection('users').doc(uid));
+ await deleteQuery(db.collection('interests').where('fromUid','==',uid));
+ await deleteQuery(db.collection('interests').where('toUid','==',uid));
+ await deleteQuery(db.collection('reports').where('reporterUid','==',uid));
+ await deleteQuery(db.collection('reports').where('reportedUid','==',uid));
+ await deleteQuery(db.collection('verifications').where('userUid','==',uid));
+ await deleteQuery(db.collection('waliConnections').where('userUid','==',uid));
+ await deleteQuery(db.collection('waliConnections').where('waliUid','==',uid));
+ const c1=await db.collection('connections').where('uid1','==',uid).get(); const c2=await db.collection('connections').where('uid2','==',uid).get();
+ await Promise.all([...c1.docs,...c2.docs].map(d=>db.recursiveDelete(d.ref)));
+ await deleteQuery(db.collection('deletionRequests').where('userUid','==',uid));
+ await admin.auth().deleteUser(uid);
+ return {deleted:true};
 });
 
-// Every user report is copied into a moderation queue; no client can mark it resolved.
-exports.queueReport = onDocumentCreated('reports/{reportId}', async (event) => {
-  const report = event.data?.data();
-  if (!report) return;
-  await db.collection('moderationQueue').doc(event.params.reportId).set({
-    reportId: event.params.reportId,
-    reporterUid: report.reporterUid || null,
-    reportedUid: report.reportedUid || null,
-    reason: report.reason || 'unspecified',
-    status: 'pending',
-    createdAt: FieldValue.serverTimestamp()
-  }, { merge: true });
+exports.queueReport=onDocumentCreated('reports/{reportId}',async event=>{
+ const r=event.data?.data();if(!r)return;
+ await db.collection('moderationQueue').doc(event.params.reportId).set({reportId:event.params.reportId,reporterUid:r.reporterUid||null,reportedUid:r.reportedUid||null,reason:r.reason||'unspecified',status:'pending',createdAt:F.serverTimestamp()},{merge:true});
 });
-
-exports.setModerationDecision = onCall(async (request) => {
-  if (!isAdmin(request)) throw new HttpsError('permission-denied', 'Admin access required.');
-  const reportId = String(request.data?.reportId || '');
-  const decision = String(request.data?.decision || '');
-  if (!reportId || !['reviewed', 'actioned', 'dismissed'].includes(decision)) {
-    throw new HttpsError('invalid-argument', 'Invalid moderation decision.');
-  }
-  await db.collection('moderationQueue').doc(reportId).set({
-    status: decision,
-    moderatorUid: request.auth.uid,
-    decidedAt: FieldValue.serverTimestamp()
-  }, { merge: true });
-  return { status: decision };
+exports.setModerationDecision=onCall(async req=>{
+ if(!isAdmin(req))throw new HttpsError('permission-denied','Admin access required.');
+ const id=String(req.data?.reportId||''),decision=String(req.data?.decision||'');if(!id||!['reviewed','actioned','dismissed'].includes(decision))throw new HttpsError('invalid-argument','Invalid decision.');
+ await db.collection('moderationQueue').doc(id).set({status:decision,moderatorUid:req.auth.uid,decidedAt:F.serverTimestamp()},{merge:true});return {status:decision};
+});
+exports.setVerificationStatus=onCall(async req=>{
+ if(!isAdmin(req))throw new HttpsError('permission-denied','Admin access required.');
+ const uid=String(req.data?.userUid||''),status=String(req.data?.status||'');if(!uid||!['verified','rejected','unverified'].includes(status))throw new HttpsError('invalid-argument','Invalid verification status.');
+ await db.collection('users').doc(uid).update({verificationStatus:status,verificationUpdatedAt:F.serverTimestamp(),verificationBy:req.auth.uid});
+ return {status};
 });
