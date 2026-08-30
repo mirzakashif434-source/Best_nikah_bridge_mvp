@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "firebase-admin": "^13.0.2",
-    "firebase-functions": "^6.1.1"
+    "firebase-functions": "^6.1.1",
+    "@googleapis/androidpublisher": "^37.0.0"
   },
   "devDependencies": {
     "eslint": "^8.57.1"
