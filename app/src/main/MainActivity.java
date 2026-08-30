@@ -2295,83 +2295,350 @@ public class MainActivity extends Activity {
                             tr(
                                     "Could not load incoming interests.",
                                     "موصول ہونے والی دلچسپیاں لوڈ نہیں ہو سکیں۔"
-                            ),
-                            Toast.LENGTH_SHORT
-                    ).show()
-            );
-                    toast(
-                            "Connection accepted in local demo. Production authorization must be server-side.",
-                            "مقامی ڈیمو میں رابطہ قبول ہوگیا۔ پروڈکشن اجازت سرور پر ہونی چاہیے۔"
-                    );
-                    showInterests();
-                });
+                            // ===== REAL FIRESTORE CONNECTIONS =====
 
-                decline.setOnClickListener(v -> {
-                    incomingInterests.remove(key);
-                    saveSets();
-                    showInterests();
-                });
+if (mAuth.getCurrentUser() == null) {
+    root.addView(body(tr(
+            "Please sign in first.",
+            "براہ کرم پہلے سائن اِن کریں۔"
+    )));
+    Button back = outlineButton(tr("Back", "واپس"));
+    addFull(back);
+    back.setOnClickListener(v -> showHome());
+    return;
+}
+
+String currentUid = mAuth.getCurrentUser().getUid();
+
+section(tr("Incoming Interests", "موصول شدہ دلچسپیاں"));
+
+firestore.collection("interests")
+        .whereEqualTo("toUid", currentUid)
+        .whereEqualTo("status", "pending")
+        .get()
+        .addOnSuccessListener(snapshot -> {
+
+            if (snapshot.isEmpty()) {
+                root.addView(body(tr(
+                        "No pending interests.",
+                        "کوئی زیرِ التوا دلچسپی نہیں۔"
+                )));
+                return;
             }
-        }
 
-        section(tr("Accepted Connections", "قبول شدہ روابط"));
+            for (com.google.firebase.firestore.DocumentSnapshot doc
+                    : snapshot.getDocuments()) {
 
-        if (acceptedConnections.isEmpty()) {
+                String interestId = doc.getId();
+                String fromUid = doc.getString("fromUid");
+
+                if (fromUid == null || fromUid.trim().isEmpty()) {
+                    continue;
+                }
+
+                firestore.collection("users")
+                        .document(fromUid)
+                        .get()
+                        .addOnSuccessListener(userDoc -> {
+
+                            String name = userDoc.getString("name");
+                            String country = userDoc.getString("country");
+                            String city = userDoc.getString("city");
+
+                            if (name == null || name.trim().isEmpty()) {
+                                name = tr("Member", "رکن");
+                            }
+
+                            String location = "";
+
+                            if (city != null && !city.trim().isEmpty()) {
+                                location = city.trim();
+                            }
+
+                            if (country != null && !country.trim().isEmpty()) {
+                                if (!location.isEmpty()) {
+                                    location += ", ";
+                                }
+                                location += country.trim();
+                            }
+
+                            LinearLayout card = card();
+
+                            String displayName = name;
+
+                            if (!location.isEmpty()) {
+                                displayName += " • " + location;
+                            }
+
+                            card.addView(cardText(
+                                    displayName,
+                                    16,
+                                    dark
+                            ));
+
+                            Button accept = appButton(
+                                    tr("Accept Connection",
+                                            "رابطہ قبول کریں")
+                            );
+
+                            Button decline = outlineButton(
+                                    tr("Decline", "انکار")
+                            );
+
+                            card.addView(accept);
+                            card.addView(decline);
+
+                            root.addView(card);
+
+                            accept.setOnClickListener(v -> {
+
+                                accept.setEnabled(false);
+                                decline.setEnabled(false);
+
+                                firestore.collection("interests")
+                                        .document(interestId)
+                                        .update("status", "accepted")
+                                        .addOnSuccessListener(unused -> {
+
+                                            firestore.collection("interests")
+                                                    .whereEqualTo(
+                                                            "fromUid",
+                                                            currentUid
+                                                    )
+                                                    .whereEqualTo(
+                                                            "toUid",
+                                                            fromUid
+                                                    )
+                                                    .whereEqualTo(
+                                                            "status",
+                                                            "pending"
+                                                    )
+                                                    .get()
+                                                    .addOnSuccessListener(
+                                                            reverseSnapshot -> {
+
+                                                        if (reverseSnapshot
+                                                                .isEmpty()) {
+
+                                                            toast(
+                                                                    "Interest accepted. Waiting for mutual acceptance.",
+                                                                    "دلچسپی قبول ہوگئی۔ باہمی رضامندی کا انتظار ہے۔"
+                                                            );
+
+                                                            showInterests();
+                                                            return;
+                                                        }
+
+                                                        String reverseId =
+                                                                reverseSnapshot
+                                                                        .getDocuments()
+                                                                        .get(0)
+                                                                        .getId();
+
+                                                        firestore.collection(
+                                                                        "interests")
+                                                                .document(
+                                                                        reverseId)
+                                                                .update(
+                                                                        "status",
+                                                                        "accepted")
+                                                                .addOnSuccessListener(
+                                                                        ignored -> {
+
+                                                                    Map<String,
+                                                                            Object>
+                                                                            connection =
+                                                                            new HashMap<>();
+
+                                                                    connection.put(
+                                                                            "uid1",
+                                                                            currentUid);
+
+                                                                    connection.put(
+                                                                            "uid2",
+                                                                            fromUid);
+
+                                                                    connection.put(
+                                                                            "status",
+                                                                            "active");
+
+                                                                    connection.put(
+                                                                            "createdAt",
+                                                                            com.google.firebase.firestore.FieldValue
+                                                                                    .serverTimestamp());
+
+                                                                    firestore.collection(
+                                                                                    "connections")
+                                                                            .add(
+                                                                                    connection)
+                                                                            .addOnSuccessListener(
+                                                                                    connectionRef -> {
+
+                                                                                        toast(
+                                                                                                "Connection accepted. Safe Chat is now available.",
+                                                                                                "رابطہ قبول ہوگیا۔ محفوظ چیٹ اب دستیاب ہے۔"
+                                                                                        );
+
+                                                                                        showInterests();
+                                                                                    })
+                                                                            .addOnFailureListener(
+                                                                                    e -> {
+
+                                                                                        toast(
+                                                                                                "Connection could not be created.",
+                                                                                                "رابطہ قائم نہیں ہو سکا۔"
+                                                                                        );
+
+                                                                                        showInterests();
+                                                                                    });
+                                                                })
+                                                                .addOnFailureListener(
+                                                                        e -> {
+
+                                                                            toast(
+                                                                                    "Could not confirm mutual acceptance.",
+                                                                                    "باہمی رضامندی کی تصدیق نہیں ہو سکی۔"
+                                                                            );
+
+                                                                            showInterests();
+                                                                        });
+                                                    })
+                                                    .addOnFailureListener(
+                                                            e -> {
+
+                                                                toast(
+                                                                        "Could not check mutual interest.",
+                                                                        "باہمی دلچسپی چیک نہیں ہو سکی۔"
+                                                                );
+
+                                                                showInterests();
+                                                            });
+                                        })
+                                        .addOnFailureListener(e -> {
+
+                                            accept.setEnabled(true);
+                                            decline.setEnabled(true);
+
+                                            toast(
+                                                    "Could not accept connection.",
+                                                    "رابطہ قبول نہیں ہو سکا۔"
+                                            );
+                                        });
+                            });
+
+                            decline.setOnClickListener(v -> {
+
+                                accept.setEnabled(false);
+                                decline.setEnabled(false);
+
+                                firestore.collection("interests")
+                                        .document(interestId)
+                                        .update("status", "declined")
+                                        .addOnSuccessListener(unused -> {
+
+                                            toast(
+                                                    "Interest declined.",
+                                                    "دلچسپی مسترد کر دی گئی۔"
+                                            );
+
+                                            showInterests();
+                                        })
+                                        .addOnFailureListener(e -> {
+
+                                            accept.setEnabled(true);
+                                            decline.setEnabled(true);
+
+                                            toast(
+                                                    "Could not decline interest.",
+                                                    "دلچسپی مسترد نہیں ہو سکی۔"
+                                            );
+                                        });
+                            });
+                        });
+            }
+        })
+        .addOnFailureListener(e -> {
+
             root.addView(body(tr(
-                    "No accepted connections yet.",
-                    "ابھی کوئی قبول شدہ رابطہ نہیں۔"
+                    "Could not load real interests. Please try again.",
+                    "حقیقی دلچسپیاں لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کریں۔"
             )));
-        } else {
-            for (String key : acceptedConnections) {
-                LinearLayout c = card();
-                c.addView(cardText(
-                        "✓ " + key.replace("|", " • "), 16, dark));
-
-                Button open = outlineButton(
-                        tr("Open Safe Chat", "محفوظ چیٹ کھولیں"));
-                c.addView(open);
-
-                open.setOnClickListener(v -> {
-                    String[] parts = key.split("\\|");
-                    if (parts.length >= 3) {
-                        int idx = findDemo(parts[0], parts[1], parts[2]);
-                        if (idx >= 0) showChat(idx);
-                    }
-                });
-            }
-        }
-
-        Button clear = dangerButton(
-                tr("Clear Local Interest History", "مقامی دلچسپی کی تاریخ صاف کریں"));
-        Button back = outlineButton(tr("Back", "واپس"));
-
-        addFull(clear);
-        addFull(back);
-
-        clear.setOnClickListener(v -> {
-            sentInterests.clear();
-            incomingInterests.clear();
-            acceptedConnections.clear();
-            saveSets();
-            toast("Local connection history cleared.",
-                    "مقامی رابطوں کی تاریخ صاف ہوگئی۔");
-            showInterests();
         });
 
-        back.setOnClickListener(v -> showHome());
-    }
 
-    private int findDemo(String name, String age, String country) {
-        for (int i = 0; i < DEMO_NAMES.length; i++) {
-            if (DEMO_NAMES[i].equals(name)
-                    && DEMO_AGES[i].equals(age)
-                    && DEMO_COUNTRIES[i].equals(country)) {
-                return i;
-            }
-        }
-        return -1;
-    }
+section(tr(
+        "Accepted Connections",
+        "قبول شدہ روابط"
+));
 
+firestore.collection("connections")
+        .whereEqualTo("uid1", currentUid)
+        .whereEqualTo("status", "active")
+        .get()
+        .addOnSuccessListener(firstSnapshot -> {
+
+            firestore.collection("connections")
+                    .whereEqualTo("uid2", currentUid)
+                    .whereEqualTo("status", "active")
+                    .get()
+                    .addOnSuccessListener(secondSnapshot -> {
+
+                        int total =
+                                firstSnapshot.size()
+                                        + secondSnapshot.size();
+
+                        if (total == 0) {
+                            root.addView(body(tr(
+                                    "No accepted connections yet.",
+                                    "ابھی کوئی قبول شدہ رابطہ نہیں۔"
+                            )));
+                            return;
+                        }
+
+                        for (com.google.firebase.firestore.DocumentSnapshot
+                                connection
+                                : firstSnapshot.getDocuments()) {
+
+                            String otherUid =
+                                    connection.getString("uid2");
+
+                            if (otherUid != null) {
+                                addRealConnectionCard(
+                                        otherUid
+                                );
+                            }
+                        }
+
+                        for (com.google.firebase.firestore.DocumentSnapshot
+                                connection
+                                : secondSnapshot.getDocuments()) {
+
+                            String otherUid =
+                                    connection.getString("uid1");
+
+                            if (otherUid != null) {
+                                addRealConnectionCard(
+                                        otherUid
+                                );
+                            }
+                        }
+                    });
+        })
+        .addOnFailureListener(e -> {
+
+            toast(
+                    "Could not load accepted connections.",
+                    "قبول شدہ روابط لوڈ نہیں ہو سکے۔"
+            );
+        });
+
+Button back = outlineButton(
+        tr("Back", "واپس")
+);
+
+addFull(back);
+
+back.setOnClickListener(v -> showHome());
     private void showChat(int i) {
         setupRoot(true);
 
