@@ -2390,56 +2390,163 @@ firestore.collection("interests")
 
                             root.addView(card);
 
-                    accept.setOnClickListener(v -> {
+        accept.setOnClickListener(v -> {
 
     accept.setEnabled(false);
     decline.setEnabled(false);
 
     firestore.collection("interests")
             .document(interestId)
-            .update("status", "accepted")
-            .addOnSuccessListener(unused -> {
+            .get()
+            .addOnSuccessListener(interestDoc -> {
 
+                if (!interestDoc.exists()) {
+                    accept.setEnabled(true);
+                    decline.setEnabled(true);
+
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "This interest no longer exists.",
+                                    "یہ دلچسپی اب موجود نہیں ہے۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    showInterests();
+                    return;
+                }
+
+                String incomingFromUid = interestDoc.getString("fromUid");
+                String incomingToUid = interestDoc.getString("toUid");
+                String incomingStatus = interestDoc.getString("status");
+
+                if (incomingFromUid == null ||
+                        incomingToUid == null ||
+                        !currentUid.equals(incomingToUid)) {
+
+                    accept.setEnabled(true);
+                    decline.setEnabled(true);
+
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "This interest is not valid for your account.",
+                                    "یہ دلچسپی آپ کے اکاؤنٹ کے لیے درست نہیں ہے۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    showInterests();
+                    return;
+                }
+
+                if (!"pending".equals(incomingStatus)) {
+
+                    accept.setEnabled(true);
+                    decline.setEnabled(true);
+
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "This interest has already been processed.",
+                                    "یہ دلچسپی پہلے ہی پراسیس ہو چکی ہے۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    showInterests();
+                    return;
+                }
+
+                String fromUid = incomingFromUid;
+                String toUid = incomingToUid;
+
+                /*
+                 * REAL FIRESTORE MUTUAL CHECK
+                 *
+                 * We only create a connection when the other user
+                 * has also sent an active pending interest back.
+                 */
                 firestore.collection("interests")
-                        .whereEqualTo("fromUid", currentUid)
+                        .whereEqualTo("fromUid", toUid)
                         .whereEqualTo("toUid", fromUid)
                         .whereEqualTo("status", "pending")
+                        .limit(1)
                         .get()
                         .addOnSuccessListener(reverseSnapshot -> {
 
                             if (reverseSnapshot.isEmpty()) {
 
-                                Toast.makeText(
-                                        this,
-                                        tr(
-                                                "Interest accepted. Waiting for mutual acceptance.",
-                                                "دلچسپی قبول ہوگئی۔ باہمی منظوری کا انتظار ہے۔"
-                                        ),
-                                        Toast.LENGTH_SHORT
-                                ).show();
+                                firestore.collection("interests")
+                                        .document(interestId)
+                                        .update("status", "accepted")
+                                        .addOnSuccessListener(unused -> {
 
-                                showInterests();
+                                            Toast.makeText(
+                                                    this,
+                                                    tr(
+                                                            "Interest accepted. Waiting for mutual acceptance.",
+                                                            "دلچسپی قبول ہوگئی۔ باہمی رضامندی کا انتظار ہے۔"
+                                                    ),
+                                                    Toast.LENGTH_SHORT
+                                            ).show();
+
+                                            showInterests();
+
+                                        })
+                                        .addOnFailureListener(e -> {
+
+                                            accept.setEnabled(true);
+                                            decline.setEnabled(true);
+
+                                            Toast.makeText(
+                                                    this,
+                                                    tr(
+                                                            "Could not accept this interest.",
+                                                            "یہ دلچسپی قبول نہیں ہو سکی۔"
+                                                    ),
+                                                    Toast.LENGTH_SHORT
+                                            ).show();
+                                        });
+
                                 return;
                             }
 
-                            String reverseId =
-                                    reverseSnapshot.getDocuments()
-                                            .get(0)
-                                            .getId();
+                            String reverseId = reverseSnapshot
+                                    .getDocuments()
+                                    .get(0)
+                                    .getId();
 
+                            /*
+                             * Stable connection ID.
+                             * Same two users always produce the same ID,
+                             * preventing duplicate connections.
+                             */
                             String uidA;
                             String uidB;
 
-                            if (currentUid.compareTo(fromUid) < 0) {
-                                uidA = currentUid;
-                                uidB = fromUid;
-                            } else {
+                            if (fromUid.compareTo(toUid) < 0) {
                                 uidA = fromUid;
-                                uidB = currentUid;
+                                uidB = toUid;
+                            } else {
+                                uidA = toUid;
+                                uidB = fromUid;
                             }
 
-                            String connectionId =
-                                    uidA + "_" + uidB;
+                            String connectionId = uidA + "_" + uidB;
+
+                            DocumentReference interestRef =
+                                    firestore.collection("interests")
+                                            .document(interestId);
+
+                            DocumentReference reverseRef =
+                                    firestore.collection("interests")
+                                            .document(reverseId);
+
+                            DocumentReference connectionRef =
+                                    firestore.collection("connections")
+                                            .document(connectionId);
 
                             Map<String, Object> connection =
                                     new HashMap<>();
@@ -2453,20 +2560,56 @@ firestore.collection("interests")
                                             .serverTimestamp()
                             );
 
+                            /*
+                             * REAL ATOMIC FIRESTORE TRANSACTION
+                             *
+                             * Both interests are accepted and the
+                             * connection is created together.
+                             */
                             firestore.runTransaction(transaction -> {
 
-                                DocumentReference interestRef =
-                                        firestore.collection("interests")
-                                                .document(interestId);
+                                DocumentSnapshot currentInterest =
+                                        transaction.get(interestRef);
 
-                                DocumentReference reverseRef =
-                                        firestore.collection("interests")
-                                                .document(reverseId);
+                                DocumentSnapshot reverseInterest =
+                                        transaction.get(reverseRef);
 
-                                DocumentReference connectionRef =
-                                        firestore.collection("connections")
-                                                .document(connectionId);
+                                DocumentSnapshot existingConnection =
+                                        transaction.get(connectionRef);
 
+                                if (!currentInterest.exists()) {
+                                    throw new IllegalStateException(
+                                            "Interest does not exist"
+                                    );
+                                }
+
+                                if (!reverseInterest.exists()) {
+                                    throw new IllegalStateException(
+                                            "Mutual interest does not exist"
+                                    );
+                                }
+
+                                String currentStatus =
+                                        currentInterest.getString("status");
+
+                                String reverseStatus =
+                                        reverseInterest.getString("status");
+
+                                if (!"pending".equals(currentStatus)) {
+                                    throw new IllegalStateException(
+                                            "Current interest is no longer pending"
+                                    );
+                                }
+
+                                if (!"pending".equals(reverseStatus)) {
+                                    throw new IllegalStateException(
+                                            "Reverse interest is no longer pending"
+                                    );
+                                }
+
+                                /*
+                                 * Mark BOTH interests as accepted.
+                                 */
                                 transaction.update(
                                         interestRef,
                                         "status",
@@ -2479,10 +2622,16 @@ firestore.collection("interests")
                                         "accepted"
                                 );
 
-                                transaction.set(
-                                        connectionRef,
-                                        connection
-                                );
+                                /*
+                                 * Create the connection only if it does
+                                 * not already exist.
+                                 */
+                                if (!existingConnection.exists()) {
+                                    transaction.set(
+                                            connectionRef,
+                                            connection
+                                    );
+                                }
 
                                 return null;
 
@@ -2492,7 +2641,7 @@ firestore.collection("interests")
                                         this,
                                         tr(
                                                 "Mutual connection created. Safe Chat is now available.",
-                                                "باہمی رابطہ قائم ہوگیا۔ محفوظ چیٹ اب دستیاب ہے۔"
+                                                "باہمی رضامندی مکمل ہوگئی۔ محفوظ چیٹ اب دستیاب ہے۔"
                                         ),
                                         Toast.LENGTH_LONG
                                 ).show();
@@ -2507,10 +2656,10 @@ firestore.collection("interests")
                                 Toast.makeText(
                                         this,
                                         tr(
-                                                "Could not create the mutual connection.",
-                                                "باہمی رابطہ قائم نہیں ہوسکا۔"
+                                                "The mutual connection could not be created. Please try again.",
+                                                "باہمی رابطہ نہیں بن سکا۔ براہ کرم دوبارہ کوشش کریں۔"
                                         ),
-                                        Toast.LENGTH_SHORT
+                                        Toast.LENGTH_LONG
                                 ).show();
                             });
 
@@ -2523,8 +2672,8 @@ firestore.collection("interests")
                             Toast.makeText(
                                     this,
                                     tr(
-                                            "Could not check the mutual interest.",
-                                            "باہمی دلچسپی چیک نہیں ہوسکی۔"
+                                            "Could not check mutual interest.",
+                                            "باہمی دلچسپی چیک نہیں ہو سکی۔"
                                     ),
                                     Toast.LENGTH_SHORT
                             ).show();
@@ -2539,8 +2688,8 @@ firestore.collection("interests")
                 Toast.makeText(
                         this,
                         tr(
-                                "Could not accept this interest.",
-                                "یہ دلچسپی قبول نہیں ہوسکی۔"
+                                "Could not load this interest.",
+                                "یہ دلچسپی لوڈ نہیں ہو سکی۔"
                         ),
                         Toast.LENGTH_SHORT
                 ).show();
@@ -2555,19 +2704,78 @@ decline.setOnClickListener(v -> {
 
     firestore.collection("interests")
             .document(interestId)
-            .update("status", "declined")
-            .addOnSuccessListener(unused -> {
+            .get()
+            .addOnSuccessListener(interestDoc -> {
 
-                Toast.makeText(
-                        this,
-                        tr(
-                                "Interest declined.",
-                                "دلچسپی مسترد کردی گئی۔"
-                        ),
-                        Toast.LENGTH_SHORT
-                ).show();
+                if (!interestDoc.exists()) {
 
-                showInterests();
+                    accept.setEnabled(true);
+                    decline.setEnabled(true);
+
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "This interest no longer exists.",
+                                    "یہ دلچسپی اب موجود نہیں ہے۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    showInterests();
+                    return;
+                }
+
+                String toUid = interestDoc.getString("toUid");
+
+                if (toUid == null || !currentUid.equals(toUid)) {
+
+                    accept.setEnabled(true);
+                    decline.setEnabled(true);
+
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "You cannot decline this interest.",
+                                    "آپ اس دلچسپی کو مسترد نہیں کر سکتے۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    ).show();
+
+                    showInterests();
+                    return;
+                }
+
+                firestore.collection("interests")
+                        .document(interestId)
+                        .update("status", "declined")
+                        .addOnSuccessListener(unused -> {
+
+                            Toast.makeText(
+                                    this,
+                                    tr(
+                                            "Interest declined.",
+                                            "دلچسپی مسترد کر دی گئی۔"
+                                    ),
+                                    Toast.LENGTH_SHORT
+                            ).show();
+
+                            showInterests();
+
+                        })
+                        .addOnFailureListener(e -> {
+
+                            accept.setEnabled(true);
+                            decline.setEnabled(true);
+
+                            Toast.makeText(
+                                    this,
+                                    tr(
+                                            "Could not decline this interest.",
+                                            "دلچسپی مسترد نہیں ہو سکی۔"
+                                    ),
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        });
 
             })
             .addOnFailureListener(e -> {
@@ -2578,22 +2786,12 @@ decline.setOnClickListener(v -> {
                 Toast.makeText(
                         this,
                         tr(
-                                "Could not decline this interest.",
-                                "دلچسپی مسترد نہیں ہوسکی۔"
+                                "Could not load this interest.",
+                                "یہ دلچسپی لوڈ نہیں ہو سکی۔"
                         ),
                         Toast.LENGTH_SHORT
                 ).show();
             });
-            }
-        })
-        .addOnFailureListener(e -> {
-
-            root.addView(body(tr(
-                    "Could not load real interests. Please try again.",
-                    "حقیقی دلچسپیاں لوڈ نہیں ہو سکیں۔ دوبارہ کوشش کریں۔"
-            )));
-        });
-
 
 section(tr(
         "Accepted Connections",
