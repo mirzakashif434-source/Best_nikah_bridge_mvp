@@ -3251,14 +3251,52 @@ back.setOnClickListener(v -> showHome());
                 return;
             }
 
-            reportedProfiles.add(key);
-            blockedProfiles.add(key);
-            saveSets();
+            Map<String, Object> reportData = new HashMap<>();
+reportData.put("reporterUid", myUid);
+reportData.put("reportedUid", key);
+reportData.put("reason", reasons[reason.getSelectedItemPosition()]);
+reportData.put("status", "pending");
+reportData.put("createdAt", FieldValue.serverTimestamp());
 
-            toast(
-                    "Report recorded locally. Production moderation must use a secure backend.",
-                    "رپورٹ مقامی طور پر ریکارڈ ہوگئی۔ پروڈکشن moderation محفوظ بیک اینڈ پر ہونی چاہیے۔"
-            );
+db.collection("reports")
+        .add(reportData)
+        .addOnSuccessListener(reportRef -> {
+
+            Map<String, Object> blockData = new HashMap<>();
+            blockData.put("blockedUid", key);
+            blockData.put("blockedAt", FieldValue.serverTimestamp());
+
+            db.collection("users")
+                    .document(myUid)
+                    .collection("blocked")
+                    .document(key)
+                    .set(blockData)
+                    .addOnSuccessListener(v -> {
+
+                        reportedProfiles.add(key);
+                        blockedProfiles.add(key);
+                        saveSets();
+
+                        toast(
+                                "Report submitted and profile blocked.",
+                                "رپورٹ جمع ہوگئی اور پروفائل بلاک ہوگئی۔"
+                        );
+
+                        showMatches();
+                    })
+                    .addOnFailureListener(e ->
+                            toast(
+                                    "Report saved, but block could not be completed.",
+                                    "رپورٹ محفوظ ہوگئی لیکن بلاک مکمل نہیں ہوسکا۔"
+                            )
+                    );
+        })
+        .addOnFailureListener(e ->
+                toast(
+                        "Report could not be submitted. Please try again.",
+                        "رپورٹ جمع نہیں ہوسکی، دوبارہ کوشش کریں۔"
+                )
+        );
             showMatches();
         });
 
