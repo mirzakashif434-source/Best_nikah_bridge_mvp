@@ -3314,8 +3314,6 @@ batch.commit()
     showMatches();
 });
 
-back.setOnClickListener(v -> showMatches());
-                        }
 
 
 
