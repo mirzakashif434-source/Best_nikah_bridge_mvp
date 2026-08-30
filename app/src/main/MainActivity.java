@@ -152,7 +152,8 @@ public class MainActivity extends Activity {
 
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         mAuth = FirebaseAuth.getInstance();
-         loadSets();
+        firestore = FirebaseFirestore.getInstance();
+        loadSets();
         
         if (!prefs.getBoolean(K_ONBOARDING, false)) {
             showWelcome();
