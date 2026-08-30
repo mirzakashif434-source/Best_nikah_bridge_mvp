@@ -1,6 +1,14 @@
 name: Firebase Production Deploy
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'functions/**'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'firebase.json'
   workflow_dispatch:
 
 jobs:
