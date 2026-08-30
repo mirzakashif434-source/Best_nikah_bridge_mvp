@@ -2109,95 +2109,196 @@ public class MainActivity extends Activity {
             );
         });
 
-        Button interest = appButton(sentInterests.contains(key)
-                ? tr("Interest Sent ✓", "دلچسپی بھیجی ✓")
-                : tr("Express Interest", "دلچسپی ظاہر کریں"));
+        private void showInterests() {
+    setupRoot(true);
 
-        Button chat = outlineButton(
-                tr("Safe Chat (Mutual Only)", "محفوظ چیٹ (صرف باہمی رضامندی)"));
+    root.addView(title(
+            tr("Interests & Connections", "دلچسپیاں اور روابط"), 28));
 
-        Button report = dangerButton(tr("Report / Block", "رپورٹ / بلاک"));
-        Button back = outlineButton(tr("Back to Matches", "میچز پر واپس"));
+    root.addView(subtitle(tr(
+            "Real connections are mutual, respectful and safe.",
+            "حقیقی رابطہ باہمی، باعزت اور محفوظ ہونا چاہیے۔"
+    )));
 
-        addFull(interest);
-        addFull(chat);
-        addFull(report);
-        addFull(back);
-
-        if (sentInterests.contains(key)) {
-            interest.setEnabled(false);
-            interest.setAlpha(0.65f);
-        }
-
-        interest.setOnClickListener(v -> {
-            sentInterests.add(key);
-            saveSets();
-            toast("Interest sent. Wait for mutual acceptance.",
-                    "دلچسپی بھیج دی گئی۔ باہمی رضامندی کا انتظار کریں۔");
-            showProfileDetails(i);
-        });
-
-        chat.setOnClickListener(v -> {
-            if (acceptedConnections.contains(key)) {
-                showChat(i);
-            } else {
-                toast(
-                        "Chat is locked. Both sides must accept the connection.",
-                        "چیٹ بند ہے۔ دونوں طرف سے رابطہ قبول ہونا ضروری ہے۔"
-                );
-            }
-        });
-
-        report.setOnClickListener(v -> showReportBlock(i));
-        back.setOnClickListener(v -> showMatches());
+    if (mAuth.getCurrentUser() == null) {
+        root.addView(body(tr(
+                "Please sign in first.",
+                "براہ کرم پہلے سائن اِن کریں۔"
+        )));
+        return;
     }
 
-    private void showInterests() {
-        setupRoot(true);
+    String currentUid = mAuth.getCurrentUser().getUid();
 
-        root.addView(title(
-                tr("Interests & Connections", "دلچسپیاں اور روابط"), 28));
-        root.addView(subtitle(tr(
-                "A genuine connection should be mutual, respectful and safe.",
-                "حقیقی رابطہ باہمی، باوقار اور محفوظ ہونا چاہیے۔"
-        )));
+    section(tr("Sent Interests", "بھیجی گئی دلچسپیاں"));
 
-        section(tr("Sent Interests", "بھیجی گئی دلچسپیاں"));
+    firestore.collection("interests")
+            .whereEqualTo("fromUid", currentUid)
+            .get()
+            .addOnSuccessListener(snapshot -> {
 
-        if (sentInterests.isEmpty()) {
-            root.addView(body(tr(
-                    "No interests sent yet.",
-                    "ابھی کوئی دلچسپی نہیں بھیجی گئی۔"
-            )));
-        } else {
-            for (String key : sentInterests) {
-                root.addView(body("✓ " + key.replace("|", " • ")));
-            }
-        }
+                if (snapshot.isEmpty()) {
+                    root.addView(body(tr(
+                            "No interests sent yet.",
+                            "ابھی کوئی دلچسپی نہیں بھیجی گئی۔"
+                    )));
+                    return;
+                }
 
-        section(tr("Demo Incoming Interests", "ڈیمو موصول ہونے والی دلچسپیاں"));
+                for (com.google.firebase.firestore.DocumentSnapshot doc
+                        : snapshot.getDocuments()) {
 
-        if (incomingInterests.isEmpty()) {
-            root.addView(body(tr(
-                    "No incoming demo interests.",
-                    "کوئی موصول شدہ ڈیمو دلچسپی نہیں۔"
-            )));
-        } else {
-            for (String key : incomingInterests) {
-                LinearLayout c = card();
-                c.addView(cardText(key.replace("|", " • "), 16, dark));
+                    String toUid = doc.getString("toUid");
+                    String status = doc.getString("status");
 
-                Button accept = appButton(
-                        tr("Accept Connection", "رابطہ قبول کریں"));
-                Button decline = outlineButton(
-                        tr("Decline", "انکار"));
+                    if (toUid == null) continue;
 
-                c.addView(accept);
-                c.addView(decline);
+                    root.addView(cardText(
+                            "→ " + toUid + "   [" +
+                                    (status == null ? "pending" : status) + "]",
+                            16,
+                            dark
+                    ));
+                }
+            })
+            .addOnFailureListener(e ->
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "Could not load sent interests.",
+                                    "بھیجی گئی دلچسپیاں لوڈ نہیں ہو سکیں۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    ).show()
+            );
 
-                accept.setOnClickListener(v -> {
-                    acceptedConnections.add(key);
-                    saveSets();
+    section(tr("Incoming Interests", "موصول ہونے والی دلچسپیاں"));
+
+    firestore.collection("interests")
+            .whereEqualTo("toUid", currentUid)
+            .whereEqualTo("status", "pending")
+            .get()
+            .addOnSuccessListener(snapshot -> {
+
+                if (snapshot.isEmpty()) {
+                    root.addView(body(tr(
+                            "No pending interests.",
+                            "کوئی زیرِ التوا دلچسپی نہیں۔"
+                    )));
+                    return;
+                }
+
+                for (com.google.firebase.firestore.DocumentSnapshot doc
+                        : snapshot.getDocuments()) {
+
+                    String interestId = doc.getId();
+                    String fromUid = doc.getString("fromUid");
+
+                    if (fromUid == null) continue;
+
+                    LinearLayout card = card();
+                    card.addView(cardText(
+                            "Interest from: " + fromUid,
+                            16,
+                            dark
+                    ));
+
+                    Button accept = appButton(
+                            tr("Accept Connection", "رابطہ قبول کریں")
+                    );
+
+                    Button decline = outlineButton(
+                            tr("Decline", "انکار")
+                    );
+
+                    card.addView(accept);
+                    card.addView(decline);
+                    root.addView(card);
+
+                    accept.setOnClickListener(v -> {
+
+                        firestore.collection("interests")
+                                .document(interestId)
+                                .update("status", "accepted")
+                                .addOnSuccessListener(unused -> {
+
+                                    firestore.collection("interests")
+                                            .whereEqualTo("fromUid", currentUid)
+                                            .whereEqualTo("toUid", fromUid)
+                                            .whereEqualTo("status", "pending")
+                                            .get()
+                                            .addOnSuccessListener(reverse -> {
+
+                                                if (!reverse.isEmpty()) {
+
+                                                    String reverseId =
+                                                            reverse.getDocuments()
+                                                                    .get(0)
+                                                                    .getId();
+
+                                                    firestore.collection("interests")
+                                                            .document(reverseId)
+                                                            .update(
+                                                                    "status",
+                                                                    "accepted"
+                                                            );
+                                                }
+
+                                                Toast.makeText(
+                                                        this,
+                                                        tr(
+                                                                "Connection accepted.",
+                                                                "رابطہ قبول ہو گیا۔"
+                                                        ),
+                                                        Toast.LENGTH_SHORT
+                                                ).show();
+
+                                                showInterests();
+                                            });
+                                })
+                                .addOnFailureListener(e ->
+                                        Toast.makeText(
+                                                this,
+                                                tr(
+                                                        "Could not accept connection.",
+                                                        "رابطہ قبول نہیں ہو سکا۔"
+                                                ),
+                                                Toast.LENGTH_SHORT
+                                        ).show()
+                                );
+                    });
+
+                    decline.setOnClickListener(v -> {
+
+                        firestore.collection("interests")
+                                .document(interestId)
+                                .update("status", "declined")
+                                .addOnSuccessListener(unused ->
+                                        showInterests()
+                                )
+                                .addOnFailureListener(e ->
+                                        Toast.makeText(
+                                                this,
+                                                tr(
+                                                        "Could not decline interest.",
+                                                        "دلچسپی مسترد نہیں ہو سکی۔"
+                                                ),
+                                                Toast.LENGTH_SHORT
+                                        ).show()
+                                );
+                    });
+                }
+            })
+            .addOnFailureListener(e ->
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "Could not load incoming interests.",
+                                    "موصول ہونے والی دلچسپیاں لوڈ نہیں ہو سکیں۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    ).show()
+            );
                     toast(
                             "Connection accepted in local demo. Production authorization must be server-side.",
                             "مقامی ڈیمو میں رابطہ قبول ہوگیا۔ پروڈکشن اجازت سرور پر ہونی چاہیے۔"
