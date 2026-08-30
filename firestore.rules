@@ -5,7 +5,13 @@ service cloud.firestore {
     function owner(uid) { return signedIn() && request.auth.uid == uid; }
     function admin() { return signedIn() && request.auth.token.admin == true; }
     function userExists(uid) { return exists(/databases/$(database)/documents/users/$(uid)); }
-    function activeUser(uid) { return userExists(uid) && get(/databases/$(database)/documents/users/$(uid)).data.profileActive == true; }
+    function activeUser(uid) {
+      return userExists(uid)
+        && get(/databases/$(database)/documents/users/$(uid)).data.profileActive == true
+        && get(/databases/$(database)/documents/users/$(uid)).data.discoverable == true
+        && get(/databases/$(database)/documents/users/$(uid)).data.termsAccepted == true
+        && get(/databases/$(database)/documents/users/$(uid)).data.intentConfirmed == true;
+    }
     function pair(a,b) { return a < b ? a + '_' + b : b + '_' + a; }
     function blocked(a,b) { return exists(/databases/$(database)/documents/blocks/$(pair(a,b))); }
     function connected(a,b) {
@@ -16,9 +22,9 @@ service cloud.firestore {
           || (get(/databases/$(database)/documents/connections/$(pair(a,b))).data.uid1 == b && get(/databases/$(database)/documents/connections/$(pair(a,b))).data.uid2 == a));
     }
     match /users/{uid} {
-      allow create: if owner(uid) && request.resource.data.uid == uid && request.resource.data.profileActive == false && request.resource.data.verificationStatus == 'unverified';
-      allow read: if signedIn() && (resource.data.profileActive == true || owner(uid));
-      allow update: if owner(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.verificationStatus == resource.data.verificationStatus;
+      allow create: if owner(uid) && request.resource.data.uid == uid && request.resource.data.profileActive == false && request.resource.data.discoverable == false && request.resource.data.verificationStatus == 'unverified';
+      allow read: if owner(uid) || (signedIn() && resource.data.profileActive == true && resource.data.discoverable == true);
+      allow update: if owner(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.verificationStatus == resource.data.verificationStatus && (request.resource.data.profileActive == false || (request.auth.token.email_verified == true && request.resource.data.profileActive == true && request.resource.data.discoverable == true && request.resource.data.termsAccepted == true && request.resource.data.intentConfirmed == true));
       allow delete: if false;
       match /settings/{id} { allow read,write: if owner(uid); }
     }
