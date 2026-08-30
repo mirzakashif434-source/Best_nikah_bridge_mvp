@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
     private LinearLayout root;
     private SharedPreferences prefs;
     private FirebaseAuth mAuth;
+    private FirebaseFirestore firestore;
     private static final String PREFS = "best_nikah_bridge_v2";
 
     private static final String K_ONBOARDING = "onboarding_done";
