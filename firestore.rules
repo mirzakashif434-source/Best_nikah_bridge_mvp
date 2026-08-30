@@ -2,35 +2,21 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function signedIn() {
-      return request.auth != null;
-    }
-
-    function isOwner(uid) {
-      return signedIn() && request.auth.uid == uid;
-    }
-
-    function userExists(uid) {
-      return exists(/databases/$(database)/documents/users/$(uid));
-    }
-
-    function connectionId(a, b) {
-      return a < b ? a + '_' + b : b + '_' + a;
-    }
-
+    function signedIn() { return request.auth != null; }
+    function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function userExists(uid) { return exists(/databases/$(database)/documents/users/$(uid)); }
+    function pairId(a, b) { return a < b ? a + '_' + b : b + '_' + a; }
     function isConnected(a, b) {
       return signedIn()
-        && exists(/databases/$(database)/documents/connections/$(connectionId(a,b)))
-        && get(/databases/$(database)/documents/connections/$(connectionId(a,b))).data.status == 'active'
+        && exists(/databases/$(database)/documents/connections/$(pairId(a,b)))
+        && get(/databases/$(database)/documents/connections/$(pairId(a,b))).data.status == 'active'
         && (
-          (get(/databases/$(database)/documents/connections/$(connectionId(a,b))).data.uid1 == a
-            && get(/databases/$(database)/documents/connections/$(connectionId(a,b))).data.uid2 == b)
+          (get(/databases/$(database)/documents/connections/$(pairId(a,b))).data.uid1 == a && get(/databases/$(database)/documents/connections/$(pairId(a,b))).data.uid2 == b)
           ||
-          (get(/databases/$(database)/documents/connections/$(connectionId(a,b))).data.uid1 == b
-            && get(/databases/$(database)/documents/connections/$(connectionId(a,b))).data.uid2 == a)
+          (get(/databases/$(database)/documents/connections/$(pairId(a,b))).data.uid1 == b && get(/databases/$(database)/documents/connections/$(pairId(a,b))).data.uid2 == a)
         );
     }
+    function isAdmin() { return signedIn() && request.auth.token.admin == true; }
 
     match /users/{uid} {
       allow create: if isOwner(uid)
@@ -39,23 +25,11 @@ service cloud.firestore {
         && request.resource.data.age is int
         && request.resource.data.age >= 18
         && request.resource.data.age <= 100;
-
-      allow read: if signedIn()
-        && (resource.data.profileActive == true || isOwner(uid));
-
-      allow update: if isOwner(uid)
-        && request.resource.data.uid == resource.data.uid;
-
+      allow read: if signedIn() && (resource.data.profileActive == true || isOwner(uid));
+      allow update: if isOwner(uid) && request.resource.data.uid == resource.data.uid;
       allow delete: if isOwner(uid);
-
-      match /settings/{settingId} {
-        allow read, create, update, delete: if isOwner(uid);
-      }
-
-      match /blocked/{blockedUid} {
-        allow read, create, update, delete: if isOwner(uid)
-          && blockedUid != uid;
-      }
+      match /settings/{settingId} { allow read, create, update, delete: if isOwner(uid); }
+      match /blocked/{blockedUid} { allow read, create, update, delete: if isOwner(uid) && blockedUid != uid; }
     }
 
     match /interests/{interestId} {
@@ -64,67 +38,35 @@ service cloud.firestore {
         && request.resource.data.toUid != request.auth.uid
         && request.resource.data.status == 'pending'
         && userExists(request.resource.data.toUid);
-
-      allow read: if signedIn()
-        && (
-          resource.data.fromUid == request.auth.uid
-          || resource.data.toUid == request.auth.uid
-        );
-
+      allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
       allow update: if signedIn()
         && resource.data.status == 'pending'
-        && (
-          resource.data.toUid == request.auth.uid
-          || resource.data.fromUid == request.auth.uid
-        )
+        && (resource.data.toUid == request.auth.uid || resource.data.fromUid == request.auth.uid)
         && request.resource.data.fromUid == resource.data.fromUid
         && request.resource.data.toUid == resource.data.toUid
         && request.resource.data.status in ['pending', 'accepted', 'declined'];
-
-      allow delete: if signedIn()
-        && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow delete: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
     }
 
+    // Connections are server-authoritative. Clients cannot manufacture an active match.
     match /connections/{connectionId} {
-      allow read: if signedIn()
-        && (
-          resource.data.uid1 == request.auth.uid
-          || resource.data.uid2 == request.auth.uid
-        );
-
-      allow create: if signedIn()
-        && request.resource.data.status == 'active'
-        && request.resource.data.uid1 != request.resource.data.uid2
-        && (request.resource.data.uid1 == request.auth.uid || request.resource.data.uid2 == request.auth.uid)
-        && request.resource.data.uid1 < request.resource.data.uid2
-        && exists(/databases/$(database)/documents/interests/$(request.resource.data.uid1 + '_' + request.resource.data.uid2));
-
-      allow update: if signedIn()
-        && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid)
-        && request.resource.data.uid1 == resource.data.uid1
-        && request.resource.data.uid2 == resource.data.uid2;
-
-      allow delete: if signedIn()
-        && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid);
+      allow read: if signedIn() && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid);
+      allow create, update: if false;
+      allow delete: if signedIn() && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid);
 
       match /messages/{messageId} {
-        allow read: if signedIn()
-          && isConnected(
-            get(/databases/$(database)/documents/connections/$(connectionId)).data.uid1,
-            get(/databases/$(database)/documents/connections/$(connectionId)).data.uid2
-          );
-
+        allow read: if signedIn() && isConnected(
+          get(/databases/$(database)/documents/connections/$(connectionId)).data.uid1,
+          get(/databases/$(database)/documents/connections/$(connectionId)).data.uid2
+        );
         allow create: if signedIn()
           && request.resource.data.fromUid == request.auth.uid
           && request.resource.data.toUid != request.auth.uid
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 4000
-          && isConnected(request.auth.uid, request.resource.data.toUid)
-          && get(/databases/$(database)/documents/connections/$(connectionId)).data.status == 'active';
-
-        allow update, delete: if signedIn()
-          && resource.data.fromUid == request.auth.uid;
+          && isConnected(request.auth.uid, request.resource.data.toUid);
+        allow update, delete: if signedIn() && resource.data.fromUid == request.auth.uid;
       }
     }
 
@@ -133,17 +75,46 @@ service cloud.firestore {
         && request.resource.data.reporterUid == request.auth.uid
         && request.resource.data.reportedUid != request.auth.uid
         && request.resource.data.status == 'pending';
-
       allow read: if signedIn() && resource.data.reporterUid == request.auth.uid;
       allow update, delete: if false;
     }
 
-    match /admin/{document=**} {
-      allow read, write: if false;
+    // Verification status is backend/admin controlled.
+    match /verifications/{verificationId} {
+      allow create: if signedIn() && request.resource.data.userUid == request.auth.uid;
+      allow read: if signedIn() && (resource.data.userUid == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
     }
 
-    match /{document=**} {
-      allow read, write: if false;
+    // Wali relationship requests are created by trusted backend; users only read their own relationship.
+    match /waliConnections/{waliId} {
+      allow create, update: if false;
+      allow read: if signedIn() && (resource.data.userUid == request.auth.uid || resource.data.waliUid == request.auth.uid);
+      allow delete: if signedIn() && (resource.data.userUid == request.auth.uid || resource.data.waliUid == request.auth.uid);
     }
+
+    match /privacy/{uid} { allow read, create, update, delete: if isOwner(uid); }
+    match /blocks/{blockId} {
+      allow create: if signedIn() && request.resource.data.blockerUid == request.auth.uid;
+      allow read, update, delete: if signedIn() && resource.data.blockerUid == request.auth.uid;
+    }
+
+    // Moderation/risk records are never client-writable.
+    match /moderationQueue/{documentId} { allow read, write: if isAdmin(); }
+    match /riskSignals/{documentId} { allow read, write: if isAdmin(); }
+
+    match /deletionRequests/{requestId} {
+      allow create: if signedIn() && request.resource.data.userUid == request.auth.uid;
+      allow read: if signedIn() && (resource.data.userUid == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    match /aiConversations/{conversationId} {
+      allow create: if signedIn() && request.resource.data.userUid == request.auth.uid;
+      allow read, update, delete: if signedIn() && resource.data.userUid == request.auth.uid;
+    }
+
+    match /admin/{document=**} { allow read, write: if isAdmin(); }
+    match /{document=**} { allow read, write: if false; }
   }
 }
