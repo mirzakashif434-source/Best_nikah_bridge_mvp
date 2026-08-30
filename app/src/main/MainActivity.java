@@ -3252,52 +3252,66 @@ back.setOnClickListener(v -> showHome());
             }
 
             Map<String, Object> reportData = new HashMap<>();
+
+if (key == null || key.trim().isEmpty() || key.equals(myUid)) {
+    toast(
+            "Invalid profile.",
+            "یہ پروفائل رپورٹ نہیں ہو سکتی۔"
+    );
+    return;
+}
+
 reportData.put("reporterUid", myUid);
 reportData.put("reportedUid", key);
 reportData.put("reason", reasons[reason.getSelectedItemPosition()]);
 reportData.put("status", "pending");
-reportData.put("createdAt", FieldValue.serverTimestamp());
+reportData.put("action", "reported_and_blocked");
+reportData.put("createdAt",
+        com.google.firebase.firestore.FieldValue.serverTimestamp());
 
-db.collection("reports")
-        .add(reportData)
-        .addOnSuccessListener(reportRef -> {
+Map<String, Object> blockData = new HashMap<>();
+blockData.put("blockedUid", key);
+blockData.put("blockedAt",
+        com.google.firebase.firestore.FieldValue.serverTimestamp());
+blockData.put("source", "report");
 
-            Map<String, Object> blockData = new HashMap<>();
-            blockData.put("blockedUid", key);
-            blockData.put("blockedAt", FieldValue.serverTimestamp());
+com.google.firebase.firestore.DocumentReference reportRef =
+        db.collection("reports").document();
 
-            db.collection("users")
-                    .document(myUid)
-                    .collection("blocked")
-                    .document(key)
-                    .set(blockData)
-                    .addOnSuccessListener(v -> {
+com.google.firebase.firestore.DocumentReference blockRef =
+        db.collection("users")
+                .document(myUid)
+                .collection("blocked")
+                .document(key);
 
-                        reportedProfiles.add(key);
-                        blockedProfiles.add(key);
-                        saveSets();
+com.google.firebase.firestore.WriteBatch batch = db.batch();
 
-                        toast(
-                                "Report submitted and profile blocked.",
-                                "رپورٹ جمع ہوگئی اور پروفائل بلاک ہوگئی۔"
-                        );
+batch.set(reportRef, reportData);
+batch.set(blockRef, blockData);
 
-                        showMatches();
-                    })
-                    .addOnFailureListener(e ->
-                            toast(
-                                    "Report saved, but block could not be completed.",
-                                    "رپورٹ محفوظ ہوگئی لیکن بلاک مکمل نہیں ہوسکا۔"
-                            )
-                    );
-        })
-        .addOnFailureListener(e ->
-                toast(
-                        "Report could not be submitted. Please try again.",
-                        "رپورٹ جمع نہیں ہوسکی، دوبارہ کوشش کریں۔"
-                )
-        );
+batch.commit()
+        .addOnSuccessListener(v -> {
+
+            reportedProfiles.add(key);
+            blockedProfiles.add(key);
+            saveSets();
+
+            toast(
+                    "Report submitted and profile blocked.",
+                    "رپورٹ جمع ہو گئی اور پروفائل بلاک کر دی گئی۔"
+            );
+
             showMatches();
+        })
+        .addOnFailureListener(e -> {
+
+            toast(
+                    "Could not submit report. Please try again.",
+                    "رپورٹ جمع نہیں ہو سکی۔ دوبارہ کوشش کریں۔"
+            );
+        });
+
+showMatches();
         });
 
         back.setOnClickListener(v -> showMatches());
