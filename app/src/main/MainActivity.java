@@ -3311,8 +3311,15 @@ batch.commit()
             );
         });
 
-showMatches();
+        .addOnFailureListener(e -> {
+
+            toast(
+                    "Could not submit report. Please try again.",
+                    "رپورٹ جمع نہیں ہو سکی۔ دوبارہ کوشش کریں۔"
+            );
         });
+
+back.setOnClickListener(v -> showMatches());
 
         back.setOnClickListener(v -> showMatches());
     }
