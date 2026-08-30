@@ -1832,24 +1832,282 @@ public class MainActivity extends Activity {
         String key = profileKey(i);
         int score = calculateCompatibility(i);
 
-        root.addView(title(
-                DEMO_NAMES[i] + " • " + DEMO_AGES[i], 28));
+        firestore.collection("users")
+        .document(key)
+        .get()
+        .addOnSuccessListener(doc -> {
 
-        root.addView(body(
-                tr(
-                        "Demo profile — not a real verified user.\n\n"
-                                + "Location: " + DEMO_CITIES[i] + ", " + DEMO_COUNTRIES[i]
-                                + "\n\nCompatibility: " + score + "%"
-                                + "\n\nWhy this may fit:\n✓ " + DEMO_REASONS[i]
-                                + "\n\nAbout:\n" + DEMO_ABOUT[i]
-                                + "\n\nSafety:\nKeep phone numbers, passwords, OTPs and private documents private until a genuine mutual connection.",
-                        "ڈیمو پروفائل — حقیقی تصدیق شدہ صارف نہیں۔\n\n"
-                                + "مقام: " + DEMO_CITIES[i] + ", " + DEMO_COUNTRIES[i]
-                                + "\n\nمطابقت: " + score + "%"
-                                + "\n\nممکنہ مطابقت:\n✓ " + DEMO_REASONS[i]
-                                + "\n\nتعارف:\n" + DEMO_ABOUT[i]
-                                + "\n\nحفاظت:\nحقیقی باہمی رابطے تک فون نمبر، پاس ورڈ، OTP اور نجی دستاویزات محفوظ رکھیں۔"
-                )));
+            if (!doc.exists()) {
+                Toast.makeText(
+                        this,
+                        tr(
+                                "Profile is no longer available.",
+                                "یہ پروفائل اب دستیاب نہیں ہے۔"
+                        ),
+                        Toast.LENGTH_SHORT
+                ).show();
+                showMatches();
+                return;
+            }
+
+            String name = doc.getString("name");
+            String country = doc.getString("country");
+            String city = doc.getString("city");
+            String gender = doc.getString("gender");
+            String maritalStatus = doc.getString("maritalStatus");
+            String intention = doc.getString("marriageIntent");
+            String practice = doc.getString("religiousPractice");
+            String about = doc.getString("about");
+            String verification = doc.getString("verificationStatus");
+
+            Long ageValue = doc.getLong("age");
+
+            if (name == null || name.trim().isEmpty()) {
+                name = tr("Member", "صارف");
+            }
+
+            if (country == null) country = "";
+            if (city == null) city = "";
+            if (gender == null) gender = "";
+            if (maritalStatus == null) maritalStatus = "";
+            if (intention == null) intention = "";
+            if (practice == null) practice = "";
+            if (about == null) about = "";
+            if (verification == null) verification = "Not requested";
+
+            String location = city.trim();
+
+            if (!location.isEmpty() && !country.trim().isEmpty()) {
+                location = city.trim() + ", " + country.trim();
+            } else if (location.isEmpty()) {
+                location = country.trim();
+            }
+
+            String ageText = "";
+
+            if (ageValue != null) {
+                ageText = String.valueOf(ageValue);
+            }
+
+            String heading = name;
+
+            if (!ageText.isEmpty()) {
+                heading += " • " + ageText;
+            }
+
+            root.addView(title(heading, 28));
+
+            StringBuilder details = new StringBuilder();
+
+            if (!location.isEmpty()) {
+                details.append(
+                        tr("Location: ", "مقام: ")
+                ).append(location).append("\n");
+            }
+
+            if (!gender.trim().isEmpty()) {
+                details.append(
+                        tr("Gender: ", "جنس: ")
+                ).append(gender).append("\n");
+            }
+
+            if (!maritalStatus.trim().isEmpty()) {
+                details.append(
+                        tr("Marital status: ", "ازدواجی حیثیت: ")
+                ).append(maritalStatus).append("\n");
+            }
+
+            if (!intention.trim().isEmpty()) {
+                details.append(
+                        tr("Marriage intention: ", "نکاح کا ارادہ: ")
+                ).append(intention).append("\n");
+            }
+
+            if (!practice.trim().isEmpty()) {
+                details.append(
+                        tr("Religious practice: ", "دینی عمل: ")
+                ).append(practice).append("\n");
+            }
+
+            details.append(
+                    tr("Compatibility: ", "مطابقت: ")
+            ).append(score).append("%\n");
+
+            details.append(
+                    tr("Verification: ", "تصدیق: ")
+            ).append(verification);
+
+            if (!about.trim().isEmpty()) {
+                details.append("\n\n")
+                        .append(
+                                tr("About: ", "تعارف: ")
+                        )
+                        .append(about.trim());
+            }
+
+            details.append("\n\n")
+                    .append(
+                            tr(
+                                    "Safety: Never share your password, OTP or private documents.",
+                                    "حفاظت: اپنا پاس ورڈ، OTP یا نجی دستاویزات کبھی شیئر نہ کریں۔"
+                            )
+                    );
+
+            root.addView(body(details.toString()));
+
+            Button interest = appButton(
+                    sentInterests.contains(key)
+                            ? tr("Interest Sent ✓", "دلچسپی بھیجی ✓")
+                            : tr("Express Interest", "دلچسپی کا اظہار کریں")
+            );
+
+            Button chat = outlineButton(
+                    tr(
+                            "Safe Chat (Mutual Only)",
+                            "محفوظ چیٹ (صرف باہمی رضامندی)"
+                    )
+            );
+
+            Button report = dangerButton(
+                    tr("Report / Block", "رپورٹ / بلاک")
+            );
+
+            Button back = outlineButton(
+                    tr("Back to Matches", "میچز پر واپس")
+            );
+
+            addFull(interest);
+            addFull(chat);
+            addFull(report);
+            addFull(back);
+
+            if (sentInterests.contains(key)) {
+                interest.setEnabled(false);
+                interest.setAlpha(0.65f);
+            }
+
+            interest.setOnClickListener(v -> {
+
+                if (mAuth.getCurrentUser() == null) {
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "Please sign in first.",
+                                    "براہ کرم پہلے سائن اِن کریں۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    );
+                    return;
+                }
+
+                if (sentInterests.contains(key)) {
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "Interest already sent.",
+                                    "دلچسپی پہلے ہی بھیجی جا چکی ہے۔"
+                            ),
+                            Toast.LENGTH_SHORT
+                    );
+                    return;
+                }
+
+                Map<String, Object> interestData = new HashMap<>();
+
+                interestData.put(
+                        "fromUid",
+                        mAuth.getCurrentUser().getUid()
+                );
+
+                interestData.put(
+                        "toUid",
+                        key
+                );
+
+                interestData.put(
+                        "status",
+                        "pending"
+                );
+
+                interestData.put(
+                        "createdAt",
+                        com.google.firebase.firestore.FieldValue
+                                .serverTimestamp()
+                );
+
+                firestore.collection("interests")
+                        .add(interestData)
+                        .addOnSuccessListener(ref -> {
+
+                            sentInterests.add(key);
+                            saveSets();
+
+                            interest.setEnabled(false);
+                            interest.setText(
+                                    tr(
+                                            "Interest Sent ✓",
+                                            "دلچسپی بھیجی ✓"
+                                    )
+                            );
+                            interest.setAlpha(0.65f);
+
+                            Toast.makeText(
+                                    this,
+                                    tr(
+                                            "Interest sent securely.",
+                                            "دلچسپی محفوظ طریقے سے بھیج دی گئی۔"
+                                    ),
+                                    Toast.LENGTH_SHORT
+                            );
+                        })
+                        .addOnFailureListener(e -> {
+
+                            Toast.makeText(
+                                    this,
+                                    tr(
+                                            "Could not send interest. Please try again.",
+                                            "دلچسپی نہیں بھیجی جا سکی۔ دوبارہ کوشش کریں۔"
+                                    ),
+                                    Toast.LENGTH_SHORT
+                            );
+                        });
+            });
+
+            chat.setOnClickListener(v -> {
+
+                if (acceptedConnections.contains(key)) {
+                    showChat(i);
+                } else {
+                    Toast.makeText(
+                            this,
+                            tr(
+                                    "Chat is locked. Both sides must accept the connection.",
+                                    "چیٹ بند ہے۔ دونوں طرف سے رابطہ قبول ہونا ضروری ہے۔"
+                            ),
+                            Toast.LENGTH_LONG
+                    ).show();
+                }
+            });
+
+            report.setOnClickListener(
+                    v -> showReportBlock(i)
+            );
+
+            back.setOnClickListener(
+                    v -> showMatches()
+            );
+        })
+        .addOnFailureListener(e -> {
+
+            Toast.makeText(
+                    this,
+                    tr(
+                            "Could not load real profile. Please try again.",
+                            "حقیقی پروفائل لوڈ نہیں ہو سکا۔ دوبارہ کوشش کریں۔"
+                    ),
+                    Toast.LENGTH_SHORT
+            );
+        });
 
         Button interest = appButton(sentInterests.contains(key)
                 ? tr("Interest Sent ✓", "دلچسپی بھیجی ✓")
