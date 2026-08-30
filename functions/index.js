@@ -7,56 +7,13 @@ const F = admin.firestore.FieldValue;
 function auth(req){if(!req.auth)throw new HttpsError('unauthenticated','Sign-in required.');return req.auth.uid;}
 function pair(a,b){if(!a||!b||a===b)throw new HttpsError('invalid-argument','Two different users are required.');return [a,b].sort().join('_');}
 function isAdmin(req){return !!(req.auth&&req.auth.token&&req.auth.token.admin===true);}
-
-exports.createMutualConnection=onCall(async req=>{
- const uid=auth(req), other=String(req.data?.otherUid||''); if(!other||other===uid)throw new HttpsError('invalid-argument','Invalid match.');
- const id=pair(uid,other), ref=db.collection('connections').doc(id);
- const [a,b]=await Promise.all([
-  db.collection('interests').where('fromUid','==',uid).where('toUid','==',other).where('status','==','accepted').limit(1).get(),
-  db.collection('interests').where('fromUid','==',other).where('toUid','==',uid).where('status','==','accepted').limit(1).get()
- ]);
- if(a.empty||b.empty)throw new HttpsError('failed-precondition','Both users must accept the interest.');
- await ref.set({uid1:id.split('_')[0],uid2:id.split('_')[1],status:'active',createdAt:F.serverTimestamp(),createdBy:uid},{merge:true});
- return {connectionId:id,status:'active'};
-});
-
-exports.requestWaliConnection=onCall(async req=>{
- const uid=auth(req), wali=String(req.data?.waliUid||''); if(!wali||wali===uid)throw new HttpsError('invalid-argument','Invalid Wali.');
- if(!(await db.collection('users').doc(wali).get()).exists)throw new HttpsError('not-found','Wali account not found.');
- await db.collection('waliConnections').doc(`${uid}_${wali}`).set({userUid:uid,waliUid:wali,status:'pending',requestedBy:uid,updatedAt:F.serverTimestamp()},{merge:true});
- return {status:'pending'};
-});
-
-exports.deleteMyAccount=onCall(async req=>{
- const uid=auth(req);
- const deleteQuery=async(q)=>{let snap=await q.limit(400).get();while(!snap.empty){await Promise.all(snap.docs.map(d=>db.recursiveDelete(d.ref)));snap=await q.limit(400).get();}};
- await db.recursiveDelete(db.collection('users').doc(uid));
- await deleteQuery(db.collection('interests').where('fromUid','==',uid));
- await deleteQuery(db.collection('interests').where('toUid','==',uid));
- await deleteQuery(db.collection('reports').where('reporterUid','==',uid));
- await deleteQuery(db.collection('reports').where('reportedUid','==',uid));
- await deleteQuery(db.collection('verifications').where('userUid','==',uid));
- await deleteQuery(db.collection('waliConnections').where('userUid','==',uid));
- await deleteQuery(db.collection('waliConnections').where('waliUid','==',uid));
- const c1=await db.collection('connections').where('uid1','==',uid).get(); const c2=await db.collection('connections').where('uid2','==',uid).get();
- await Promise.all([...c1.docs,...c2.docs].map(d=>db.recursiveDelete(d.ref)));
- await deleteQuery(db.collection('deletionRequests').where('userUid','==',uid));
- await admin.auth().deleteUser(uid);
- return {deleted:true};
-});
-
-exports.queueReport=onDocumentCreated('reports/{reportId}',async event=>{
- const r=event.data?.data();if(!r)return;
- await db.collection('moderationQueue').doc(event.params.reportId).set({reportId:event.params.reportId,reporterUid:r.reporterUid||null,reportedUid:r.reportedUid||null,reason:r.reason||'unspecified',status:'pending',createdAt:F.serverTimestamp()},{merge:true});
-});
-exports.setModerationDecision=onCall(async req=>{
- if(!isAdmin(req))throw new HttpsError('permission-denied','Admin access required.');
- const id=String(req.data?.reportId||''),decision=String(req.data?.decision||'');if(!id||!['reviewed','actioned','dismissed'].includes(decision))throw new HttpsError('invalid-argument','Invalid decision.');
- await db.collection('moderationQueue').doc(id).set({status:decision,moderatorUid:req.auth.uid,decidedAt:F.serverTimestamp()},{merge:true});return {status:decision};
-});
-exports.setVerificationStatus=onCall(async req=>{
- if(!isAdmin(req))throw new HttpsError('permission-denied','Admin access required.');
- const uid=String(req.data?.userUid||''),status=String(req.data?.status||'');if(!uid||!['verified','rejected','unverified'].includes(status))throw new HttpsError('invalid-argument','Invalid verification status.');
- await db.collection('users').doc(uid).update({verificationStatus:status,verificationUpdatedAt:F.serverTimestamp(),verificationBy:req.auth.uid});
- return {status};
-});
+async function activeUser(uid){const d=await db.collection('users').doc(uid).get();if(!d.exists||d.data().profileActive!==true)throw new HttpsError('failed-precondition','Profile is not active.');return d;}
+exports.sendInterest=onCall(async req=>{const uid=auth(req),other=String(req.data?.toUid||'');if(!other||other===uid)throw new HttpsError('invalid-argument','Invalid match.');await activeUser(uid);await activeUser(other);const id=`${uid}_${other}`,ref=db.collection('interests').doc(id),existing=await ref.get();if(existing.exists&&['pending','accepted'].includes(String(existing.data().status||'')))throw new HttpsError('already-exists','Interest already exists.');await ref.set({fromUid:uid,toUid:other,status:'pending',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()});return {interestId:id,status:'pending'};});
+exports.respondToInterest=onCall(async req=>{const uid=auth(req),interestId=String(req.data?.interestId||''),decision=String(req.data?.decision||'');if(!interestId||!['accepted','declined'].includes(decision))throw new HttpsError('invalid-argument','Invalid interest response.');const ref=db.collection('interests').doc(interestId),snap=await ref.get();if(!snap.exists)throw new HttpsError('not-found','Interest not found.');const data=snap.data();if(data.toUid!==uid||data.status!=='pending')throw new HttpsError('permission-denied','You cannot change this interest.');await ref.update({status:decision,updatedAt:F.serverTimestamp(),respondedAt:F.serverTimestamp()});if(decision==='declined')return {status:decision};const reverse=await db.collection('interests').doc(`${data.toUid}_${data.fromUid}`).get();if(reverse.exists&&reverse.data().status==='accepted'){const connectionId=pair(data.fromUid,data.toUid);await db.collection('connections').doc(connectionId).set({uid1:connectionId.split('_')[0],uid2:connectionId.split('_')[1],status:'active',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()},{merge:true});return {status:'accepted',mutual:true,connectionId};}return {status:'accepted',mutual:false};});
+exports.createMutualConnection=onCall(async req=>{const uid=auth(req),other=String(req.data?.otherUid||'');if(!other||other===uid)throw new HttpsError('invalid-argument','Invalid match.');const id=pair(uid,other);const[a,b]=await Promise.all([db.collection('interests').where('fromUid','==',uid).where('toUid','==',other).where('status','==','accepted').limit(1).get(),db.collection('interests').where('fromUid','==',other).where('toUid','==',uid).where('status','==','accepted').limit(1).get()]);if(a.empty||b.empty)throw new HttpsError('failed-precondition','Both users must accept the interest.');await db.collection('connections').doc(id).set({uid1:id.split('_')[0],uid2:id.split('_')[1],status:'active',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp(),createdBy:uid},{merge:true});return {connectionId:id,status:'active'};});
+exports.blockUser=onCall(async req=>{const uid=auth(req),other=String(req.data?.blockedUid||'');if(!other||other===uid)throw new HttpsError('invalid-argument','Invalid user.');await activeUser(other);const id=pair(uid,other);await db.collection('blocks').doc(id).set({blockerUid:uid,blockedUid:other,createdAt:F.serverTimestamp(),active:true},{merge:true});const connection=await db.collection('connections').doc(id).get();if(connection.exists)await connection.ref.update({status:'blocked',blockedBy:uid,blockedAt:F.serverTimestamp()});return {blocked:true};});
+exports.requestWaliConnection=onCall(async req=>{const uid=auth(req),wali=String(req.data?.waliUid||'');if(!wali||wali===uid)throw new HttpsError('invalid-argument','Invalid Wali.');if(!(await db.collection('users').doc(wali).get()).exists)throw new HttpsError('not-found','Wali account not found.');await db.collection('waliConnections').doc(`${uid}_${wali}`).set({userUid:uid,waliUid:wali,status:'pending',requestedBy:uid,updatedAt:F.serverTimestamp()},{merge:true});return {status:'pending'};});
+exports.deleteMyAccount=onCall(async req=>{const uid=auth(req);const deleteQuery=async q=>{let snap=await q.limit(400).get();while(!snap.empty){await Promise.all(snap.docs.map(d=>db.recursiveDelete(d.ref)));snap=await q.limit(400).get();}};await db.recursiveDelete(db.collection('users').doc(uid));for(const q of [db.collection('interests').where('fromUid','==',uid),db.collection('interests').where('toUid','==',uid),db.collection('reports').where('reporterUid','==',uid),db.collection('reports').where('reportedUid','==',uid),db.collection('verifications').where('userUid','==',uid),db.collection('waliConnections').where('userUid','==',uid),db.collection('waliConnections').where('waliUid','==',uid),db.collection('blocks').where('blockerUid','==',uid),db.collection('blocks').where('blockedUid','==',uid)])await deleteQuery(q);const[c1,c2]=await Promise.all([db.collection('connections').where('uid1','==',uid).get(),db.collection('connections').where('uid2','==',uid).get()]);await Promise.all([...c1.docs,...c2.docs].map(d=>db.recursiveDelete(d.ref)));await admin.auth().deleteUser(uid);return {deleted:true};});
+exports.queueReport=onDocumentCreated('reports/{reportId}',async event=>{const r=event.data?.data();if(!r)return;await db.collection('moderationQueue').doc(event.params.reportId).set({reportId:event.params.reportId,reporterUid:r.reporterUid||null,reportedUid:r.reportedUid||null,reason:r.reason||'unspecified',status:'pending',createdAt:F.serverTimestamp()},{merge:true});});
+exports.setModerationDecision=onCall(async req=>{if(!isAdmin(req))throw new HttpsError('permission-denied','Admin access required.');const id=String(req.data?.reportId||''),decision=String(req.data?.decision||'');if(!id||!['reviewed','actioned','dismissed'].includes(decision))throw new HttpsError('invalid-argument','Invalid decision.');await db.collection('moderationQueue').doc(id).set({status:decision,moderatorUid:req.auth.uid,decidedAt:F.serverTimestamp()},{merge:true});return {status:decision};});
+exports.setVerificationStatus=onCall(async req=>{if(!isAdmin(req))throw new HttpsError('permission-denied','Admin access required.');const uid=String(req.data?.userUid||''),status=String(req.data?.status||'');if(!uid||!['verified','rejected','unverified'].includes(status))throw new HttpsError('invalid-argument','Invalid verification status.');await db.collection('users').doc(uid).update({verificationStatus:status,verificationUpdatedAt:F.serverTimestamp(),verificationBy:req.auth.uid});return {status};});
