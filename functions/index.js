@@ -41,3 +41,27 @@ const PAID_PRODUCTS={bnb_plus_20:{tier:'plus20',messageCredits:10},bnb_plus_40:{
 let publisherPromise=null;
 async function publisher(){ if(!publisherPromise){const raw=process.env.PLAY_SERVICE_ACCOUNT_JSON;if(!raw)throw new Error('PLAY_SERVICE_ACCOUNT_JSON is not configured.');const credentials=JSON.parse(raw);const c=new google.auth.GoogleAuth({credentials,scopes:['https://www.googleapis.com/auth/androidpublisher']});publisherPromise=c.getClient().then(client=>{google.options({auth:client});return google.androidpublisher('v3');});}return publisherPromise; }
 exports.verifyGooglePlayPurchase=onCall(async req=>{ const uid=auth(req),productId=String(req.data?.productId||''),token=String(req.data?.purchaseToken||''),product=PAID_PRODUCTS[productId];if(!product||!token)throw new HttpsError('invalid-argument','Invalid purchase.');let api;try{api=await publisher();}catch(e){throw new HttpsError('failed-precondition','Purchase verification service is not configured.');}let purchase;try{purchase=(await api.purchases.products.get({packageName:'com.nikahbridge',productId,token})).data;}catch(e){throw new HttpsError('permission-denied','Google Play purchase could not be verified.');}if(Number(purchase.purchaseState)!==0)throw new HttpsError('failed-precondition','Purchase is not completed.');const ref=db.collection('playPurchases').doc(String(purchase.orderId||token)),old=await ref.get();if(old.exists&&old.data().uid!==uid)throw new HttpsError('permission-denied','Purchase belongs to another account.');await ref.set({uid,productId,orderId:purchase.orderId||null,purchaseToken:token,verifiedAt:F.serverTimestamp(),tier:product.tier,messageCredits:product.messageCredits},{merge:true});await db.collection('entitlements').doc(uid).set({uid,paidTier:product.tier,messageCredits:F.increment(product.messageCredits),lastPurchaseId:purchase.orderId||token,updatedAt:F.serverTimestamp()},{merge:true});if(Number(purchase.acknowledgementState)===0){try{await api.purchases.products.acknowledge({packageName:'com.nikahbridge',productId,token,requestBody:{}});}catch(e){}}return{verified:true,tier:product.tier,messageCredits:product.messageCredits}; });
+
+exports.sendLike=onCall(async req=>{
+  const uid=auth(req), toUid=String(req.data?.toUid||'');
+  if(!toUid||toUid===uid) throw new HttpsError('invalid-argument','Invalid like target.');
+  await activeUser(uid,req); await activeUser(toUid);
+  if(await blocked(uid,toUid)) throw new HttpsError('permission-denied','This profile is blocked.');
+  const day=new Date().toISOString().slice(0,10), counterRef=db.collection('dailyLikes').doc(`${uid}_${day}`), likeRef=db.collection('likes').doc(`${uid}_${toUid}`);
+  return db.runTransaction(async tx=>{
+    const [counter,old]=await Promise.all([tx.get(counterRef),tx.get(likeRef)]);
+    if(old.exists&&old.data()?.active===true) throw new HttpsError('already-exists','Like already sent.');
+    const count=Number(counter.exists?counter.data()?.count||0:0);
+    if(count>=20) throw new HttpsError('resource-exhausted','Daily like limit of 20 reached.');
+    tx.set(counterRef,{uid,day,count:count+1,updatedAt:F.serverTimestamp()},{merge:true});
+    tx.set(likeRef,{fromUid:uid,toUid,status:'active',day,createdAt:F.serverTimestamp()},{merge:true});
+    return {sent:true,remaining:19-count};
+  });
+});
+
+exports.claimRewardedMessageCredit=onCall(async req=>{
+  const uid=auth(req); await activeUser(uid,req);
+  const source=String(req.data?.source||''); if(source!=='rewarded_ad') throw new HttpsError('invalid-argument','Invalid reward source.');
+  const ref=db.collection('entitlements').doc(uid);
+  return db.runTransaction(async tx=>{ const s=await tx.get(ref),d=s.exists?s.data():{}; const today=new Date().toISOString().slice(0,10); const used=String(d.rewardedAdDay||'')===today?Number(d.rewardedAdsToday||0):0; if(used>=2) throw new HttpsError('resource-exhausted','Two rewarded message credits already claimed today.'); tx.set(ref,{uid,rewardedAdDay:today,rewardedAdsToday:used+1,messageCredits:F.increment(1),updatedAt:F.serverTimestamp()},{merge:true}); return {granted:true,remainingAds:1-used}; });
+});
