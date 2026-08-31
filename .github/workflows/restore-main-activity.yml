@@ -1,0 +1,22 @@
+name: Recover MainActivity
+on:
+  push:
+    branches: [ main ]
+permissions:
+  contents: write
+jobs:
+  recover:
+    if: ${{ !startsWith(github.event.head_commit.message, 'RESTORE_MAIN_ACTIVITY') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore production MainActivity from known-good commit
+        run: |
+          git checkout 167d6efa52ee130805c17136a4fa7b86d75a3222 -- app/src/main/MainActivity.java
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/main/MainActivity.java
+          git commit -m "RESTORE_MAIN_ACTIVITY production source"
+          git push
