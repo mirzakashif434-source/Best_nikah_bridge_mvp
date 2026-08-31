@@ -1,0 +1,65 @@
+name: Complete Rewarded Ads and Family Production
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add server-authoritative rewarded message credits
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('functions/index.js')
+          s=p.read_text()
+          marker="exports.sendLike=onCall(async req=>{"
+          fn=r'''// Server-authoritative rewarded-ad credits: maximum 2 verified claims per UTC day.
+exports.claimRewardedMessageCredit=onCall(async req=>{
+  const uid=auth(req); await activeUser(uid,req);
+  if(String(req.data?.source||'')!=='rewarded_ad') throw new HttpsError('invalid-argument','Invalid reward source.');
+  const day=new Date().toISOString().slice(0,10);
+  const claimRef=db.collection('dailyRewardClaims').doc(`${uid}_${day}`);
+  const entRef=db.collection('entitlements').doc(uid);
+  return db.runTransaction(async tx=>{
+    const [claimSnap,entSnap]=await Promise.all([tx.get(claimRef),tx.get(entRef)]);
+    const used=Number(claimSnap.exists?claimSnap.data()?.count||0:0);
+    if(used>=2) throw new HttpsError('resource-exhausted','Maximum 2 rewarded message credits per day reached.');
+    const credits=Number(entSnap.exists?entSnap.data()?.messageCredits||0:0);
+    tx.set(claimRef,{uid,day,count:used+1,updatedAt:F.serverTimestamp()},{merge:true});
+    tx.set(entRef,{uid,messageCredits:credits+1,lastRewardedClaimAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()},{merge:true});
+    return {granted:true,remainingClaims:1-used};
+  });
+});
+
+'''
+          if 'exports.claimRewardedMessageCredit=onCall' not in s:
+              if marker not in s: raise SystemExit('sendLike insertion point not found')
+              p.write_text(s.replace(marker,fn+marker,1))
+
+      - name: Validate real production sources
+        run: |
+          node --check functions/index.js
+          test -f app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -q 'getHttpsCallable("sendLike")' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -q 'getHttpsCallable("createFamilyBridge")' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -q 'getHttpsCallable("sendFamilyQuestion")' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -q 'getHttpsCallable("claimRewardedMessageCredit")' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -q 'exports.claimRewardedMessageCredit=onCall' functions/index.js
+          git diff --check
+
+      - name: Commit server completion
+        run: |
+          if git diff --quiet; then echo "No changes needed."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add functions/index.js
+          git commit -m "Add real rewarded message credit enforcement"
+          git push
