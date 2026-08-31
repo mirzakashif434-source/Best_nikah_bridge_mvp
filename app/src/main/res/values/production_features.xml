@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Must be replaced with the app owner's real AdMob rewarded unit before production ad monetization. Never use a demo ID in release. -->
+    <string name="admob_rewarded_unit_id" translatable="false"></string>
+</resources>
