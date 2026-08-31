@@ -1,4 +1,5 @@
 name: Android Release AAB
+# Production release validation trigger: compile, sign, and package the real app only.
 
 on:
   push:
@@ -109,7 +110,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add app/src/main/java/com/nikahbridge/ProductionMainActivity.java
-            git commit -m "Fix production Likes method syntax and UI [skip ci]"
+            git commit -m "Fix production Likes method syntax [skip ci]"
             git push origin HEAD:main
           fi
 
@@ -151,9 +152,7 @@ jobs:
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          keytool -list \
-            -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" \
-            -storepass "$KEYSTORE_PASSWORD"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD"
 
       - name: Build signed Release AAB
         env:
