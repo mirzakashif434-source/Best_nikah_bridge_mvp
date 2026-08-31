@@ -15,16 +15,20 @@ function pair(a,b){
   return [a,b].sort().join('_');
 }
 function isAdmin(req){ return !!(req.auth&&req.auth.token&&req.auth.token.admin===true); }
-async function activeUser(uid){
+async function activeUser(uid, req){
   const d=await db.collection('users').doc(uid).get();
-  if(!d.exists||d.data().profileActive!==true) throw new HttpsError('failed-precondition','Profile is not active.');
+  const data=d.data()||{};
+  if(!d.exists || data.profileActive!==true || data.discoverable!==true || data.termsAccepted!==true || data.intentConfirmed!==true)
+    throw new HttpsError('failed-precondition','Profile is not active for this action.');
+  if(req && uid===req.auth.uid && req.auth.token.email_verified!==true)
+    throw new HttpsError('failed-precondition','Email verification is required.');
   return d;
 }
 
 exports.sendInterest=onCall(async req=>{
   const uid=auth(req),other=String(req.data?.toUid||'');
   if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid match.');
-  await activeUser(uid); await activeUser(other);
+  await activeUser(uid,req); await activeUser(other);
   const id=`${uid}_${other}`;
   const ref=db.collection('interests').doc(id);
   const existing=await ref.get();
@@ -50,6 +54,7 @@ exports.respondToInterest=onCall(async req=>{
 exports.createMutualConnection=onCall(async req=>{
   const uid=auth(req),other=String(req.data?.otherUid||'');
   if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid match.');
+  await activeUser(uid,req);
   const id=pair(uid,other);
   const[a,b]=await Promise.all([
     db.collection('interests').where('fromUid','==',uid).where('toUid','==',other).where('status','==','accepted').limit(1).get(),
@@ -63,7 +68,7 @@ exports.createMutualConnection=onCall(async req=>{
 exports.blockUser=onCall(async req=>{
   const uid=auth(req),other=String(req.data?.blockedUid||'');
   if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid user.');
-  await activeUser(other);
+  await activeUser(uid,req); await activeUser(other);
   const id=pair(uid,other);
   await db.collection('blocks').doc(id).set({blockerUid:uid,blockedUid:other,createdAt:F.serverTimestamp(),active:true},{merge:true});
   const connection=await db.collection('connections').doc(id).get();
@@ -74,6 +79,7 @@ exports.blockUser=onCall(async req=>{
 exports.requestWaliConnection=onCall(async req=>{
   const uid=auth(req),wali=String(req.data?.waliUid||'');
   if(!wali||wali===uid) throw new HttpsError('invalid-argument','Invalid Wali.');
+  await activeUser(uid,req);
   if(!(await db.collection('users').doc(wali).get()).exists) throw new HttpsError('not-found','Wali account not found.');
   await db.collection('waliConnections').doc(`${uid}_${wali}`).set({userUid:uid,waliUid:wali,status:'pending',requestedBy:uid,updatedAt:F.serverTimestamp()},{merge:true});
   return {status:'pending'};
@@ -98,7 +104,7 @@ exports.deleteMyAccount=onCall(async req=>{
 
 // Free benefit: exactly one boost per 8-day window. The server timestamp is authoritative.
 exports.claimFreeBoost=onCall(async req=>{
-  const uid=auth(req); await activeUser(uid);
+  const uid=auth(req); await activeUser(uid,req);
   const ref=db.collection('entitlements').doc(uid);
   return db.runTransaction(async tx=>{
     const snap=await tx.get(ref); const data=snap.exists?snap.data():{};
