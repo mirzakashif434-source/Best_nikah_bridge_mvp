@@ -83,8 +83,8 @@ service cloud.firestore {
       allow create,update,delete: if false;
       match /messages/{messageId} {
         allow read: if signedIn()
-          && connected(resource.data.fromUid,resource.data.toUid)
-          && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+          && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid)
+          && connected(resource.data.fromUid,resource.data.toUid);
         allow create: if signedIn()
           && request.resource.data.fromUid == request.auth.uid
           && request.resource.data.toUid != request.auth.uid
@@ -120,6 +120,19 @@ service cloud.firestore {
       allow read: if signedIn() && (resource.data.userUid == request.auth.uid || resource.data.waliUid == request.auth.uid);
       allow write,delete: if false;
     }
+
+    // Family Bridge: callable Cloud Functions create/update these records;
+    // clients may only read a bridge when they are a listed participant.
+    match /familyBridges/{bridgeId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+      allow create,update,delete: if false;
+      match /questions/{questionId} {
+        allow read: if signedIn()
+          && get(/databases/$(database)/documents/familyBridges/$(bridgeId)).data.participants.hasAny([request.auth.uid]);
+        allow create,update,delete: if false;
+      }
+    }
+
     match /privacy/{uid} { allow read,write: if owner(uid); }
     match /entitlements/{uid} { allow read: if owner(uid); allow write,delete: if false; }
     match /playPurchases/{id} { allow read: if admin(); allow write,delete: if false; }
