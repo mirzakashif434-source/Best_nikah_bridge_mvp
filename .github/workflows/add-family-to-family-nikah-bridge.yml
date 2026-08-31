@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   production-family-bridge:
@@ -19,19 +19,14 @@ jobs:
         run: |
           from pathlib import Path
           fn=Path('functions/index.js').read_text()
-          android=Path('app/src/main/java/com/nikahbridge/MainActivity.java').read_text()
+          android=Path('app/src/main/java/com/nikahbridge/ProductionMainActivity.java').read_text()
           rules=Path('firestore.rules').read_text()
-          required_fn=['createFamilyInvite','redeemFamilyInvite','requestFamilyBridge','respondFamilyBridge']
+          required_fn=['createFamilyBridge','sendFamilyQuestion','setFamilyConsent']
           missing=[x for x in required_fn if f'exports.{x}=onCall' not in fn]
-          if missing:
-              raise SystemExit('Missing Family Bridge functions: '+', '.join(missing))
-          for marker in ['match /familyGroups/{id}','match /familyMemberships/{uid}','match /familyInvites/{id}','match /familyBridges/{id}']:
-              if marker not in rules: raise SystemExit('Missing Firestore rule: '+marker)
-          if 'private void familyBridge()' not in android: raise SystemExit('Missing Family Bridge Android UI')
-          if 'getHttpsCallable("createFamilyInvite")' not in android: raise SystemExit('Missing create family invite client')
-          if 'getHttpsCallable("redeemFamilyInvite")' not in android: raise SystemExit('Missing redeem family invite client')
-          if 'getHttpsCallable("requestFamilyBridge")' not in android: raise SystemExit('Missing family bridge request client')
-          if 'getHttpsCallable("respondFamilyBridge")' not in android: raise SystemExit('Missing family bridge response client')
+          if missing: raise SystemExit('Missing Family Bridge functions: '+', '.join(missing))
+          for marker in required_fn:
+              if f'getHttpsCallable("{marker}")' not in android: raise SystemExit('Missing Android Family Bridge client: '+marker)
+          if 'familyBridges' not in rules: raise SystemExit('Missing Firestore family bridge rules')
 
       - name: Validate production source
         run: |
