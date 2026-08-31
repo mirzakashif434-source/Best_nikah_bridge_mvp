@@ -256,7 +256,8 @@ public class ProductionMainActivity extends Activity {
         if (unit.trim().isEmpty()) {
             status.setText("AdMob production rewarded unit is not configured. No reward is granted. Add the real AdMob rewarded unit ID before monetization.");
         } else {
-            MobileAds.initialize(this, s -> loadReward(unit, status));
+            final String productionUnit = unit.trim();
+            MobileAds.initialize(this, s -> loadReward(productionUnit, status));
         }
         Button back = bt("Back", false);
         back.setOnClickListener(v -> home());
