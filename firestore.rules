@@ -6,21 +6,11 @@ service cloud.firestore {
     function admin() { return signedIn() && request.auth.token.admin == true; }
     function userExists(uid) { return exists(/databases/$(database)/documents/users/$(uid)); }
     function activeUser(uid) {
-      return userExists(uid)
-        && get(/databases/$(database)/documents/users/$(uid)).data.profileActive == true
-        && get(/databases/$(database)/documents/users/$(uid)).data.discoverable == true
-        && get(/databases/$(database)/documents/users/$(uid)).data.termsAccepted == true
-        && get(/databases/$(database)/documents/users/$(uid)).data.intentConfirmed == true;
+      return userExists(uid) && get(/databases/$(database)/documents/users/$(uid)).data.profileActive == true && get(/databases/$(database)/documents/users/$(uid)).data.discoverable == true && get(/databases/$(database)/documents/users/$(uid)).data.termsAccepted == true && get(/databases/$(database)/documents/users/$(uid)).data.intentConfirmed == true;
     }
     function pair(a,b) { return a < b ? a + '_' + b : b + '_' + a; }
     function blocked(a,b) { return exists(/databases/$(database)/documents/blocks/$(pair(a,b))); }
-    function connected(a,b) {
-      return signedIn() && a != b && !blocked(a,b)
-        && exists(/databases/$(database)/documents/connections/$(pair(a,b)))
-        && get(/databases/$(database)/documents/connections/$(pair(a,b))).data.status == 'active'
-        && ((get(/databases/$(database)/documents/connections/$(pair(a,b))).data.uid1 == a && get(/databases/$(database)/documents/connections/$(pair(a,b))).data.uid2 == b)
-          || (get(/databases/$(database)/documents/connections/$(pair(a,b))).data.uid1 == b && get(/databases/$(database)/documents/connections/$(pair(a,b))).data.uid2 == a));
-    }
+    function connected(a,b) { return signedIn() && a != b && !blocked(a,b) && exists(/databases/$(database)/documents/connections/$(pair(a,b))) && get(/databases/$(database)/documents/connections/$(pair(a,b))).data.status == 'active'; }
     match /users/{uid} {
       allow create: if owner(uid) && request.resource.data.uid == uid && request.resource.data.profileActive == false && request.resource.data.discoverable == false && request.resource.data.verificationStatus == 'unverified';
       allow read: if owner(uid) || (signedIn() && resource.data.profileActive == true && resource.data.discoverable == true);
@@ -28,20 +18,19 @@ service cloud.firestore {
       allow delete: if false;
       match /settings/{id} { allow read,write: if owner(uid); }
     }
+    match /communityMessages/{messageId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.authorUid == request.auth.uid && activeUser(request.auth.uid) && request.resource.data.authorName is string && request.resource.data.country is string && request.resource.data.text is string && request.resource.data.type == 'community' && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500 && request.resource.data.createdAt == request.time;
+      allow update,delete: if admin();
+    }
     match /interests/{id} {
       allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.status == 'pending' && activeUser(request.auth.uid) && activeUser(request.resource.data.toUid) && !blocked(request.auth.uid, request.resource.data.toUid);
       allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
       allow update: if signedIn() && resource.data.status == 'pending' && resource.data.toUid == request.auth.uid && request.resource.data.fromUid == resource.data.fromUid && request.resource.data.toUid == resource.data.toUid && request.resource.data.status in ['accepted','declined'];
       allow delete: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
     }
-    match /connections/{id} {
-      allow read: if signedIn() && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid) && resource.data.status == 'active';
-      allow create,update,delete: if false;
-      match /messages/{messageId} {
-        allow read: if signedIn() && connected(resource.data.fromUid,resource.data.toUid) && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
-        allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 4000 && connected(request.auth.uid,request.resource.data.toUid) && request.resource.data.sentAt != null;
-        allow update,delete: if signedIn() && resource.data.fromUid == request.auth.uid;
-      }
+    match /connections/{id} { allow read: if signedIn() && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid) && resource.data.status == 'active'; allow create,update,delete: if false;
+      match /messages/{messageId} { allow read: if signedIn() && connected(resource.data.fromUid,resource.data.toUid) && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid); allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 4000 && connected(request.auth.uid,request.resource.data.toUid) && request.resource.data.sentAt != null; allow update,delete: if signedIn() && resource.data.fromUid == request.auth.uid; }
     }
     match /blocks/{id} { allow read: if signedIn() && (resource.data.blockerUid == request.auth.uid || resource.data.blockedUid == request.auth.uid); allow write,delete: if false; }
     match /reports/{id} { allow create: if signedIn() && request.resource.data.reporterUid == request.auth.uid && request.resource.data.reportedUid != request.auth.uid && request.resource.data.status == 'pending'; allow read: if admin() || (signedIn() && resource.data.reporterUid == request.auth.uid); allow update,delete: if admin(); }
