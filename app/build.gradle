@@ -11,8 +11,8 @@ android {
         applicationId 'com.nikahbridge'
         minSdk 23
         targetSdk 36
-        versionCode 8
-        versionName '2.3'
+        versionCode 9
+        versionName '2.4'
     }
 
     signingConfigs {
@@ -41,6 +41,7 @@ dependencies {
     implementation 'com.google.firebase:firebase-auth'
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-functions'
+    implementation 'com.google.firebase:firebase-storage'
     implementation 'com.google.firebase:firebase-ai'
     implementation 'com.google.firebase:firebase-appcheck-playintegrity'
     implementation 'com.google.android.gms:play-services-ads:25.4.0'
