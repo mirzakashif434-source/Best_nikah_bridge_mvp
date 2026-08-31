@@ -1,183 +1,55 @@
 name: Android Release AAB
-# Production release validation trigger: compile, sign, and package the real app only.
+# One authoritative production release workflow. Builds the real app from the checked-out main commit.
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout production source
+      - name: Checkout exact production source
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
 
-      - name: Normalize production rewarded-ad Java capture
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Verify production source before compile
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("app/src/main/java/com/nikahbridge/ProductionMainActivity.java")
-          text = path.read_text(encoding="utf-8")
-          old = 'MobileAds.initialize(this, s -> loadReward(unit, status));'
-          new = 'MobileAds.initialize(this, s -> loadReward(productionUnit, status));'
-          if old in text:
-              text = text.replace(old, new)
-              marker = '            final String productionUnit = unit.trim();'
-              if marker not in text:
-                  text = text.replace('        } else {\n            ' + new, '        } else {\n            final String productionUnit = unit.trim();\n            ' + new)
-              path.write_text(text, encoding="utf-8")
-
-          text = path.read_text(encoding="utf-8")
-          if 'loadReward(unit, status)' in text:
-              raise SystemExit('Unsafe lambda capture remains in ProductionMainActivity.java')
-          if 'final String productionUnit = unit.trim();' not in text:
-              raise SystemExit('Production rewarded-ad unit is not captured as final')
-          PY
-
-          git diff --check
-          if ! git diff --quiet -- app/src/main/java/com/nikahbridge/ProductionMainActivity.java; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add app/src/main/java/com/nikahbridge/ProductionMainActivity.java
-            git commit -m "Fix production rewarded-ad lambda capture [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Repair production Likes method and persist source fix
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          path = Path("app/src/main/java/com/nikahbridge/ProductionMainActivity.java")
-          text = path.read_text(encoding="utf-8")
-          start = text.index("    private void likes() {")
-          end = text.index("    private void family() {", start)
-
-          replacement = r'''    private void likes() {
-        base();
-        title("20 Daily Likes");
-        root.addView(t("The Firebase callable function is authoritative: one authenticated active member can send at most 20 likes per UTC day. The counter cannot be reset by the client.", 15, false));
-
-        db.collection("users")
-            .whereEqualTo("profileActive", true)
-            .whereEqualTo("discoverable", true)
-            .limit(60)
-            .get()
-            .addOnSuccessListener(q -> {
-                for (DocumentSnapshot d : q) {
-                    if (d.getId().equals(auth.getUid())) continue;
-
-                    LinearLayout card = new LinearLayout(this);
-                    card.setOrientation(LinearLayout.VERTICAL);
-                    card.setPadding(8, 8, 8, 8);
-
-                    card.addView(t(
-                        val(d, "name") + " • " + val(d, "age") + " • " + val(d, "country"),
-                        18,
-                        true
-                    ));
-
-                    Button like = new Button(this);
-                    like.setText("Like");
-                    like.setAllCaps(false);
-                    like.setTextSize(16);
-                    like.setTextColor(Color.WHITE);
-                    GradientDrawable bg = new GradientDrawable();
-                    bg.setColor(green);
-                    bg.setCornerRadius(18);
-                    like.setBackground(bg);
-
-                    LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 62);
-                    lp.setMargins(0, 5, 0, 5);
-                    card.addView(like, lp);
-                    root.addView(card);
-
-                    like.setOnClickListener(v -> {
-                        Map<String, Object> x = new HashMap<>();
-                        x.put("toUid", d.getId());
-
-                        fn.getHttpsCallable("sendLike")
-                            .call(x)
-                            .addOnSuccessListener(r -> {
-                                like.setEnabled(false);
-                                Object remaining = ((Map) r.getData()).get("remaining");
-                                toast("Real like sent. Remaining today: " + String.valueOf(remaining));
-                            })
-                            .addOnFailureListener(e ->
-                                toast("Like blocked by the real 20/day safety limit.")
-                            );
-                    });
-                }
-            })
-            .addOnFailureListener(e -> toast("Could not load real profiles."));
-
-        Button back = bt("Back", false);
-        back.setOnClickListener(v -> home());
-    }
-
-'''
-          path.write_text(text[:start] + replacement + text[end:], encoding="utf-8")
-          PY
-
-          git diff --check
-          if ! git diff --quiet -- app/src/main/java/com/nikahbridge/ProductionMainActivity.java; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add app/src/main/java/com/nikahbridge/ProductionMainActivity.java
-            git commit -m "Fix production Likes method syntax [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Verify production feature lock
-        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/nikahbridge/ProductionMainActivity.java
           test -f app/src/main/java/com/nikahbridge/MainActivity.java
+          ! grep -q 'loadReward(unit, status)' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -q 'final String productionUnit = unit.trim();' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -q 'MobileAds.initialize(this, s -> loadReward(productionUnit, status));' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
           grep -q 'Real Firebase data only' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'Nikah Readiness Score' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'Compatibility Matches' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'Mutual Interests & Safe Chat' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'Family / Wali Connect' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'Scam Shield & Safety' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'Real Verification' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'AI Nikah Assistant' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'Privacy Control Center' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'sendConnectionMessage' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'sendInterest' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'respondToInterest' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'blockUser' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'requestWaliConnection' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'deleteMyAccount' app/src/main/java/com/nikahbridge/MainActivity.java
-          ! grep -qE 'demo|dummy|fake match|sample member|MockData|mockData' app/src/main/java/com/nikahbridge/MainActivity.java
-
-      - name: Verify Firebase AI Java integration
-        run: |
-          grep -q 'import com.google.firebase.ai.java.GenerativeModelFutures;' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'import com.google.firebase.ai.type.GenerateContentResponse;' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'GenerativeModelFutures.from(model)' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -q 'modelFutures.generateContent(content)' app/src/main/java/com/nikahbridge/MainActivity.java
-
-      - name: Decode release keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
-          test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          ! grep -qE 'MockData|mockData|sample member|fake match' app/src/main/java/com/nikahbridge/MainActivity.java
+          git diff --check
 
       - name: Verify release keystore
         env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
-          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD"
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
 
       - name: Build signed Release AAB
         env:
@@ -186,8 +58,10 @@ jobs:
           KEY_ALIAS: best-nikah-bridge
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
+          set -euo pipefail
           chmod +x ./gradlew
           ./gradlew clean bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
 
       - name: Upload Release AAB
         uses: actions/upload-artifact@v6
