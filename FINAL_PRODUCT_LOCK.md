@@ -38,6 +38,16 @@ Profile cards should clearly show:
 - Browsing/viewing profiles is not limited by the daily like allowance.
 - Do not change 20/day to 5/day unless the owner explicitly requests it.
 
+## Global Community Chat Room — NEW FINAL RULE
+- Add a **separate dedicated Chat Room** outside private/mutual chat.
+- It is a **free community room** for members from **all countries**.
+- Members can enter the room and chat with the wider international community without using their 20 daily likes.
+- This room is separate from one-to-one/mutual Safe Chat.
+- The room must have strong moderation and safety controls: report, block, mute, anti-spam/rate limits and admin moderation.
+- No sharing of private contact details should be encouraged; privacy/safety reminders should be visible.
+- Community Chat must not weaken the platform's serious Muslim matrimonial / Nikah positioning.
+- Admin should be able to moderate messages and remove abusive, scam, inappropriate or non-Nikah-related content.
+
 ## Core Safety & Matching Blueprint
 1. Nikah Readiness Score
 2. Family/Wali Connect
@@ -54,8 +64,9 @@ Profile cards should clearly show:
 Profile → Preferences → Verification → Matches → Interest → Mutual → Safe Chat
 
 ## Communication
-- Mutual-only communication.
+- Mutual-only private communication.
 - Contact details remain private unless the member intentionally chooses otherwise.
+- Separate free Global Community Chat Room is allowed as defined above.
 - Report/block and safety controls remain part of the product.
 
 ## Verification
@@ -71,9 +82,10 @@ Profile → Preferences → Verification → Matches → Interest → Mutual →
 - Sustainable halal business model.
 - Free core access with optional genuine premium features.
 - Current owner-approved accessibility idea: users with limited means may watch up to **2 ads per day to send 2 messages**; this remains a product rule to implement consistently if enabled in the release.
+- Global Community Chat Room is **free** and is not charged per message.
 
 ## Admin
-- Owner/admin controls for verification queue, reports, users and analytics.
+- Owner/admin controls for verification queue, reports, users, community-chat moderation and analytics.
 
 ## Release Principle
 All implementation, UI, Android build configuration and release work should preserve these locked decisions and avoid unnecessary changes. Any intentional change requires explicit owner approval.
