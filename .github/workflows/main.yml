@@ -18,14 +18,39 @@ jobs:
       - name: Checkout production source
         uses: actions/checkout@v6
 
-      - name: Set up Java 17
-        uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: '17'
+      - name: Normalize production rewarded-ad Java capture
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+          path = Path("app/src/main/java/com/nikahbridge/ProductionMainActivity.java")
+          text = path.read_text(encoding="utf-8")
+          old = 'MobileAds.initialize(this, s -> loadReward(unit, status));'
+          new = 'MobileAds.initialize(this, s -> loadReward(productionUnit, status));'
+          if old in text:
+              text = text.replace(old, new)
+              marker = '            final String productionUnit = unit.trim();'
+              if marker not in text:
+                  text = text.replace('        } else {\n            ' + new, '        } else {\n            final String productionUnit = unit.trim();\n            ' + new)
+              path.write_text(text, encoding="utf-8")
+
+          text = path.read_text(encoding="utf-8")
+          if 'loadReward(unit, status)' in text:
+              raise SystemExit('Unsafe lambda capture remains in ProductionMainActivity.java')
+          if 'final String productionUnit = unit.trim();' not in text:
+              raise SystemExit('Production rewarded-ad unit is not captured as final')
+          PY
+
+          git diff --check
+          if ! git diff --quiet -- app/src/main/java/com/nikahbridge/ProductionMainActivity.java; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+            git commit -m "Fix production rewarded-ad lambda capture [skip ci]"
+            git push origin HEAD:main
+          fi
 
       - name: Repair production Likes method and persist source fix
         env:
