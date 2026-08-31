@@ -28,6 +28,24 @@ service cloud.firestore {
       allow delete: if false;
       match /settings/{id} { allow read,write: if owner(uid); }
     }
+
+    // Real, free, authenticated global community room.
+    // Users may read live messages and create only messages attributed to themselves.
+    match /communityMessages/{messageId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && activeUser(request.auth.uid)
+        && request.resource.data.authorName is string
+        && request.resource.data.country is string
+        && request.resource.data.text is string
+        && request.resource.data.type == 'community'
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.createdAt == request.time;
+      allow update,delete: if admin();
+    }
+
     match /interests/{id} {
       allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.status == 'pending' && activeUser(request.auth.uid) && activeUser(request.resource.data.toUid) && !blocked(request.auth.uid, request.resource.data.toUid);
       allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
