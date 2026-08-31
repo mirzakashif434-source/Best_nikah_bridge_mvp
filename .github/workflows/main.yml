@@ -7,14 +7,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout production source
         uses: actions/checkout@v6
 
       - name: Set up Java 17
@@ -26,6 +26,33 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Verify production feature lock
+        run: |
+          test -f app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Real Firebase data only' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Nikah Readiness Score' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Compatibility Matches' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Mutual Interests & Safe Chat' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Family / Wali Connect' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Scam Shield & Safety' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Real Verification' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'AI Nikah Assistant' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Privacy Control Center' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'sendConnectionMessage' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'sendInterest' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'respondToInterest' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'blockUser' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'requestWaliConnection' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'deleteMyAccount' app/src/main/java/com/nikahbridge/MainActivity.java
+          ! grep -qE 'demo|dummy|fake match|sample member|MockData|mockData' app/src/main/java/com/nikahbridge/MainActivity.java
+
+      - name: Verify Firebase AI Java integration
+        run: |
+          grep -q 'import com.google.firebase.ai.java.GenerativeModelFutures;' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'import com.google.firebase.ai.type.GenerateContentResponse;' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'GenerativeModelFutures.from(model)' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'modelFutures.generateContent(content)' app/src/main/java/com/nikahbridge/MainActivity.java
+
       - name: Decode release keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -33,7 +60,7 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
           test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
 
-      - name: Verify keystore
+      - name: Verify release keystore
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
@@ -41,33 +68,7 @@ jobs:
             -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" \
             -storepass "$KEYSTORE_PASSWORD"
 
-      - name: Lock Firebase AI Java compatibility in source
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('app/src/main/java/com/nikahbridge/MainActivity.java')
-          s = p.read_text()
-          old_import = 'import com.google.firebase.ai.GenerateContentResponse;'
-          new_import = 'import com.google.firebase.ai.java.GenerativeModelFutures;\nimport com.google.firebase.ai.type.GenerateContentResponse;'
-          if old_import in s:
-              s = s.replace(old_import, new_import, 1)
-          old_call = 'ListenableFuture<GenerateContentResponse> future=model.generateContent(content);'
-          new_call = 'GenerativeModelFutures modelFutures=GenerativeModelFutures.from(model);ListenableFuture<GenerateContentResponse> future=modelFutures.generateContent(content);'
-          if old_call in s:
-              s = s.replace(old_call, new_call, 1)
-          p.write_text(s)
-          PY
-          if ! git diff --quiet -- app/src/main/java/com/nikahbridge/MainActivity.java; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add app/src/main/java/com/nikahbridge/MainActivity.java
-            git commit -m "Fix Firebase AI Java compatibility [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Build Release AAB
+      - name: Build signed Release AAB
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
