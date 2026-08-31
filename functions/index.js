@@ -1,177 +1,43 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const admin = require('firebase-admin');
-const {google} = require('googleapis');
+const { google } = require('googleapis');
 admin.initializeApp();
 const db = admin.firestore();
 const F = admin.firestore.FieldValue;
 
-function auth(req){
-  if(!req.auth) throw new HttpsError('unauthenticated','Sign-in required.');
-  return req.auth.uid;
-}
-function pair(a,b){
-  if(!a||!b||a===b) throw new HttpsError('invalid-argument','Two different users are required.');
-  return [a,b].sort().join('_');
-}
+function auth(req){ if(!req.auth) throw new HttpsError('unauthenticated','Sign-in required.'); return req.auth.uid; }
+function pair(a,b){ if(!a||!b||a===b) throw new HttpsError('invalid-argument','Two different users are required.'); return [a,b].sort().join('_'); }
 function isAdmin(req){ return !!(req.auth&&req.auth.token&&req.auth.token.admin===true); }
-async function activeUser(uid, req){
-  const d=await db.collection('users').doc(uid).get();
-  const data=d.data()||{};
-  if(!d.exists || data.profileActive!==true || data.discoverable!==true || data.termsAccepted!==true || data.intentConfirmed!==true)
-    throw new HttpsError('failed-precondition','Profile is not active for this action.');
-  if(req && uid===req.auth.uid && req.auth.token.email_verified!==true)
-    throw new HttpsError('failed-precondition','Email verification is required.');
-  return d;
-}
+async function userDoc(uid){ const d=await db.collection('users').doc(uid).get(); if(!d.exists) throw new HttpsError('not-found','User not found.'); return d; }
+async function activeUser(uid,req){ const d=await userDoc(uid); const x=d.data()||{}; if(x.profileActive!==true||x.discoverable!==true||x.termsAccepted!==true||x.intentConfirmed!==true) throw new HttpsError('failed-precondition','Profile is not active for this action.'); if(req&&uid===req.auth.uid&&req.auth.token.email_verified!==true) throw new HttpsError('failed-precondition','Email verification is required.'); return d; }
+async function blocked(a,b){ const d=await db.collection('blocks').doc(pair(a,b)).get(); return d.exists&&d.data().active===true; }
+async function connected(a,b){ const id=pair(a,b); const d=await db.collection('connections').doc(id).get(); return d.exists&&d.data().status==='active'&&!await blocked(a,b); }
 
-exports.sendInterest=onCall(async req=>{
-  const uid=auth(req),other=String(req.data?.toUid||'');
-  if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid match.');
-  await activeUser(uid,req); await activeUser(other);
-  const id=`${uid}_${other}`;
-  const ref=db.collection('interests').doc(id);
-  const existing=await ref.get();
-  if(existing.exists&&['pending','accepted'].includes(String(existing.data().status||''))) throw new HttpsError('already-exists','Interest already exists.');
-  await ref.set({fromUid:uid,toUid:other,status:'pending',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()});
-  return {interestId:id,status:'pending'};
-});
+exports.sendInterest=onCall(async req=>{ const uid=auth(req),other=String(req.data?.toUid||req.data?.targetUid||''); if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid match.'); await activeUser(uid,req); await activeUser(other); if(await blocked(uid,other)) throw new HttpsError('permission-denied','This connection is blocked.'); const id=`${uid}_${other}`; const ref=db.collection('interests').doc(id); const old=await ref.get(); if(old.exists&&['pending','accepted'].includes(String(old.data().status||''))) throw new HttpsError('already-exists','Interest already exists.'); await ref.set({fromUid:uid,toUid:other,status:'pending',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()}); return {interestId:id,status:'pending'}; });
+exports.respondToInterest=onCall(async req=>{ const uid=auth(req),id=String(req.data?.interestId||''),decision=String(req.data?.decision||''); if(!id||!['accepted','declined'].includes(decision)) throw new HttpsError('invalid-argument','Invalid response.'); const ref=db.collection('interests').doc(id),s=await ref.get(); if(!s.exists) throw new HttpsError('not-found','Interest not found.'); const d=s.data(); if(d.toUid!==uid||d.status!=='pending') throw new HttpsError('permission-denied','You cannot change this interest.'); await ref.update({status:decision,updatedAt:F.serverTimestamp(),respondedAt:F.serverTimestamp()}); if(decision==='declined') return {status:'declined',mutual:false}; const cid=pair(d.fromUid,d.toUid); await db.collection('connections').doc(cid).set({uid1:cid.split('_')[0],uid2:cid.split('_')[1],status:'active',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp(),createdBy:uid},{merge:true}); return {status:'accepted',mutual:true,connectionId:cid}; });
+exports.createMutualConnection=onCall(async req=>{ const uid=auth(req),other=String(req.data?.otherUid||''); await activeUser(uid,req); if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid user.'); const id=pair(uid,other); const[a,b]=await Promise.all([db.collection('interests').where('fromUid','==',uid).where('toUid','==',other).where('status','==','accepted').limit(1).get(),db.collection('interests').where('fromUid','==',other).where('toUid','==',uid).where('status','==','accepted').limit(1).get()]); if(a.empty&&b.empty) throw new HttpsError('failed-precondition','Accepted interest is required.'); await db.collection('connections').doc(id).set({uid1:id.split('_')[0],uid2:id.split('_')[1],status:'active',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp(),createdBy:uid},{merge:true}); return {connectionId:id,status:'active'}; });
+exports.respondInterest=exports.respondToInterest;
+exports.blockUser=onCall(async req=>{ const uid=auth(req),other=String(req.data?.blockedUid||''); if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid user.'); await activeUser(uid,req); const id=pair(uid,other); await db.collection('blocks').doc(id).set({blockerUid:uid,blockedUid:other,createdAt:F.serverTimestamp(),active:true},{merge:true}); const c=await db.collection('connections').doc(id).get(); if(c.exists) await c.ref.update({status:'blocked',blockedBy:uid,blockedAt:F.serverTimestamp()}); return {blocked:true}; });
+exports.requestWaliConnection=onCall(async req=>{ const uid=auth(req),wali=String(req.data?.waliUid||''); if(!wali||wali===uid) throw new HttpsError('invalid-argument','Invalid Wali.'); await activeUser(uid,req); const w=await userDoc(wali); if(w.data()?.profileActive!==true) throw new HttpsError('failed-precondition','Wali account is not active.'); const id=`${uid}_${wali}`; await db.collection('waliConnections').doc(id).set({userUid:uid,waliUid:wali,status:'pending',requestedBy:uid,updatedAt:F.serverTimestamp()},{merge:true}); return {status:'pending',id}; });
 
-exports.respondToInterest=onCall(async req=>{
-  const uid=auth(req),interestId=String(req.data?.interestId||''),decision=String(req.data?.decision||'');
-  if(!interestId||!['accepted','declined'].includes(decision)) throw new HttpsError('invalid-argument','Invalid interest response.');
-  const ref=db.collection('interests').doc(interestId),snap=await ref.get();
-  if(!snap.exists) throw new HttpsError('not-found','Interest not found.');
-  const data=snap.data();
-  if(data.toUid!==uid||data.status!=='pending') throw new HttpsError('permission-denied','You cannot change this interest.');
-  await ref.update({status:decision,updatedAt:F.serverTimestamp(),respondedAt:F.serverTimestamp()});
-  if(decision==='declined') return {status:'declined',mutual:false};
-  const connectionId=pair(data.fromUid,data.toUid);
-  await db.collection('connections').doc(connectionId).set({uid1:connectionId.split('_')[0],uid2:connectionId.split('_')[1],status:'active',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp(),createdBy:uid},{merge:true});
-  return {status:'accepted',mutual:true,connectionId};
-});
+exports.sendConnectionMessage=onCall(async req=>{ const uid=auth(req),to=String(req.data?.toUid||''),text=String(req.data?.text||'').trim(); if(!to||to===uid||!text||text.length>4000) throw new HttpsError('invalid-argument','Invalid message.'); await activeUser(uid,req); if(!(await connected(uid,to))) throw new HttpsError('permission-denied','Messaging requires an active mutual connection.'); const entitlement=await db.collection('entitlements').doc(uid).get(); const credits=Number(entitlement.data()?.messageCredits||0); const since=admin.firestore.Timestamp.fromMillis(Date.now()-24*60*60*1000); const recent=await db.collection('connections').doc(pair(uid,to)).collection('messages').where('fromUid','==',uid).where('sentAt','>=',since).get(); if(recent.size>=2&&credits<=0) throw new HttpsError('resource-exhausted','Daily free message limit reached. Premium message credits are required for more messages.'); const ref=db.collection('connections').doc(pair(uid,to)).collection('messages').doc(); const batch=db.batch(); batch.set(ref,{fromUid:uid,toUid:to,text,sentAt:F.serverTimestamp()}); if(credits>0) batch.set(db.collection('entitlements').doc(uid),{messageCredits:F.increment(-1),updatedAt:F.serverTimestamp()},{merge:true}); await batch.commit(); return {sent:true,remainingFreeToday:Math.max(0,1-recent.size),usedCredit:credits>0}; });
 
-exports.createMutualConnection=onCall(async req=>{
-  const uid=auth(req),other=String(req.data?.otherUid||'');
-  if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid match.');
-  await activeUser(uid,req);
-  const id=pair(uid,other);
-  const[a,b]=await Promise.all([
-    db.collection('interests').where('fromUid','==',uid).where('toUid','==',other).where('status','==','accepted').limit(1).get(),
-    db.collection('interests').where('fromUid','==',other).where('toUid','==',uid).where('status','==','accepted').limit(1).get()
-  ]);
-  if(a.empty&&b.empty) throw new HttpsError('failed-precondition','An accepted interest is required.');
-  await db.collection('connections').doc(id).set({uid1:id.split('_')[0],uid2:id.split('_')[1],status:'active',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp(),createdBy:uid},{merge:true});
-  return {connectionId:id,status:'active'};
-});
+exports.createFamilyBridge=onCall(async req=>{ const uid=auth(req),connectionId=String(req.data?.connectionId||''),familyUid=String(req.data?.familyUid||''); if(!connectionId||!familyUid) throw new HttpsError('invalid-argument','Connection and family account are required.'); const parts=connectionId.split('_'); if(parts.length!==2||!parts.includes(uid)||!(await connected(parts[0],parts[1]))) throw new HttpsError('permission-denied','Active mutual connection required.'); await userDoc(familyUid); const ref=db.collection('familyBridges').doc(); await ref.set({connectionId,createdBy:uid,participants:[parts[0],parts[1],familyUid],status:'active',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp(),consent:{[uid]:true}}); return {bridgeId:ref.id}; });
+exports.sendFamilyQuestion=onCall(async req=>{ const uid=auth(req),bridgeId=String(req.data?.bridgeId||''),text=String(req.data?.text||'').trim(); if(!bridgeId||!text||text.length>2000) throw new HttpsError('invalid-argument','Invalid family question.'); const b=await db.collection('familyBridges').doc(bridgeId).get(); if(!b.exists) throw new HttpsError('not-found','Family Bridge not found.'); const d=b.data(); if(!Array.isArray(d.participants)||!d.participants.includes(uid)||d.status!=='active') throw new HttpsError('permission-denied','You are not authorized for this Family Bridge.'); const r=db.collection('familyBridges').doc(bridgeId).collection('questions').doc(); await r.set({fromUid:uid,text,status:'open',createdAt:F.serverTimestamp()}); await b.ref.update({updatedAt:F.serverTimestamp()}); return {questionId:r.id}; });
+exports.setFamilyConsent=onCall(async req=>{ const uid=auth(req),bridgeId=String(req.data?.bridgeId||''),enabled=Boolean(req.data?.enabled); const b=await db.collection('familyBridges').doc(bridgeId).get(); if(!b.exists||!b.data().participants?.includes(uid)) throw new HttpsError('permission-denied','Not authorized.'); await b.ref.update({[`consent.${uid}`]:enabled,updatedAt:F.serverTimestamp(),status:enabled?'active':'paused'}); return {enabled}; });
 
-exports.blockUser=onCall(async req=>{
-  const uid=auth(req),other=String(req.data?.blockedUid||'');
-  if(!other||other===uid) throw new HttpsError('invalid-argument','Invalid user.');
-  await activeUser(uid,req); await activeUser(other);
-  const id=pair(uid,other);
-  await db.collection('blocks').doc(id).set({blockerUid:uid,blockedUid:other,createdAt:F.serverTimestamp(),active:true},{merge:true});
-  const connection=await db.collection('connections').doc(id).get();
-  if(connection.exists) await connection.ref.update({status:'blocked',blockedBy:uid,blockedAt:F.serverTimestamp()});
-  return {blocked:true};
-});
+exports.setNikahPromise=onCall(async req=>{ const uid=auth(req),connectionId=String(req.data?.connectionId||''),stage=String(req.data?.stage||''),targetDate=String(req.data?.targetDate||''),notes=String(req.data?.notes||'').trim(); if(!connectionId||!stage||stage.length>80||notes.length>2000) throw new HttpsError('invalid-argument','Invalid Nikah Promise Path data.'); const parts=connectionId.split('_'); if(parts.length!==2||!parts.includes(uid)||!(await connected(parts[0],parts[1]))) throw new HttpsError('permission-denied','Active mutual connection required.'); await db.collection('nikahPromisePaths').doc(connectionId).set({connectionId,stage,targetDate,notes,updatedBy:uid,updatedAt:F.serverTimestamp(),createdAt:F.serverTimestamp()},{merge:true}); return {saved:true}; });
+exports.updateLivingCompatibility=onCall(async req=>{ const uid=auth(req),data=req.data||{}; const allowed=['country','city','marriageTimeline','familyInvolvement','childrenExpectation','careerPlan','livingPlan']; const update={uid,updatedAt:F.serverTimestamp()}; for(const k of allowed) if(data[k]!==undefined) update[k]=String(data[k]).slice(0,500); await db.collection('livingCompatibility').doc(uid).set(update,{merge:true}); return {saved:true}; });
+exports.shareLivingChange=onCall(async req=>{ const uid=auth(req),to=String(req.data?.toUid||''),field=String(req.data?.field||''),value=String(req.data?.value||''); if(!to||!field||value.length>500||!(await connected(uid,to))) throw new HttpsError('permission-denied','Active mutual connection required.'); const ref=db.collection('livingChangeAlerts').doc(); await ref.set({fromUid:uid,toUid:to,field,value,createdAt:F.serverTimestamp(),status:'unread'}); return {shared:true,alertId:ref.id}; });
+exports.saveHealthCheck=onCall(async req=>{ const uid=auth(req),connectionId=String(req.data?.connectionId||''),communication=String(req.data?.communication||''),family=String(req.data?.familyProgress||''),differences=String(req.data?.unresolvedDifferences||''),timeline=String(req.data?.timelineAligned||''); if(!connectionId||[communication,family,differences,timeline].some(x=>x.length>500)) throw new HttpsError('invalid-argument','Health check data is invalid.'); const parts=connectionId.split('_'); if(parts.length!==2||!parts.includes(uid)||!(await connected(parts[0],parts[1]))) throw new HttpsError('permission-denied','Active mutual connection required.'); await db.collection('connectionHealthChecks').doc(`${connectionId}_${uid}`).set({uid,connectionId,communication,familyProgress:family,unresolvedDifferences:differences,timelineAligned:timeline,createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()},{merge:true}); return {saved:true}; });
 
-exports.requestWaliConnection=onCall(async req=>{
-  const uid=auth(req),wali=String(req.data?.waliUid||'');
-  if(!wali||wali===uid) throw new HttpsError('invalid-argument','Invalid Wali.');
-  await activeUser(uid,req);
-  if(!(await db.collection('users').doc(wali).get()).exists) throw new HttpsError('not-found','Wali account not found.');
-  await db.collection('waliConnections').doc(`${uid}_${wali}`).set({userUid:uid,waliUid:wali,status:'pending',requestedBy:uid,updatedAt:F.serverTimestamp()},{merge:true});
-  return {status:'pending'};
-});
-
-exports.deleteMyAccount=onCall(async req=>{
-  const uid=auth(req);
-  const deleteQuery=async q=>{let snap=await q.limit(400).get();while(!snap.empty){await Promise.all(snap.docs.map(d=>db.recursiveDelete(d.ref)));snap=await q.limit(400).get();}};
-  await db.recursiveDelete(db.collection('users').doc(uid));
-  for(const q of [
-    db.collection('interests').where('fromUid','==',uid),db.collection('interests').where('toUid','==',uid),
-    db.collection('reports').where('reporterUid','==',uid),db.collection('reports').where('reportedUid','==',uid),
-    db.collection('verifications').where('userUid','==',uid),db.collection('waliConnections').where('userUid','==',uid),
-    db.collection('waliConnections').where('waliUid','==',uid),db.collection('blocks').where('blockerUid','==',uid),db.collection('blocks').where('blockedUid','==',uid),
-    db.collection('entitlements').where('uid','==',uid)
-  ]) await deleteQuery(q);
-  const[c1,c2]=await Promise.all([db.collection('connections').where('uid1','==',uid).get(),db.collection('connections').where('uid2','==',uid).get()]);
-  await Promise.all([...c1.docs,...c2.docs].map(d=>db.recursiveDelete(d.ref)));
-  await admin.auth().deleteUser(uid);
-  return {deleted:true};
-});
-
-// Free benefit: exactly one boost per 8-day window. The server timestamp is authoritative.
-exports.claimFreeBoost=onCall(async req=>{
-  const uid=auth(req); await activeUser(uid,req);
-  const ref=db.collection('entitlements').doc(uid);
-  return db.runTransaction(async tx=>{
-    const snap=await tx.get(ref); const data=snap.exists?snap.data():{};
-    const now=Date.now(); const last=data.freeBoostClaimedAt?.toMillis?.()||0;
-    if(last && now-last < 8*24*60*60*1000){
-      const remaining=Math.ceil((8*24*60*60*1000-(now-last))/86400000);
-      throw new HttpsError('failed-precondition',`Free boost is available again in about ${remaining} day(s).`);
-    }
-    tx.set(ref,{uid,freeBoostClaimedAt:admin.firestore.Timestamp.now(),boostActive:true,boostSource:'free_8_day',updatedAt:admin.firestore.Timestamp.now()},{merge:true});
-    return {claimed:true,windowDays:8};
-  });
-});
-
-// Secure purchase verification. Product IDs must be created in Play Console with the same IDs.
-const PAID_PRODUCTS={
-  bnb_plus_20:{tier:'plus20',messageCredits:10},
-  bnb_plus_40:{tier:'plus40',messageCredits:30},
-  bnb_plus_60:{tier:'plus60',messageCredits:60}
-};
+exports.queueReport=onDocumentCreated('reports/{reportId}',async event=>{ const r=event.data?.data(); if(!r)return; await db.collection('moderationQueue').doc(event.params.reportId).set({reportId:event.params.reportId,reporterUid:r.reporterUid||null,reportedUid:r.reportedUid||null,reason:r.reason||'unspecified',status:'pending',createdAt:F.serverTimestamp()},{merge:true}); });
+exports.setModerationDecision=onCall(async req=>{ if(!isAdmin(req)) throw new HttpsError('permission-denied','Admin access required.'); const id=String(req.data?.reportId||''),decision=String(req.data?.decision||''); if(!id||!['reviewed','actioned','dismissed'].includes(decision)) throw new HttpsError('invalid-argument','Invalid decision.'); await db.collection('moderationQueue').doc(id).set({status:decision,moderatorUid:req.auth.uid,decidedAt:F.serverTimestamp()},{merge:true}); return {status:decision}; });
+exports.setVerificationStatus=onCall(async req=>{ if(!isAdmin(req)) throw new HttpsError('permission-denied','Admin access required.'); const uid=String(req.data?.userUid||''),status=String(req.data?.status||''); if(!uid||!['verified','rejected','unverified'].includes(status)) throw new HttpsError('invalid-argument','Invalid verification status.'); await db.collection('users').doc(uid).update({verificationStatus:status,verificationUpdatedAt:F.serverTimestamp(),verificationBy:req.auth.uid}); return {status}; });
+exports.deleteMyAccount=onCall(async req=>{ const uid=auth(req); const del=async q=>{let s=await q.limit(400).get();while(!s.empty){await Promise.all(s.docs.map(d=>db.recursiveDelete(d.ref)));s=await q.limit(400).get();}}; await db.recursiveDelete(db.collection('users').doc(uid)); for(const q of [db.collection('interests').where('fromUid','==',uid),db.collection('interests').where('toUid','==',uid),db.collection('reports').where('reporterUid','==',uid),db.collection('reports').where('reportedUid','==',uid),db.collection('verifications').where('userUid','==',uid),db.collection('waliConnections').where('userUid','==',uid),db.collection('waliConnections').where('waliUid','==',uid),db.collection('blocks').where('blockerUid','==',uid),db.collection('blocks').where('blockedUid','==',uid),db.collection('entitlements').where('uid','==',uid),db.collection('livingCompatibility').where('uid','==',uid)]) await del(q); const[c1,c2]=await Promise.all([db.collection('connections').where('uid1','==',uid).get(),db.collection('connections').where('uid2','==',uid).get()]); await Promise.all([...c1.docs,...c2.docs].map(d=>db.recursiveDelete(d.ref))); await admin.auth().deleteUser(uid); return {deleted:true}; });
+exports.claimFreeBoost=onCall(async req=>{ const uid=auth(req); await activeUser(uid,req); const ref=db.collection('entitlements').doc(uid); return db.runTransaction(async tx=>{const s=await tx.get(ref),d=s.exists?s.data():{},now=Date.now(),last=d.freeBoostClaimedAt?.toMillis?.()||0;if(last&&now-last<8*86400000)throw new HttpsError('failed-precondition','Free boost is available again later.');tx.set(ref,{uid,freeBoostClaimedAt:admin.firestore.Timestamp.now(),boostActive:true,updatedAt:admin.firestore.Timestamp.now()},{merge:true});return{claimed:true};}); });
+const PAID_PRODUCTS={bnb_plus_20:{tier:'plus20',messageCredits:10},bnb_plus_40:{tier:'plus40',messageCredits:30},bnb_plus_60:{tier:'plus60',messageCredits:60}};
 let publisherPromise=null;
-async function publisher(){
-  if(!publisherPromise){
-    const raw=process.env.PLAY_SERVICE_ACCOUNT_JSON;
-    if(!raw) throw new Error('PLAY_SERVICE_ACCOUNT_JSON is not configured.');
-    const credentials=JSON.parse(raw);
-    const authClient=new google.auth.GoogleAuth({credentials,scopes:['https://www.googleapis.com/auth/androidpublisher']});
-    publisherPromise=authClient.getClient().then(client=>{google.options({auth:client});return google.androidpublisher('v3');});
-  }
-  return publisherPromise;
-}
-exports.verifyGooglePlayPurchase=onCall(async req=>{
-  const uid=auth(req); const productId=String(req.data?.productId||''); const token=String(req.data?.purchaseToken||'');
-  const product=PAID_PRODUCTS[productId];
-  if(!product||!token) throw new HttpsError('invalid-argument','Invalid purchase.');
-  let api;
-  try{api=await publisher();}catch(e){throw new HttpsError('failed-precondition','Purchase verification service is not configured.');}
-  let purchase;
-  try{purchase=(await api.purchases.products.get({packageName:'com.nikahbridge',productId,token})).data;}catch(e){throw new HttpsError('permission-denied','Google Play purchase could not be verified.');}
-  if(Number(purchase.purchaseState)!==0) throw new HttpsError('failed-precondition','Purchase is not in a completed state.');
-  const purchaseRef=db.collection('playPurchases').doc(String(purchase.orderId||token));
-  const existing=await purchaseRef.get();
-  if(existing.exists && existing.data().uid!==uid) throw new HttpsError('permission-denied','Purchase already belongs to another account.');
-  await purchaseRef.set({uid,productId,orderId:purchase.orderId||null,purchaseToken:token,verifiedAt:F.serverTimestamp(),tier:product.tier,messageCredits:product.messageCredits},{merge:true});
-  await db.collection('entitlements').doc(uid).set({uid,paidTier:product.tier,messageCredits:F.increment(product.messageCredits),lastPurchaseId:purchase.orderId||token,updatedAt:F.serverTimestamp()},{merge:true});
-  if(Number(purchase.acknowledgementState)===0){
-    try{await api.purchases.products.acknowledge({packageName:'com.nikahbridge',productId,token,requestBody:{}});}catch(e){/* entitlement remains server-recorded; acknowledgement can be retried */}
-  }
-  return {verified:true,tier:product.tier,messageCredits:product.messageCredits};
-});
-
-exports.queueReport=onDocumentCreated('reports/{reportId}',async event=>{
-  const r=event.data?.data(); if(!r)return;
-  await db.collection('moderationQueue').doc(event.params.reportId).set({reportId:event.params.reportId,reporterUid:r.reporterUid||null,reportedUid:r.reportedUid||null,reason:r.reason||'unspecified',status:'pending',createdAt:F.serverTimestamp()},{merge:true});
-});
-
-exports.setModerationDecision=onCall(async req=>{
-  if(!isAdmin(req)) throw new HttpsError('permission-denied','Admin access required.');
-  const id=String(req.data?.reportId||''),decision=String(req.data?.decision||'');
-  if(!id||!['reviewed','actioned','dismissed'].includes(decision)) throw new HttpsError('invalid-argument','Invalid decision.');
-  await db.collection('moderationQueue').doc(id).set({status:decision,moderatorUid:req.auth.uid,decidedAt:F.serverTimestamp()},{merge:true});
-  return {status:decision};
-});
-
-exports.setVerificationStatus=onCall(async req=>{
-  if(!isAdmin(req)) throw new HttpsError('permission-denied','Admin access required.');
-  const uid=String(req.data?.userUid||''),status=String(req.data?.status||'');
-  if(!uid||!['verified','rejected','unverified'].includes(status)) throw new HttpsError('invalid-argument','Invalid verification status.');
-  await db.collection('users').doc(uid).update({verificationStatus:status,verificationUpdatedAt:F.serverTimestamp(),verificationBy:req.auth.uid});
-  return {status};
-});
+async function publisher(){ if(!publisherPromise){const raw=process.env.PLAY_SERVICE_ACCOUNT_JSON;if(!raw)throw new Error('PLAY_SERVICE_ACCOUNT_JSON is not configured.');const credentials=JSON.parse(raw);const c=new google.auth.GoogleAuth({credentials,scopes:['https://www.googleapis.com/auth/androidpublisher']});publisherPromise=c.getClient().then(client=>{google.options({auth:client});return google.androidpublisher('v3');});}return publisherPromise; }
+exports.verifyGooglePlayPurchase=onCall(async req=>{ const uid=auth(req),productId=String(req.data?.productId||''),token=String(req.data?.purchaseToken||''),product=PAID_PRODUCTS[productId];if(!product||!token)throw new HttpsError('invalid-argument','Invalid purchase.');let api;try{api=await publisher();}catch(e){throw new HttpsError('failed-precondition','Purchase verification service is not configured.');}let purchase;try{purchase=(await api.purchases.products.get({packageName:'com.nikahbridge',productId,token})).data;}catch(e){throw new HttpsError('permission-denied','Google Play purchase could not be verified.');}if(Number(purchase.purchaseState)!==0)throw new HttpsError('failed-precondition','Purchase is not completed.');const ref=db.collection('playPurchases').doc(String(purchase.orderId||token)),old=await ref.get();if(old.exists&&old.data().uid!==uid)throw new HttpsError('permission-denied','Purchase belongs to another account.');await ref.set({uid,productId,orderId:purchase.orderId||null,purchaseToken:token,verifiedAt:F.serverTimestamp(),tier:product.tier,messageCredits:product.messageCredits},{merge:true});await db.collection('entitlements').doc(uid).set({uid,paidTier:product.tier,messageCredits:F.increment(product.messageCredits),lastPurchaseId:purchase.orderId||token,updatedAt:F.serverTimestamp()},{merge:true});if(Number(purchase.acknowledgementState)===0){try{await api.purchases.products.acknowledge({packageName:'com.nikahbridge',productId,token,requestBody:{}});}catch(e){}}return{verified:true,tier:product.tier,messageCredits:product.messageCredits}; });
