@@ -1,0 +1,86 @@
+name: Repair production MainActivity
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event.head_commit.message != 'Repair production MainActivity from verified real commit'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore verified real production source and add real photo UI
+        shell: python
+        run: |
+          import re
+          import subprocess
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/nikahbridge/MainActivity.java')
+
+          # 0539eea is the verified production MainActivity commit that fixed
+          # Firebase AI Logic Java compatibility and contains the real Firebase
+          # community/matching/safety/family/verification flows.
+          source = subprocess.check_output([
+              'git', 'show', '0539eea3048549431057a219ff4e99fe2b06bca4:' + str(path)
+          ], text=True)
+          text = source
+
+          # Real profile-photo entry point; no sample/demo image is inserted.
+          old = 'Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),back=button("Back",false);'
+          new = 'Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);\\n        photo.setOnClickListener(v->startActivity(new android.content.Intent(this, ProfilePhotoActivity.class)));'
+          if old in text and 'ProfilePhotoActivity.class' not in text:
+              text = text.replace(old, new, 1)
+
+          # Show only a real Firebase Storage photo when photoUrl exists.
+          pattern = r'private void addMatch\\(DocumentSnapshot d,int s\\)\\{.*?\\n    private void sendInterest'
+          replacement = '''private void addMatch(DocumentSnapshot d,int s){
+        String n=val(d,"name");if(n.isEmpty())n="Member";
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);
+        String photoUrl=val(d,"photoUrl");
+        if(!photoUrl.trim().isEmpty()){
+            android.widget.ImageView photo=new android.widget.ImageView(this);photo.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);card.addView(photo,new LinearLayout.LayoutParams(-1,420));ProfilePhotoLoader.load(photoUrl,photo);
+        }
+        card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));
+        card.addView(text("Location: "+val(d,"city")+", "+val(d,"country")+"\\nMarriage: "+val(d,"marriageIntent")+"\\nTimeline: "+val(d,"marriageTimeline")+"\\nFamily/Wali: "+val(d,"familyInvolvement")+"\\nVerification: "+val(d,"verificationStatus"),15,false));
+        card.addView(text("Why we matched: reciprocal age/gender preferences + marriage intent + timeline + location/values + deal-breaker checks + trust signals.",14,false));
+        Button view=button("View Profile",true),interest=button("Express Interest",false),report=danger("Report / Block");card.addView(view);card.addView(interest);card.addView(report);
+        view.setOnClickListener(v->new AlertDialog.Builder(this).setTitle(n).setMessage("Age: "+val(d,"age")+"\\nLocation: "+val(d,"city")+", "+val(d,"country")+"\\nMarriage intention: "+val(d,"marriageIntent")+"\\nTimeline: "+val(d,"marriageTimeline")+"\\nFamily/Wali: "+val(d,"familyInvolvement")+"\\nVerification: "+val(d,"verificationStatus")+"\\n\\nAbout:\\n"+val(d,"about")+"\\n\\nSafety: never send money, OTPs, passwords or unnecessary identity documents.").setPositiveButton("Close",null).show());
+        interest.setOnClickListener(v->sendInterest(d.getId(),interest));report.setOnClickListener(v->safetyAction(d.getId()));
+    }
+    private void sendInterest'''
+          text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('Could not locate addMatch method in verified source')
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Verify no demo data and verify photo/AI source
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Real Firebase data only' app/src/main/java/com/nikahbridge/MainActivity.java
+          ! grep -qE 'DEMO_|MockData|mockData|sample member|fake match' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'ProfilePhotoActivity.class' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'ProfilePhotoLoader.load' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'com.google.firebase.ai.java.GenerativeModelFutures' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'com.google.firebase.ai.type.GenerateContentResponse' app/src/main/java/com/nikahbridge/MainActivity.java
+          git diff --check
+
+      - name: Commit repaired production source
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/nikahbridge/MainActivity.java .github/workflows/repair-production-mainactivity.yml
+          git commit -m 'Repair production MainActivity from verified real commit'
+          git push
