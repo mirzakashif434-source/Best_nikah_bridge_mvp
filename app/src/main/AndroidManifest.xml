@@ -3,13 +3,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:allowBackup="false" android:usesCleartextTraffic="false" android:label="Best Nikah Bridge" android:supportsRtl="true" android:theme="@style/Theme.NikahBridge">
         <activity android:name=".ProductionCompletionActivity" android:exported="false" />
+        <activity android:name=".ProfilePhotoActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ProductionMainActivity" android:exported="false">
-        </activity>
+        <activity android:name=".ProductionMainActivity" android:exported="false" />
     </application>
 </manifest>
