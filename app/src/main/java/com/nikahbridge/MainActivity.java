@@ -21,10 +21,11 @@ import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.functions.FirebaseFunctions;
 import com.google.firebase.ai.FirebaseAI;
 import com.google.firebase.ai.GenerativeModel;
+import com.google.firebase.ai.java.GenerativeModelFutures;
 import com.google.firebase.ai.type.Content;
 import com.google.firebase.ai.type.GenerativeBackend;
-import com.google.firebase.ai.GenerateContentResponse;
 
+import com.google.firebase.ai.GenerateContentResponse;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
@@ -238,9 +239,14 @@ public class MainActivity extends Activity {
         answer.setText("AI is preparing a response…");
         aiExecutor.execute(()->{
             try{
-                GenerativeModel model=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");
+                GenerativeModel ai=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");
+                GenerativeModelFutures model=GenerativeModelFutures.from(ai);
                 Content content=new Content.Builder().addText("You are the Best Nikah Bridge assistant. Be respectful, safety-first, family-aware and concise. This is a Muslim matrimonial app, not a dating app. Do not give fatwas or pretend to be a scholar. Encourage qualified scholars for religious rulings. Never request passwords, OTPs or identity documents. User request: "+prompt).build();
-                ListenableFuture<GenerateContentResponse> future=model.generateContent(content);GenerateContentResponse response=future.get();String out=response.getText();if(out==null||out.trim().isEmpty())throw new IllegalStateException("Empty AI response");runOnUiThread(()->answer.setText(out));
+                ListenableFuture<com.google.firebase.ai.type.GenerateContentResponse> future=model.generateContent(content);
+                com.google.firebase.ai.type.GenerateContentResponse response=future.get();
+                String out=response.getText();
+                if(out==null||out.trim().isEmpty())throw new IllegalStateException("Empty AI response");
+                runOnUiThread(()->answer.setText(out));
             }catch(Exception e){runOnUiThread(()->answer.setText("AI is temporarily unavailable. Safety guidance: keep communication respectful, involve family/Wali, verify important claims independently, never send money or OTPs, and consult a qualified scholar for religious rulings."));}
         });
     }
