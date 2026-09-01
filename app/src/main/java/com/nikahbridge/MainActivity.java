@@ -181,7 +181,8 @@ public class MainActivity extends Activity {
     private boolean hasDealbreakConflict(String deal,String otherPref){if(deal.isEmpty()||otherPref.isEmpty())return false;String[] aa=deal.split("\\s+");for(String x:aa)if(x.length()>4&&otherPref.contains(x))return true;return false;}
 
     private void addMatch(DocumentSnapshot me,DocumentSnapshot d,int s){
-        String n=val(d,"name");if(n.isEmpty())n="Member";LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);
+        final String n=val(d,"name").isEmpty()?"Member":val(d,"name");
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);
         android.widget.ImageView photo=new android.widget.ImageView(this);photo.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);photo.setVisibility(android.view.View.GONE);card.addView(photo,new LinearLayout.LayoutParams(-1,420));String photoUrl=val(d,"photoUrl");if(!photoUrl.trim().isEmpty()){photo.setVisibility(android.view.View.VISIBLE);ProfilePhotoLoader.load(photoUrl,photo);}
         card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));
         card.addView(text("Location: "+val(d,"city")+", "+val(d,"country")+"\nMarriage: "+val(d,"marriageIntent")+"\nTimeline: "+val(d,"marriageTimeline")+"\nFamily/Wali: "+val(d,"familyInvolvement")+"\nVerification: "+val(d,"verificationStatus"),15,false));
