@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   repair-and-release:
-    if: github.event.head_commit.message != 'Fix Firebase AI Logic compatibility without changing app features'
+    if: github.event.head_commit.message != 'Apply Firebase AI compatibility fix'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact production source
@@ -31,33 +31,24 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-
           path = Path('app/src/main/java/com/nikahbridge/MainActivity.java')
           text = path.read_text(encoding='utf-8')
-
           old_import = 'import com.google.firebase.ai.GenerateContentResponse;'
           new_import = 'import com.google.firebase.ai.type.GenerateContentResponse;'
           if old_import not in text:
               raise SystemExit('Expected old GenerateContentResponse import was not found')
           text = text.replace(old_import, new_import, 1)
-
           anchor = 'import com.google.firebase.ai.type.GenerativeBackend;'
           futures_import = 'import com.google.firebase.ai.java.GenerativeModelFutures;'
           if futures_import not in text:
-              if anchor not in text:
-                  raise SystemExit('Firebase AI import anchor was not found')
               text = text.replace(anchor, anchor + '\n' + futures_import, 1)
-
           old_model = 'GenerativeModel model=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");'
           new_model = 'GenerativeModel aiModel=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");\n                GenerativeModelFutures model=GenerativeModelFutures.from(aiModel);'
           if old_model not in text:
               raise SystemExit('Expected AI model initialization was not found')
           text = text.replace(old_model, new_model, 1)
-
-          old_future = 'ListenableFuture<GenerateContentResponse> future=model.generateContent(content);'
-          if old_future not in text:
+          if 'ListenableFuture<GenerateContentResponse> future=model.generateContent(content);' not in text:
               raise SystemExit('Expected AI generateContent call was not found')
-
           path.write_text(text, encoding='utf-8')
 
       - name: Verify locked production features remain intact
@@ -112,5 +103,5 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/src/main/java/com/nikahbridge/MainActivity.java
           git diff --cached --check
-          git commit -m 'Fix Firebase AI Logic compatibility without changing app features'
+          git commit -m 'Apply Firebase AI compatibility fix'
           git push
