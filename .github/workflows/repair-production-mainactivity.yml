@@ -9,78 +9,108 @@ permissions:
   contents: write
 
 jobs:
-  repair:
-    if: github.event.head_commit.message != 'Repair production MainActivity from verified real commit'
+  repair-and-release:
+    if: github.event.head_commit.message != 'Fix Firebase AI Logic compatibility without changing app features'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout full history
-        uses: actions/checkout@v4
+      - name: Checkout exact production source
+        uses: actions/checkout@v6
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Restore verified real production source and add real photo UI
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Replace only broken Firebase AI Java compatibility code
         shell: python
         run: |
-          import re
-          import subprocess
           from pathlib import Path
 
           path = Path('app/src/main/java/com/nikahbridge/MainActivity.java')
+          text = path.read_text(encoding='utf-8')
 
-          # 0539eea is the verified production MainActivity commit that fixed
-          # Firebase AI Logic Java compatibility and contains the real Firebase
-          # community/matching/safety/family/verification flows.
-          source = subprocess.check_output([
-              'git', 'show', '0539eea3048549431057a219ff4e99fe2b06bca4:' + str(path)
-          ], text=True)
-          text = source
+          old_import = 'import com.google.firebase.ai.GenerateContentResponse;'
+          new_import = 'import com.google.firebase.ai.type.GenerateContentResponse;'
+          if old_import not in text:
+              raise SystemExit('Expected old GenerateContentResponse import was not found')
+          text = text.replace(old_import, new_import, 1)
 
-          # Real profile-photo entry point; no sample/demo image is inserted.
-          old = 'Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),back=button("Back",false);'
-          new = 'Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);\\n        photo.setOnClickListener(v->startActivity(new android.content.Intent(this, ProfilePhotoActivity.class)));'
-          if old in text and 'ProfilePhotoActivity.class' not in text:
-              text = text.replace(old, new, 1)
+          anchor = 'import com.google.firebase.ai.type.GenerativeBackend;'
+          futures_import = 'import com.google.firebase.ai.java.GenerativeModelFutures;'
+          if futures_import not in text:
+              if anchor not in text:
+                  raise SystemExit('Firebase AI import anchor was not found')
+              text = text.replace(anchor, anchor + '\n' + futures_import, 1)
 
-          # Show only a real Firebase Storage photo when photoUrl exists.
-          pattern = r'private void addMatch\\(DocumentSnapshot d,int s\\)\\{.*?\\n    private void sendInterest'
-          replacement = '''private void addMatch(DocumentSnapshot d,int s){
-        String n=val(d,"name");if(n.isEmpty())n="Member";
-        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);
-        String photoUrl=val(d,"photoUrl");
-        if(!photoUrl.trim().isEmpty()){
-            android.widget.ImageView photo=new android.widget.ImageView(this);photo.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);card.addView(photo,new LinearLayout.LayoutParams(-1,420));ProfilePhotoLoader.load(photoUrl,photo);
-        }
-        card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));
-        card.addView(text("Location: "+val(d,"city")+", "+val(d,"country")+"\\nMarriage: "+val(d,"marriageIntent")+"\\nTimeline: "+val(d,"marriageTimeline")+"\\nFamily/Wali: "+val(d,"familyInvolvement")+"\\nVerification: "+val(d,"verificationStatus"),15,false));
-        card.addView(text("Why we matched: reciprocal age/gender preferences + marriage intent + timeline + location/values + deal-breaker checks + trust signals.",14,false));
-        Button view=button("View Profile",true),interest=button("Express Interest",false),report=danger("Report / Block");card.addView(view);card.addView(interest);card.addView(report);
-        view.setOnClickListener(v->new AlertDialog.Builder(this).setTitle(n).setMessage("Age: "+val(d,"age")+"\\nLocation: "+val(d,"city")+", "+val(d,"country")+"\\nMarriage intention: "+val(d,"marriageIntent")+"\\nTimeline: "+val(d,"marriageTimeline")+"\\nFamily/Wali: "+val(d,"familyInvolvement")+"\\nVerification: "+val(d,"verificationStatus")+"\\n\\nAbout:\\n"+val(d,"about")+"\\n\\nSafety: never send money, OTPs, passwords or unnecessary identity documents.").setPositiveButton("Close",null).show());
-        interest.setOnClickListener(v->sendInterest(d.getId(),interest));report.setOnClickListener(v->safetyAction(d.getId()));
-    }
-    private void sendInterest'''
-          text, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit('Could not locate addMatch method in verified source')
+          old_model = 'GenerativeModel model=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");'
+          new_model = 'GenerativeModel aiModel=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");\n                GenerativeModelFutures model=GenerativeModelFutures.from(aiModel);'
+          if old_model not in text:
+              raise SystemExit('Expected AI model initialization was not found')
+          text = text.replace(old_model, new_model, 1)
+
+          old_future = 'ListenableFuture<GenerateContentResponse> future=model.generateContent(content);'
+          if old_future not in text:
+              raise SystemExit('Expected AI generateContent call was not found')
 
           path.write_text(text, encoding='utf-8')
 
-      - name: Verify no demo data and verify photo/AI source
+      - name: Verify locked production features remain intact
         run: |
           set -euo pipefail
           test -f app/src/main/java/com/nikahbridge/MainActivity.java
           grep -q 'Real Firebase data only' app/src/main/java/com/nikahbridge/MainActivity.java
-          ! grep -qE 'DEMO_|MockData|mockData|sample member|fake match' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Add / Update Real Profile Photo' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -q 'ProfilePhotoActivity.class' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -q 'ProfilePhotoLoader.load' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -q 'com.google.firebase.ai.java.GenerativeModelFutures' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -q 'com.google.firebase.ai.type.GenerateContentResponse' app/src/main/java/com/nikahbridge/MainActivity.java
+          ! grep -q 'import com.google.firebase.ai.GenerateContentResponse;' app/src/main/java/com/nikahbridge/MainActivity.java
+          ! grep -qE 'DEMO_|MockData|mockData|sample member|fake match' app/src/main/java/com/nikahbridge/MainActivity.java
           git diff --check
 
-      - name: Commit repaired production source
+      - name: Verify release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed Release AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew clean bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload Release AAB
+        uses: actions/upload-artifact@v6
+        with:
+          name: best-nikah-bridge-release-fixed
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Commit only the Firebase AI compatibility replacement
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app/src/main/java/com/nikahbridge/MainActivity.java .github/workflows/repair-production-mainactivity.yml
-          git commit -m 'Repair production MainActivity from verified real commit'
+          git add app/src/main/java/com/nikahbridge/MainActivity.java
+          git diff --cached --check
+          git commit -m 'Fix Firebase AI Logic compatibility without changing app features'
           git push
