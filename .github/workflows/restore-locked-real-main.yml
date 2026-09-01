@@ -1,0 +1,63 @@
+name: Restore Locked Real MainActivity
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore locked real MainActivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/java/com/nikahbridge
+          git show 8e98598e176c6abe94ee382472cd44e8f10ccc73:app/src/main/MainActivity.java > app/src/main/java/com/nikahbridge/MainActivity.java
+          rm -f app/src/main/MainActivity.java
+
+      - name: Lock launcher to MainActivity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path("app/src/main/AndroidManifest.xml")
+          s=p.read_text()
+          s=s.replace('<activity android:name=".ProductionMainActivity" android:exported="true">','<activity android:name=".ProductionMainActivity" android:exported="false">')
+          prod=s.find('<activity android:name=".ProductionMainActivity"')
+          if prod >= 0:
+              end=s.find('</activity>', prod)
+              block=s[prod:end+10]
+              block=block.replace('''\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>''','')
+              s=s[:prod]+block+s[end+10:]
+          main='<activity android:name=".MainActivity" android:exported="false" />'
+          main_block='''<activity android:name=".MainActivity" android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.MAIN" />\n                <category android:name="android.intent.category.LAUNCHER" />\n            </intent-filter>\n        </activity>'''
+          s=s.replace(main, main_block)
+          p.write_text(s)
+          PY
+
+      - name: Verify real-only source
+        run: |
+          set -euo pipefail
+          grep -q 'Real Firebase data only' app/src/main/java/com/nikahbridge/MainActivity.java
+          ! grep -qE 'DEMO_NAMES|DEMO_AGES|sample member|fake match|MockData|mockData' app/src/main/java/com/nikahbridge/MainActivity.java
+          git diff --check
+
+      - name: Commit restored production source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/java/com/nikahbridge/MainActivity.java app/src/main/AndroidManifest.xml
+          git commit -m "Restore locked real MainActivity as production launcher" || exit 0
+          git push
