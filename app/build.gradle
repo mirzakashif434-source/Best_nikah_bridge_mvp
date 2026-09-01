@@ -42,7 +42,10 @@ dependencies {
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'com.google.firebase:firebase-functions'
     implementation 'com.google.firebase:firebase-storage'
-    implementation 'com.google.firebase:firebase-ai'
+    // Pin Firebase AI Logic to the exact version mapped by BoM 34.18.0.
+    // This keeps the Java compatibility layer (including GenerateContentResponse)
+    // deterministic in the release build.
+    implementation 'com.google.firebase:firebase-ai:17.16.0'
     implementation 'com.google.firebase:firebase-appcheck-playintegrity'
     implementation 'com.google.android.gms:play-services-ads:25.4.0'
     implementation 'com.google.android.ump:user-messaging-platform:4.0.0'
