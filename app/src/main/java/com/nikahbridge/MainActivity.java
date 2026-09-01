@@ -121,8 +121,8 @@ public class MainActivity extends Activity {
     private void home(){
         base();title("Best Nikah Bridge");
         root.addView(text("A serious Muslim marriage platform built around trust, compatibility, family and safe Nikah — not dating.",17,false));
-        Button p=button("My Profile & Intent",true),r=button("Nikah Readiness Score",true),m=button("Compatibility Matches",true),i=button("Mutual Interests & Safe Chat",true),w=button("Family / Wali Connect",true),s=button("Scam Shield & Safety",false),v=button("Real Verification",false),h=button("AI Nikah Assistant",false),pr=button("Privacy Control Center",false),a=button("Delete Account / Sign out",false);
-        p.setOnClickListener(x->profile());r.setOnClickListener(x->readiness());m.setOnClickListener(x->matches());i.setOnClickListener(x->interests());w.setOnClickListener(x->wali());s.setOnClickListener(x->safety());v.setOnClickListener(x->verification());h.setOnClickListener(x->help());pr.setOnClickListener(x->privacy());a.setOnClickListener(x->account());
+        Button p=button("My Profile & Intent",true),r=button("Nikah Readiness Score",true),m=button("Compatibility Matches",true),i=button("Mutual Interests & Safe Chat",true),w=button("Family / Wali Connect",true),wallet=button("Wallet & Withdrawals",true),s=button("Scam Shield & Safety",false),v=button("Real Verification",false),h=button("AI Nikah Assistant",false),pr=button("Privacy Control Center",false),a=button("Delete Account / Sign out",false);
+        p.setOnClickListener(x->profile());r.setOnClickListener(x->readiness());m.setOnClickListener(x->matches());i.setOnClickListener(x->interests());w.setOnClickListener(x->wali());wallet.setOnClickListener(x->startActivity(new android.content.Intent(this,WalletActivity.class)));s.setOnClickListener(x->safety());v.setOnClickListener(x->verification());h.setOnClickListener(x->help());pr.setOnClickListener(x->privacy());a.setOnClickListener(x->account());
         root.addView(text("Real Firebase data only. No demo members, fake match records or fake verification badges.",14,false));
     }
 
