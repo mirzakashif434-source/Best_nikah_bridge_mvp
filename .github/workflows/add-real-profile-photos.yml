@@ -1,0 +1,48 @@
+name: Add Real Profile Photo Flow
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.head_commit.message != 'Add real profile photo flow to production MainActivity'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch production MainActivity for real photos
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app/src/main/java/com/nikahbridge/MainActivity.java')
+          s=p.read_text()
+          old='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),back=button("Back",false);'
+          new='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);\n        photo.setOnClickListener(v->startActivity(new android.content.Intent(this, ProfilePhotoActivity.class)));'
+          if old not in s: raise SystemExit('profile anchor not found')
+          s=s.replace(old,new,1)
+          old2='String n=val(d,"name");if(n.isEmpty())n="Member";LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);\n        card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));'
+          new2='String n=val(d,"name");if(n.isEmpty())n="Member";LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);\n        android.widget.ImageView photo=new android.widget.ImageView(this);photo.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);photo.setVisibility(android.view.View.GONE);card.addView(photo,new LinearLayout.LayoutParams(-1,420));String photoUrl=val(d,"photoUrl");if(!photoUrl.trim().isEmpty()){photo.setVisibility(android.view.View.VISIBLE);ProfilePhotoLoader.load(photoUrl,photo);}\n        card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));'
+          if old2 not in s: raise SystemExit('match anchor not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+          PY
+      - name: Verify no demo profile markers
+        run: |
+          set -euo pipefail
+          ! grep -qE 'DEMO_NAMES|DEMO_AGES|DEMO_COUNTRIES|DEMO_CITIES|DEMO_ABOUT|DEMO_REASONS|premium_demo|Watch Ad.*Demo' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Real Firebase data only' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'ProfilePhotoActivity' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'ProfilePhotoLoader.load' app/src/main/java/com/nikahbridge/MainActivity.java
+          git diff --check
+      - name: Commit production photo flow
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/java/com/nikahbridge/MainActivity.java
+          git commit -m 'Add real profile photo flow to production MainActivity' || exit 0
+          git push
