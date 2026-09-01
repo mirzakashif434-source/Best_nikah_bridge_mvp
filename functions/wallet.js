@@ -1,0 +1,92 @@
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const admin = require('firebase-admin');
+const db = admin.firestore();
+const F = admin.firestore.FieldValue;
+
+function requireAuth(req){ if(!req.auth) throw new HttpsError('unauthenticated','Sign-in required.'); return req.auth.uid; }
+function requireAdmin(req){ if(!req.auth?.token?.admin) throw new HttpsError('permission-denied','Admin access required.'); return req.auth.uid; }
+function cleanCurrency(v){ const c=String(v||'SAR').toUpperCase(); if(!['SAR','USDT'].includes(c)) throw new HttpsError('invalid-argument','Unsupported wallet currency.'); return c; }
+function minor(value){ const n=Number(value); if(!Number.isFinite(n)||n<=0||n>100000000) throw new HttpsError('invalid-argument','Invalid amount.'); return Math.round(n*100); }
+
+exports.getWallet=onCall(async req=>{
+  const uid=requireAuth(req);
+  const ref=db.collection('wallets').doc(uid);
+  const s=await ref.get();
+  if(!s.exists) return {currency:'SAR',available:0,pending:0,totalEarned:0,totalWithdrawn:0,kycStatus:'unverified'};
+  const d=s.data()||{};
+  return {currency:String(d.currency||'SAR'),available:Number(d.availableMinor||0)/100,pending:Number(d.pendingMinor||0)/100,totalEarned:Number(d.totalEarnedMinor||0)/100,totalWithdrawn:Number(d.totalWithdrawnMinor||0)/100,kycStatus:String(d.kycStatus||'unverified'),country:String(d.country||'')};
+});
+
+exports.requestWalletWithdrawal=onCall(async req=>{
+  const uid=requireAuth(req),currency=cleanCurrency(req.data?.currency),amount=minor(req.data?.amount),destination=String(req.data?.destination||'').trim(),country=String(req.data?.country||'').trim();
+  if(destination.length<6||destination.length>300) throw new HttpsError('invalid-argument','Enter a valid payout destination.');
+  if(country.length<2||country.length>100) throw new HttpsError('invalid-argument','Country is required.');
+  const user=await db.collection('users').doc(uid).get(); if(!user.exists) throw new HttpsError('not-found','User account not found.');
+  if(user.data()?.profileActive!==true) throw new HttpsError('failed-precondition','Complete your real profile first.');
+  const walletRef=db.collection('wallets').doc(uid);
+  const withdrawalRef=db.collection('withdrawals').doc();
+  await db.runTransaction(async tx=>{
+    const s=await tx.get(walletRef),d=s.exists?s.data():{};
+    if(String(d.kycStatus||'unverified')!=='verified') throw new HttpsError('failed-precondition','Identity/KYC verification is required before withdrawal.');
+    const key=currency==='SAR'?'availableSarMinor':'availableUsdtMinor';
+    const pendingKey=currency==='SAR'?'pendingSarMinor':'pendingUsdtMinor';
+    const available=Number(d[key]||0); if(amount<1000) throw new HttpsError('failed-precondition','Minimum withdrawal is 10.00.'); if(amount>available) throw new HttpsError('failed-precondition','Insufficient available balance.');
+    tx.set(walletRef,{uid,country,currency,availableMinor:currency==='SAR'?available-amount:Number(d.availableMinor||0),pendingMinor:currency==='SAR'?Number(d.pendingMinor||0)+amount:Number(d.pendingMinor||0),[key]:available-amount,[pendingKey]:Number(d[pendingKey]||0)+amount,updatedAt:F.serverTimestamp()},{merge:true});
+    tx.set(withdrawalRef,{uid,currency,amountMinor:amount,country,destination,status:'pending_review',createdAt:F.serverTimestamp(),updatedAt:F.serverTimestamp(),reviewedBy:null,paidAt:null});
+    tx.set(db.collection('walletLedger').doc(),{uid,type:'withdrawal_hold',currency,amountMinor:-amount,withdrawalId:withdrawalRef.id,createdAt:F.serverTimestamp()});
+  });
+  return {submitted:true,withdrawalId:withdrawalRef.id,status:'pending_review'};
+});
+
+exports.listWalletTransactions=onCall(async req=>{
+  const uid=requireAuth(req);
+  const q=await db.collection('walletLedger').where('uid','==',uid).orderBy('createdAt','desc').limit(50).get();
+  return {transactions:q.docs.map(d=>{const x=d.data()||{};return {id:d.id,type:String(x.type||''),currency:String(x.currency||''),amount:Number(x.amountMinor||0)/100,status:String(x.status||''),withdrawalId:String(x.withdrawalId||''),createdAt:x.createdAt?.toDate?.()?.toISOString()||null};})};
+});
+
+exports.recordWalletEarning=onCall(async req=>{
+  const adminUid=requireAdmin(req),uid=String(req.data?.uid||''),currency=cleanCurrency(req.data?.currency),amount=minor(req.data?.amount),source=String(req.data?.source||'').trim();
+  if(!uid||uid===adminUid||source.length<3||source.length>120) throw new HttpsError('invalid-argument','Invalid earning record.');
+  const user=await db.collection('users').doc(uid).get(); if(!user.exists) throw new HttpsError('not-found','User not found.');
+  const walletRef=db.collection('wallets').doc(uid),ledgerRef=db.collection('walletLedger').doc();
+  await db.runTransaction(async tx=>{
+    const s=await tx.get(walletRef),d=s.exists?s.data():{};
+    const availableKey=currency==='SAR'?'availableSarMinor':'availableUsdtMinor';
+    const totalKey=currency==='SAR'?'totalEarnedSarMinor':'totalEarnedUsdtMinor';
+    tx.set(walletRef,{uid,currency,[availableKey]:Number(d[availableKey]||0)+amount,[totalKey]:Number(d[totalKey]||0)+amount,updatedAt:F.serverTimestamp()},{merge:true});
+    tx.set(ledgerRef,{uid,type:'earning',currency,amountMinor:amount,source,recordedBy:adminUid,createdAt:F.serverTimestamp()});
+  });
+  return {recorded:true};
+});
+
+exports.reviewWalletWithdrawal=onCall(async req=>{
+  const adminUid=requireAdmin(req),id=String(req.data?.withdrawalId||''),decision=String(req.data?.decision||''),note=String(req.data?.note||'').trim();
+  if(!id||!['approve','reject'].includes(decision)) throw new HttpsError('invalid-argument','Invalid withdrawal decision.');
+  const ref=db.collection('withdrawals').doc(id);
+  await db.runTransaction(async tx=>{
+    const s=await tx.get(ref); if(!s.exists) throw new HttpsError('not-found','Withdrawal not found.'); const w=s.data()||{};
+    if(w.status!=='pending_review') throw new HttpsError('failed-precondition','Withdrawal is no longer pending.');
+    const uid=String(w.uid),currency=cleanCurrency(w.currency),amount=Number(w.amountMinor||0),walletRef=db.collection('wallets').doc(uid),ws=await tx.get(walletRef),d=ws.exists?ws.data():{};
+    const pendingKey=currency==='SAR'?'pendingSarMinor':'pendingUsdtMinor',totalKey=currency==='SAR'?'totalWithdrawnSarMinor':'totalWithdrawnUsdtMinor';
+    const pending=Number(d[pendingKey]||0); if(pending<amount) throw new HttpsError('failed-precondition','Wallet pending balance is inconsistent.');
+    if(decision==='approve'){
+      tx.set(walletRef,{[pendingKey]:pending-amount,[totalKey]:Number(d[totalKey]||0)+amount,updatedAt:F.serverTimestamp()},{merge:true});
+      tx.update(ref,{status:'approved_pending_payout',reviewedBy:adminUid,reviewedAt:F.serverTimestamp(),note,updatedAt:F.serverTimestamp()});
+      tx.set(db.collection('walletLedger').doc(),{uid,type:'withdrawal_approved',currency,amountMinor:-amount,withdrawalId:id,status:'approved_pending_payout',createdAt:F.serverTimestamp()});
+    } else {
+      const availableKey=currency==='SAR'?'availableSarMinor':'availableUsdtMinor';
+      tx.set(walletRef,{[pendingKey]:pending-amount,[availableKey]:Number(d[availableKey]||0)+amount,updatedAt:F.serverTimestamp()},{merge:true});
+      tx.update(ref,{status:'rejected',reviewedBy:adminUid,reviewedAt:F.serverTimestamp(),note,updatedAt:F.serverTimestamp()});
+      tx.set(db.collection('walletLedger').doc(),{uid,type:'withdrawal_released',currency,amountMinor:amount,withdrawalId:id,status:'rejected',createdAt:F.serverTimestamp()});
+    }
+  });
+  return {updated:true,decision};
+});
+
+exports.markWalletPayoutPaid=onCall(async req=>{
+  const adminUid=requireAdmin(req),id=String(req.data?.withdrawalId||''),providerReference=String(req.data?.providerReference||'').trim();
+  if(!id||providerReference.length<3||providerReference.length>200) throw new HttpsError('invalid-argument','A real payout provider reference is required.');
+  const ref=db.collection('withdrawals').doc(id);
+  await db.runTransaction(async tx=>{const s=await tx.get(ref);if(!s.exists)throw new HttpsError('not-found','Withdrawal not found.');const w=s.data()||{};if(w.status!=='approved_pending_payout')throw new HttpsError('failed-precondition','Withdrawal is not awaiting payout.');tx.update(ref,{status:'paid',providerReference,paidBy:adminUid,paidAt:F.serverTimestamp(),updatedAt:F.serverTimestamp()});tx.set(db.collection('walletLedger').doc(),{uid:w.uid,type:'payout_paid',currency:w.currency,amountMinor:-Number(w.amountMinor||0),withdrawalId:id,providerReference,status:'paid',createdAt:F.serverTimestamp()});});
+  return {paid:true};
+});
