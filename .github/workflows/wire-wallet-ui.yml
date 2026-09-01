@@ -1,0 +1,52 @@
+name: Wire Wallet UI
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'app/src/main/java/com/nikahbridge/WalletActivity.java' ]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  wire:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Add wallet activity and home button safely
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          m=Path('app/src/main/AndroidManifest.xml')
+          s=m.read_text()
+          act='<activity android:name=".WalletActivity" android:exported="false" />'
+          if act not in s:
+              s=s.replace('<application ', '<application ', 1).replace('        <activity android:name=".ProductionCompletionActivity"', '        '+act+'\n        <activity android:name=".ProductionCompletionActivity"', 1)
+              m.write_text(s)
+          p=Path('app/src/main/java/com/nikahbridge/MainActivity.java')
+          s=p.read_text()
+          old='Button p=button("My Profile & Intent",true),r=button("Nikah Readiness Score",true),m=button("Compatibility Matches",true),i=button("Mutual Interests & Safe Chat",true),w=button("Family / Wali Connect",true),s=button("Scam Shield & Safety",false),v=button("Real Verification",false),h=button("AI Nikah Assistant",false),pr=button("Privacy Control Center",false),a=button("Delete Account / Sign out",false);'
+          new='Button p=button("My Profile & Intent",true),r=button("Nikah Readiness Score",true),m=button("Compatibility Matches",true),i=button("Mutual Interests & Safe Chat",true),w=button("Family / Wali Connect",true),wallet=button("Wallet & Withdrawals",true),s=button("Scam Shield & Safety",false),v=button("Real Verification",false),h=button("AI Nikah Assistant",false),pr=button("Privacy Control Center",false),a=button("Delete Account / Sign out",false);'
+          if old in s:
+              s=s.replace(old,new,1)
+              old2='p.setOnClickListener(x->profile());r.setOnClickListener(x->readiness());m.setOnClickListener(x->matches());i.setOnClickListener(x->interests());w.setOnClickListener(x->wali());s.setOnClickListener(x->safety());'
+              new2='p.setOnClickListener(x->profile());r.setOnClickListener(x->readiness());m.setOnClickListener(x->matches());i.setOnClickListener(x->interests());w.setOnClickListener(x->wali());wallet.setOnClickListener(x->startActivity(new android.content.Intent(this,WalletActivity.class)));s.setOnClickListener(x->safety());'
+              s=s.replace(old2,new2,1)
+              p.write_text(s)
+          else:
+              raise SystemExit('Expected home button block not found; no MainActivity modification made')
+          r=Path('firestore.rules'); rs=r.read_text()
+          marker='    match /wallets/{uid} {'
+          if marker not in rs:
+              insert="""    match /wallets/{uid} { allow read: if owner(uid); allow create,update,delete: if false; }\n    match /walletLedger/{id} { allow read: if signedIn() && resource.data.uid == request.auth.uid; allow create,update,delete: if false; }\n    match /withdrawals/{id} { allow read: if signedIn() && resource.data.uid == request.auth.uid; allow create,update,delete: if false; }\n"""
+              rs=rs.replace('    match /entitlements/{uid}',insert+'    match /entitlements/{uid}',1)
+              r.write_text(rs)
+          PY
+      - name: Commit only wallet wiring
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/AndroidManifest.xml app/src/main/java/com/nikahbridge/MainActivity.java firestore.rules
+          git diff --cached --quiet && exit 0
+          git commit -m 'Connect real wallet screen and secure wallet collections'
+          git push
