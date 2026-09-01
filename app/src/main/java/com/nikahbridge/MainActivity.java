@@ -238,7 +238,7 @@ public class MainActivity extends Activity {
         answer.setText("AI is preparing a response…");
         aiExecutor.execute(()->{
             try{
-                GenerativeModel ai=FirebaseAI.getInstance(FirebaseAI.optionsBuilder().setVertexAIBackend().build()).generativeModel("gemini-2.5-flash");
+                GenerativeModel ai=FirebaseAI.getInstance(GenerativeBackend.agentPlatform("global")).generativeModel("gemini-3.7-flash");
                 GenerativeModelFutures model=GenerativeModelFutures.from(ai);
                 Content content=new Content.Builder().addText("You are the Best Nikah Bridge assistant. Be respectful, safety-first, family-aware and concise. This is a Muslim matrimonial app, not a dating app. Do not give fatwas or pretend to be a scholar. Encourage qualified scholars for religious rulings. Never request passwords, OTPs or identity documents. User request: "+prompt).build();
                 ListenableFuture<GenerateContentResponse> future=model.generateContent(content);
