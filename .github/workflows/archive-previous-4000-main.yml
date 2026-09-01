@@ -1,0 +1,38 @@
+name: Archive Previous MainActivity
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    if: github.event.head_commit.message != 'Archive previous MainActivity for recovery'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Archive exact previous 3839-line source
+        run: |
+          set -euo pipefail
+          mkdir -p archive
+          git show 09e1a482ec2bf2b90864b46bb699f0d4c415a946:app/src/main/MainActivity.java > archive/MainActivity-3839-original-legacy.java
+          cat > archive/MAINACTIVITY_PRODUCTION_LOCK.md <<'EOF'
+# Best Nikah Bridge MainActivity Production Lock
+
+The exact historical MainActivity source from commit `09e1a482ec2bf2b90864b46bb699f0d4c415a946` is preserved in `MainActivity-3839-original-legacy.java` for recovery/reference.
+
+It is intentionally archived as legacy and is **not** the production launcher because that historical file contains hard-coded `DEMO_*` profile arrays and local-only demo controls.
+
+The production launcher is `app/src/main/java/com/nikahbridge/MainActivity.java` and must remain Firebase-backed with no hard-coded member/match records.
+
+Rule: never replace the production launcher with the legacy/demo source. Extend the production source only with real backend functionality.
+EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add archive
+          git commit -m 'Archive previous MainActivity for recovery' || exit 0
+          git push
