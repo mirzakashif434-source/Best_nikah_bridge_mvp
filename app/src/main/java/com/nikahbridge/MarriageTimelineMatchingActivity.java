@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.content.Intent;
 import android.widget.*;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.*;
@@ -20,6 +21,7 @@ public class MarriageTimelineMatchingActivity extends Activity {
         root.addView(txt("Marriage Timeline Matching",27,true));
         root.addView(txt("Find real discoverable members whose stated marriage timeline is compatible with yours. No invented timelines or predicted readiness.",15,false));
         Button find=btn("Find Real Timeline Matches",true);find.setOnClickListener(v->find());
+        Button questions=btn("Smart Serious Questions",false);questions.setOnClickListener(v->startActivity(new Intent(this,SmartSeriousQuestionsActivity.class)));
         Button back=btn("Back",false);back.setOnClickListener(v->finish());
     }
     private TextView txt(String x,int z,boolean b){TextView t=new TextView(this);t.setText(x);t.setTextSize(z);t.setTextColor(b?dark:gray);t.setPadding(6,8,6,10);if(b)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
@@ -30,7 +32,7 @@ public class MarriageTimelineMatchingActivity extends Activity {
     private void find(){
         if(auth.getCurrentUser()==null){toast("Sign in is required.");return;}String me=auth.getCurrentUser().getUid();
         db.collection("livingCompatibility").document(me).get().addOnSuccessListener(my->{String mine=str(my,"marriageTimeline");if(mine.isEmpty()){toast("Complete your real marriage timeline first.");return;}
-            db.collection("users").whereEqualTo("profileActive",true).whereEqualTo("discoverable",true).limit(100).get().addOnSuccessListener(q->{root.addView(txt("Your stated timeline: "+mine,18,true));int count=0;for(DocumentSnapshot u:q.getDocuments()){if(u.getId().equals(me))continue;String uid=u.getId();db.collection("livingCompatibility").document(uid).get().addOnSuccessListener(t->{String theirs=str(t,"marriageTimeline");if(compatible(mine,theirs)){String name=str(u,"name");String age=str(u,"age");root.addView(txt("✓ "+(name.isEmpty()?"Member":name)+" • Age "+age+"\nStated timeline: "+theirs+"\nMatch reason: timelines appear compatible based only on stated values.",16,true));}});} }).addOnFailureListener(e->toast("Could not load real discoverable members."));
+            db.collection("users").whereEqualTo("profileActive",true).whereEqualTo("discoverable",true).limit(100).get().addOnSuccessListener(q->{root.addView(txt("Your stated timeline: "+mine,18,true));for(DocumentSnapshot u:q.getDocuments()){if(u.getId().equals(me))continue;String uid=u.getId();db.collection("livingCompatibility").document(uid).get().addOnSuccessListener(t->{String theirs=str(t,"marriageTimeline");if(compatible(mine,theirs)){String name=str(u,"name");String age=str(u,"age");root.addView(txt("✓ "+(name.isEmpty()?"Member":name)+" • Age "+age+"\nStated timeline: "+theirs+"\nMatch reason: timelines appear compatible based only on stated values.",16,true));}});}}).addOnFailureListener(e->toast("Could not load real discoverable members."));
         }).addOnFailureListener(e->toast("Could not load your real timeline."));
     }
     private void toast(String x){Toast.makeText(this,x,Toast.LENGTH_LONG).show();}
