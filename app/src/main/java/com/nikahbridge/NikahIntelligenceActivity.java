@@ -1,6 +1,7 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -9,6 +10,8 @@ import android.view.Gravity;
 import android.widget.*;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.functions.FirebaseFunctions;
 import java.util.*;
 
@@ -41,17 +44,18 @@ public class NikahIntelligenceActivity extends Activity {
         Button back=btn("Back",false); back.setOnClickListener(v->finish());
         Button refresh=btn("Recalculate Readiness",false); refresh.setOnClickListener(v->calculate());
     }
-    private void load(){ if(auth.getCurrentUser()==null)return; db.collection("livingCompatibility").document(auth.getCurrentUser().getUid()).get().addOnSuccessListener(d->{country.setText(s(d,"country"));city.setText(s(d,"city"));timeline.setText(s(d,"marriageTimeline"));family.setText(s(d,"familyInvolvement"));children.setText(s(d,"childrenExpectation"));career.setText(s(d,"careerPlan"));living.setText(s(d,"livingPlan"));deen.setText(s(d,"deenPriorities"));dealbreakers.setText(s(d,"dealBreakers"));calculate();}); }
+    private void load(){ if(auth.getCurrentUser()==null)return; String uid=auth.getCurrentUser().getUid(); db.collection("livingCompatibility").document(uid).get().addOnSuccessListener(d->{country.setText(s(d,"country"));city.setText(s(d,"city"));timeline.setText(s(d,"marriageTimeline"));family.setText(s(d,"familyInvolvement"));children.setText(s(d,"childrenExpectation"));career.setText(s(d,"careerPlan"));living.setText(s(d,"livingPlan"));calculate();}); db.collection("users").document(uid).get().addOnSuccessListener(d->{deen.setText(s(d,"deenPriorities"));dealbreakers.setText(s(d,"dealbreakers"));calculate();}); }
     private String s(com.google.firebase.firestore.DocumentSnapshot d,String k){ Object v=d.get(k); return v==null?"":String.valueOf(v); }
     private void save(){
-        Map<String,Object> x=new HashMap<>(); x.put("country",v(country)); x.put("city",v(city)); x.put("marriageTimeline",v(timeline)); x.put("familyInvolvement",v(family)); x.put("childrenExpectation",v(children)); x.put("careerPlan",v(career)); x.put("livingPlan",v(living)); x.put("deenPriorities",v(deen)); x.put("dealBreakers",v(dealbreakers));
-        fn.getHttpsCallable("updateLivingCompatibility").call(x).addOnSuccessListener(r->{toast("Marriage Blueprint saved securely.");calculate();}).addOnFailureListener(e->toast("Could not save Blueprint. No local-only fake save was used."));
+        Map<String,Object> x=new HashMap<>(); x.put("country",v(country)); x.put("city",v(city)); x.put("marriageTimeline",v(timeline)); x.put("familyInvolvement",v(family)); x.put("childrenExpectation",v(children)); x.put("careerPlan",v(career)); x.put("livingPlan",v(living));
+        Map<String,Object> profile=new HashMap<>(); profile.put("deenPriorities",v(deen)); profile.put("dealbreakers",v(dealbreakers)); profile.put("updatedAt",FieldValue.serverTimestamp());
+        fn.getHttpsCallable("updateLivingCompatibility").call(x).addOnSuccessListener(r->db.collection("users").document(auth.getUid()).set(profile,SetOptions.merge()).addOnSuccessListener(z->{toast("Marriage Blueprint saved securely.");calculate();}).addOnFailureListener(e->toast("Blueprint core saved, but profile preferences could not be saved."))).addOnFailureListener(e->toast("Could not save Blueprint. No local-only fake save was used."));
     }
     private String v(EditText e){ return e.getText().toString().trim(); }
     private void calculate(){ int filled=0,total=9; EditText[] a={country,city,timeline,family,children,career,living,deen,dealbreakers}; for(EditText e:a)if(!v(e).isEmpty())filled++; int pct=Math.round(filled*100f/total); score.setText("Nikah Readiness: "+pct+"/100 — "+(pct>=80?"Strong foundation":pct>=50?"A few important areas remain":"Start by completing your Marriage Blueprint")); }
     private void scenario(){
         final String[] items={"If relocation becomes necessary after Nikah","If one spouse continues working after Nikah","If parents need support or temporary shared living","If children are planned later rather than immediately","If marriage timing changes by several months"};
-        new AlertDialog.Builder(this).setTitle("Future Scenario Simulator").setItems(items,(d,w)->{String q=items[w]; new AlertDialog.Builder(this).setTitle(q).setMessage("Discuss this topic openly with a serious mutual connection and your family/Wali where appropriate. Best Nikah Bridge will use your saved Marriage Blueprint as the source of your stated preferences; it does not invent a compatibility prediction.").setPositiveButton("Understood",null).show();}).setNegativeButton("Cancel",null).show();
+        new AlertDialog.Builder(this).setTitle("Future Scenario Simulator").setItems(items,(d,w)->{String q=items[w]; new AlertDialog.Builder(this).setTitle(q).setMessage("Discuss this topic openly with a serious mutual connection and your family/Wali where appropriate. Best Nikah Bridge uses your saved Marriage Blueprint as the source of your stated preferences; it does not invent a compatibility prediction.").setPositiveButton("Understood",null).show();}).setNegativeButton("Cancel",null).show();
     }
     private void journey(){ new AlertDialog.Builder(this).setTitle("Nikah Journey").setMessage("Profile → Preferences → Verification → Meaningful Match → Mutual Interest → Safe Communication → Serious Discussion → Family/Wali → Nikah Preparation\n\nComplete your Blueprint first. Future journey stages are only marked by real backend events; this screen never creates fake progress.").setPositiveButton("OK",null).show(); }
     private void toast(String x){ Toast.makeText(this,x,Toast.LENGTH_LONG).show(); }
