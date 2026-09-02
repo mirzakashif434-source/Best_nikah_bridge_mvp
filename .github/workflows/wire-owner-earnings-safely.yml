@@ -19,32 +19,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Wire backend export without replacing existing code
+      - name: Verify owner earnings module without replacing existing code
         shell: bash
         run: |
           set -euo pipefail
           test -f functions/index.js
           test -f functions/ownerEarnings.js
-          if ! grep -Fq "require('./ownerEarnings')" functions/index.js; then
-            printf "\n// Production owner earnings/settlement module; existing exports remain untouched.\nObject.assign(exports, require('./ownerEarnings'));\n" >> functions/index.js
-          fi
+          grep -Fq "require('./ownerEarnings')" functions/index.js
           node --check functions/index.js
           node --check functions/ownerEarnings.js
 
-      - name: Commit only the safe wiring change
-        shell: bash
-        run: |
-          set -euo pipefail
-          if git diff --quiet -- functions/index.js; then
-            echo "Owner earnings export already wired."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add functions/index.js
-          git commit -m "Wire production owner earnings module"
-          git push
-
-      - name: Run functions dependency install and syntax verification
+      - name: Run functions dependency install and verification
         working-directory: functions
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts --no-audit --no-fund
