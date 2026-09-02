@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:allowBackup="false" android:usesCleartextTraffic="false" android:label="Best Nikah Bridge" android:supportsRtl="true" android:theme="@style/Theme.NikahBridge">
+        <activity android:name=".CompatibilityTrafficLightActivity" android:exported="false" />
         <activity android:name=".WhyWeMatchedActivity" android:exported="false" />
         <activity android:name=".NikahIntelligenceActivity" android:exported="false" />
         <activity android:name=".OwnerEarningsActivity" android:exported="false" />
