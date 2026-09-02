@@ -2,7 +2,7 @@
   "name": "best-nikah-bridge-functions",
   "private": true,
   "engines": { "node": "20" },
-  "main": "index.js",
+  "main": "bootstrap.js",
   "scripts": {
     "lint": "eslint .",
     "serve": "firebase emulators:start --only functions,firestore",
