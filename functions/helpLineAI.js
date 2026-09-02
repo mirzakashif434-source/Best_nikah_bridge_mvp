@@ -1,58 +1,40 @@
-const { onCall } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { getAI, getGenerativeModel } = require('firebase-admin/ai');
 
 /**
- * Additive Help Line AI fallback.
- * AI handles ordinary app-help questions when human support is unavailable.
- * Human-support SLA is recorded as 24 hours; this is a target, not a guarantee.
+ * Help Line ticket backend. AI generation stays in the Android Firebase AI Logic
+ * layer already used by the app; this callable securely records the request and
+ * the AI answer, or queues it for human support with a 24-hour target.
  */
 exports.helpLineAI = onCall(async (request) => {
-  if (!request.auth) throw new Error('Sign-in required.');
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in required.');
 
   const uid = request.auth.uid;
   const question = String(request.data?.question || '').trim();
-  if (!question) throw new Error('Please enter your help question.');
-  if (question.length > 4000) throw new Error('Question is too long.');
+  const aiAnswer = String(request.data?.aiAnswer || '').trim();
+  const humanRequired = Boolean(request.data?.humanRequired) || !aiAnswer;
+  if (!question) throw new HttpsError('invalid-argument', 'Please enter your help question.');
+  if (question.length > 4000) throw new HttpsError('invalid-argument', 'Question is too long.');
+  if (aiAnswer.length > 8000) throw new HttpsError('invalid-argument', 'Answer is too long.');
 
   const db = getFirestore();
-  const ticketRef = db.collection('helpLineTickets').doc();
-  const now = FieldValue.serverTimestamp();
-
-  const sensitive = /(password|otp|one[- ]time|bank|iban|card|refund|payment dispute|verification decision|ban|blocked|report|legal|police|harass|abuse|self[- ]harm|suicide)/i.test(question);
-
-  let answer = '';
-  if (!sensitive) {
-    try {
-      const ai = getAI();
-      const model = getGenerativeModel(ai, { model: 'gemini-2.5-flash' });
-      const result = await model.generateContent(
-        'You are the Best Nikah Bridge Help Assistant. Answer only practical questions about using this Muslim matrimonial app. Be concise, respectful, halal, privacy-conscious, and never claim to be a human or admin. Never ask for passwords, OTPs, bank/card details, or private secrets. Do not make marriage, legal, financial, medical, or safety guarantees. If the question requires human support, say so clearly. User question:\n' + question
-      );
-      answer = result.response.text();
-    } catch (e) {
-      answer = '';
-    }
-  }
-
-  const humanRequired = sensitive || !answer;
-  const response = humanRequired
-    ? 'Aap ki request human support ko bhej di gayi hai. Hamara target hai ke aapko 24 ghanton ke andar reply mile. Agar sawal urgent safety matter hai, local emergency services se rabta karein.'
-    : answer + '\n\nAgar aap human support chahte hain, isi request ko support review ke liye bhej sakte hain.';
-
-  await ticketRef.set({
+  const ref = db.collection('helpLineTickets').doc();
+  await ref.set({
     uid,
     question,
+    aiAnswer: humanRequired ? null : aiAnswer,
     aiAnswered: !humanRequired,
     humanRequired,
     status: humanRequired ? 'awaiting_human' : 'ai_answered',
-    createdAt: now,
+    createdAt: FieldValue.serverTimestamp(),
     humanReplyTargetAt: humanRequired ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null
   });
 
   return {
-    ticketId: ticketRef.id,
-    answer: response,
+    ticketId: ref.id,
+    answer: humanRequired
+      ? 'Aap ki request human support ko bhej di gayi hai. Hamara target hai ke aapko 24 ghanton ke andar reply mile.'
+      : aiAnswer,
     aiAnswered: !humanRequired,
     humanRequired,
     humanReplySlaHours: 24
