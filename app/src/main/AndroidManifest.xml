@@ -8,6 +8,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".HelpLineActivity" android:exported="false" />
         <activity android:name=".ConversationHealthActivity" android:exported="false" />
         <activity android:name=".NikahJourneyActivity" android:exported="false" />
         <activity android:name=".NikahSuccessPlanActivity" android:exported="false" />
