@@ -53,12 +53,14 @@ public class ProductionCompletionActivity extends Activity {
         base(); title(urdu?"بہترین نکاح برج":"Best Nikah Bridge");
         root.addView(txt(urdu?"حقیقی production features — کوئی demo data نہیں":"Real production completion center — no demo data, fake members or fake rewards.",16,false));
         Button lang=btn(urdu?"English":"اردو / Urdu",false); lang.setOnClickListener(v->{urdu=!urdu;dashboard();});
+        Button intelligence=btn(urdu?"نکاح انٹیلی جنس":"Nikah Intelligence Center",true);
         Button photo=btn(urdu?"Profile Photo Upload":"Real Profile Photo",true);
         Button likes=btn(urdu?"20 Daily Likes":"20 Daily Likes — Real Limit",true);
         Button family=btn(urdu?"Family / Wali Bridge":"Family / Wali Bridge — Real",true);
         Button ads=btn(urdu?"Watch 2 Ads for 2 Messages":"2 Rewarded Ads → 2 Messages",true);
         Button admin=btn(urdu?"Admin Moderation":"Admin Moderation Dashboard",false);
         Button core=btn(urdu?"Main Nikah Bridge":"Open Main Nikah Bridge",false);
+        intelligence.setOnClickListener(v->startActivity(new Intent(this,NikahIntelligenceActivity.class)));
         photo.setOnClickListener(v->photo()); likes.setOnClickListener(v->likes()); family.setOnClickListener(v->family()); ads.setOnClickListener(v->rewarded()); admin.setOnClickListener(v->admin()); core.setOnClickListener(v->startActivity(new Intent(this,MainActivity.class)));
         root.addView(txt(urdu?"اہم: یہ screen صرف حقیقی Firebase/AdMob data استعمال کرتی ہے۔":"Important: this screen uses real Firebase/AdMob services only. Missing external configuration is shown as an error, never replaced with demo data.",14,false));
     }
@@ -97,7 +99,7 @@ public class ProductionCompletionActivity extends Activity {
     private void admin(){
         base(); title("Admin Moderation Dashboard"); root.addView(txt("Admin access is controlled by the Firebase Auth custom claim admin=true. A normal member cannot open or mutate this data.",15,false));
         db.collection("moderationQueue").whereEqualTo("status","pending").limit(50).get().addOnSuccessListener(q->{for(DocumentSnapshot d:q){root.addView(txt("Report: "+d.getId()+" • "+val(d,"reason"),16,true));Button review=btn("Mark Reviewed",false);review.setOnClickListener(v->{Map<String,Object>x=new HashMap<>();x.put("reportId",d.getId());x.put("decision","reviewed");fn.getHttpsCallable("setModerationDecision").call(x).addOnSuccessListener(r->{review.setEnabled(false);toast("Moderation decision saved securely.");});});}}).addOnFailureListener(e->toast("Admin access required or queue unavailable."));
-        db.collection("verifications").whereEqualTo("status","pending").limit(50).get().addOnSuccessListener(q->{for(DocumentSnapshot d:q){String uid=val(d,"userUid");root.addView(txt("Verification: "+uid,16,true));Button approve=btn("Approve Verified",false);approve.setOnClickListener(v->{Map<String,Object>x=new HashMap<>();x.put("userUid",uid);x.put("status","verified");fn.getHttpsCallable("setVerificationStatus").call(x).addOnSuccessListener(r->{approve.setEnabled(false);toast("Verification status saved securely.");});});}});
+        db.collection("verifications").whereEqualTo("status","pending").limit(50).get().addOnSuccessListener(q->{for(DocumentSnapshot d:q){String uid=val(d,"userUid");root.addView(txt("Verification: "+uid,16,true));Button approve=btn("Approve Verified",false);approve.setOnClickListener(v->{Map<String,Object>x=new HashMap<>();x.put("userUid",uid);x.put("status","verified");fn.getHttpsCallable("setVerificationStatus").call(x).addOnSuccessListener(r->{approve.setEnabled(false);toast("Verification status saved securely.");});}}});
         Button back=btn("Back",false);back.setOnClickListener(v->dashboard());
     }
 }
