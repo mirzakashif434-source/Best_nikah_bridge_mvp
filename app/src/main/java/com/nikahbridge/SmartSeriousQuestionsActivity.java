@@ -5,16 +5,14 @@ import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.content.Intent;
 import android.view.Gravity;
 import android.widget.*;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.*;
 import java.util.*;
 
-/**
- * Real discussion-question generator from two members' stated profile differences.
- * Questions are prompts for respectful conversation, not fabricated answers or scores.
- */
+/** Real discussion-question generator from two members' stated profile differences. */
 public class SmartSeriousQuestionsActivity extends Activity {
     private FirebaseAuth auth; private FirebaseFirestore db; private LinearLayout root; private EditText uidInput;
     private final int green=Color.rgb(18,103,82), dark=Color.rgb(30,45,41), gray=Color.rgb(85,100,95), light=Color.rgb(247,250,249);
@@ -27,6 +25,7 @@ public class SmartSeriousQuestionsActivity extends Activity {
         root.addView(txt("Turn real differences in two profiles into respectful Nikah discussion questions. Nothing is invented and no answer is assumed.",15,false));
         uidInput=new EditText(this);uidInput.setHint("Enter the real member Firebase UID");uidInput.setSingleLine(true);root.addView(uidInput,new LinearLayout.LayoutParams(-1,62));
         Button generate=btn("Generate Questions",true);root.addView(generate,new LinearLayout.LayoutParams(-1,62));generate.setOnClickListener(v->generate());
+        Button health=btn("Conversation Health",true);root.addView(health,new LinearLayout.LayoutParams(-1,62));health.setOnClickListener(v->startActivity(new Intent(this,ConversationHealthActivity.class)));
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,62));back.setOnClickListener(v->finish());
     }
     private String s(DocumentSnapshot d,String k){Object v=d.get(k);return v==null?"":String.valueOf(v).trim();}
