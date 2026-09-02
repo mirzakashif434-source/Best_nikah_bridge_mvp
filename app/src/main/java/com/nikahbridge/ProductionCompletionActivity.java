@@ -99,7 +99,22 @@ public class ProductionCompletionActivity extends Activity {
     private void admin(){
         base(); title("Admin Moderation Dashboard"); root.addView(txt("Admin access is controlled by the Firebase Auth custom claim admin=true. A normal member cannot open or mutate this data.",15,false));
         db.collection("moderationQueue").whereEqualTo("status","pending").limit(50).get().addOnSuccessListener(q->{for(DocumentSnapshot d:q){root.addView(txt("Report: "+d.getId()+" • "+val(d,"reason"),16,true));Button review=btn("Mark Reviewed",false);review.setOnClickListener(v->{Map<String,Object>x=new HashMap<>();x.put("reportId",d.getId());x.put("decision","reviewed");fn.getHttpsCallable("setModerationDecision").call(x).addOnSuccessListener(r->{review.setEnabled(false);toast("Moderation decision saved securely.");});});}}).addOnFailureListener(e->toast("Admin access required or queue unavailable."));
-        db.collection("verifications").whereEqualTo("status","pending").limit(50).get().addOnSuccessListener(q->{for(DocumentSnapshot d:q){String uid=val(d,"userUid");root.addView(txt("Verification: "+uid,16,true));Button approve=btn("Approve Verified",false);approve.setOnClickListener(v->{Map<String,Object>x=new HashMap<>();x.put("userUid",uid);x.put("status","verified");fn.getHttpsCallable("setVerificationStatus").call(x).addOnSuccessListener(r->{approve.setEnabled(false);toast("Verification status saved securely.");});}}});
+        db.collection("verifications").whereEqualTo("status","pending").limit(50).get().addOnSuccessListener(q->{
+            for(DocumentSnapshot d:q){
+                String uid=val(d,"userUid");
+                root.addView(txt("Verification: "+uid,16,true));
+                Button approve=btn("Approve Verified",false);
+                approve.setOnClickListener(v->{
+                    Map<String,Object>x=new HashMap<>();
+                    x.put("userUid",uid);
+                    x.put("status","verified");
+                    fn.getHttpsCallable("setVerificationStatus").call(x).addOnSuccessListener(r->{
+                        approve.setEnabled(false);
+                        toast("Verification status saved securely.");
+                    });
+                });
+            }
+        });
         Button back=btn("Back",false);back.setOnClickListener(v->dashboard());
     }
 }
