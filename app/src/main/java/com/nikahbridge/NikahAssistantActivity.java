@@ -7,6 +7,9 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.widget.*;
+import android.content.Intent;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.ai.FirebaseAI;
 import com.google.firebase.ai.GenerativeModel;
 import com.google.firebase.ai.java.GenerativeModelFutures;
@@ -35,9 +38,14 @@ public class NikahAssistantActivity extends Activity {
         ask=btn("Ask AI Assistant",true);root.addView(ask,new LinearLayout.LayoutParams(-1,62));
         answer=txt("Your answer will appear here.",16,false);root.addView(answer);
         Button help=btn("24/7 Help Line — AI + Human Support",true);root.addView(help,new LinearLayout.LayoutParams(-1,62));
+        Button admin=btn("Admin — Help Line Inbox",false);root.addView(admin,new LinearLayout.LayoutParams(-1,62));
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,62));back.setOnClickListener(v->finish());
         ask.setOnClickListener(v->askAI());
-        help.setOnClickListener(v->startActivity(new android.content.Intent(this,HelpLineActivity.class)));
+        help.setOnClickListener(v->startActivity(new Intent(this,HelpLineActivity.class)));
+        admin.setOnClickListener(v->startActivity(new Intent(this,HelpLineAdminActivity.class)));
+        FirebaseUser user=FirebaseAuth.getInstance().getCurrentUser();
+        if(user!=null) user.getIdToken(false).addOnSuccessListener(token -> { if(!Boolean.TRUE.equals(token.getClaims().get("admin"))) admin.setVisibility(android.view.View.GONE); }).addOnFailureListener(e->admin.setVisibility(android.view.View.GONE));
+        else admin.setVisibility(android.view.View.GONE);
         setContentView(root);
     }
     private void askAI(){String q=question.getText().toString().trim();if(q.isEmpty()){answer.setText("Please enter a question first.");return;}ask.setEnabled(false);answer.setText("Thinking…");
