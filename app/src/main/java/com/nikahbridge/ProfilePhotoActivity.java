@@ -28,6 +28,10 @@ import java.util.Map;
  * Photos are selected from the device, uploaded to Firebase Storage, and the
  * resulting URL is stored on the authenticated user's Firestore profile.
  * No bundled/sample/fake profile photos are used.
+ *
+ * The original single-photo flow remains available. The new four-photo flow
+ * is additive and camera-first; the first image must be captured by camera and
+ * the remaining three may be selected from the gallery.
  */
 public class ProfilePhotoActivity extends Activity {
     private static final int PICK_IMAGE = 7101;
@@ -70,6 +74,16 @@ public class ProfilePhotoActivity extends Activity {
         Button upload = new Button(this);
         upload.setText("Upload Securely");
         root.addView(upload, new LinearLayout.LayoutParams(-1, 62));
+
+        Button four = new Button(this);
+        four.setText("Camera-First 4 Photos");
+        root.addView(four, new LinearLayout.LayoutParams(-1, 62));
+        four.setOnClickListener(v -> startActivity(new Intent(this, RealFourPhotoActivity.class)));
+
+        Button genderMatches = new Button(this);
+        genderMatches.setText("View Gender-Filtered Nikah Matches");
+        root.addView(genderMatches, new LinearLayout.LayoutParams(-1, 62));
+        genderMatches.setOnClickListener(v -> startActivity(new Intent(this, GenderFilteredMatchesActivity.class)));
 
         Button back = new Button(this);
         back.setText("Back");
