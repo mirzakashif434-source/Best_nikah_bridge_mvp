@@ -2,6 +2,7 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -40,6 +41,7 @@ public class NikahIntelligenceActivity extends Activity {
         country=input("Preferred country / country flexibility"); city=input("Preferred city / relocation flexibility"); timeline=input("Marriage timeline (e.g. 3–6 months, 6–12 months)"); family=input("Family / Wali involvement preference"); children=input("Children expectation"); career=input("Career / work expectation"); living=input("Living arrangement after Nikah"); deen=input("Deen / values priorities"); dealbreakers=input("Important deal-breakers (one per phrase)");
         Button save=btn("Save My Marriage Blueprint",true); save.setOnClickListener(v->save());
         Button scenarios=btn("Future Scenario Simulator",true); scenarios.setOnClickListener(v->scenario());
+        Button why=btn("Why We Matched",true); why.setOnClickListener(v->startActivity(new Intent(this,WhyWeMatchedActivity.class)));
         Button journey=btn("My Nikah Journey",false); journey.setOnClickListener(v->journey());
         Button back=btn("Back",false); back.setOnClickListener(v->finish());
         Button refresh=btn("Recalculate Readiness",false); refresh.setOnClickListener(v->calculate());
