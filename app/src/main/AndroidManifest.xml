@@ -2,6 +2,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:allowBackup="false" android:usesCleartextTraffic="false" android:label="Best Nikah Bridge" android:supportsRtl="true" android:theme="@style/Theme.NikahBridge">
+        <activity android:name=".WelcomeActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity android:name=".ConversationHealthActivity" android:exported="false" />
         <activity android:name=".NikahJourneyActivity" android:exported="false" />
         <activity android:name=".NikahSuccessPlanActivity" android:exported="false" />
@@ -21,12 +27,7 @@
         <activity android:name=".RealFourPhotoActivity" android:exported="false" />
         <activity android:name=".GenderFilteredMatchesActivity" android:exported="false" />
         <activity android:name=".PrivacyControlCenterActivity" android:exported="false" />
-        <activity android:name=".MainActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".MainActivity" android:exported="false" />
         <activity android:name=".ProductionMainActivity" android:exported="false" />
     </application>
 </manifest>
