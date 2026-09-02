@@ -3,12 +3,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application android:allowBackup="false" android:usesCleartextTraffic="false" android:label="Best Nikah Bridge" android:supportsRtl="true" android:theme="@style/Theme.NikahBridge">
         <activity android:name=".WelcomeActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
         <activity android:name=".HelpLineActivity" android:exported="false" />
+        <activity android:name=".HelpLineAdminActivity" android:exported="false" />
         <activity android:name=".ConversationHealthActivity" android:exported="false" />
         <activity android:name=".NikahJourneyActivity" android:exported="false" />
         <activity android:name=".NikahSuccessPlanActivity" android:exported="false" />
