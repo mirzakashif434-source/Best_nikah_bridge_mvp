@@ -18,7 +18,7 @@ import com.google.firebase.Timestamp;
 import java.util.Date;
 
 /** Real conversation-health summary from recorded mutual connection messages. */
-public class ConversationHealthActivity {
+public class ConversationHealthActivity extends Activity {
     private FirebaseAuth auth;
     private FirebaseFirestore db;
     private LinearLayout root;
