@@ -2,6 +2,10 @@ name: Wire owner earnings safely
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'functions/ownerEarnings.js'
+      - '.github/workflows/wire-owner-earnings-safely.yml'
 
 permissions:
   contents: write
