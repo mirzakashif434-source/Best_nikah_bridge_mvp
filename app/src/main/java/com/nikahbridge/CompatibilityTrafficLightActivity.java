@@ -5,7 +5,7 @@ import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.view.Gravity;
+import android.content.Intent;
 import android.widget.*;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.*;
@@ -26,6 +26,7 @@ public class CompatibilityTrafficLightActivity extends Activity {
     private void render(){
         base();root.addView(txt("Compatibility Traffic Light",27,true));root.addView(txt("A transparent view of real profile alignment. Green means aligned, yellow means discuss carefully, red means a possible conflict. It is not a judgment or guarantee.",15,false));
         EditText uid=input("Enter the real member Firebase UID");Button check=btn("Check Real Compatibility",true);check.setOnClickListener(v->check(uid.getText().toString().trim()));
+        Button trust=btn("Open Trust Passport",true);trust.setOnClickListener(v->startActivity(new Intent(this,TrustPassportActivity.class)));
         Button back=btn("Back",false);back.setOnClickListener(v->finish());
     }
     private void check(String other){if(other.isEmpty()||auth.getCurrentUser()==null){toast("Enter a real member UID.");return;}if(other.equals(auth.getUid())){toast("Choose another member.");return;}db.collection("users").document(auth.getUid()).get().addOnSuccessListener(me->db.collection("users").document(other).get().addOnSuccessListener(them->{if(!them.exists()||!Boolean.TRUE.equals(them.getBoolean("profileActive"))||!Boolean.TRUE.equals(them.getBoolean("discoverable"))){toast("That real profile is unavailable for matching.");return;}showResult(me,them);}).addOnFailureListener(e->toast("Could not load the real member profile."))).addOnFailureListener(e->toast("Could not load your real profile."));}
