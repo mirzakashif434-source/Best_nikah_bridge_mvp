@@ -34,8 +34,11 @@ public class NikahAssistantActivity extends Activity {
         question=new EditText(this);question.setHint("Ask your Nikah question…");question.setTextSize(16);question.setGravity(Gravity.TOP);root.addView(question,new LinearLayout.LayoutParams(-1,130));
         ask=btn("Ask AI Assistant",true);root.addView(ask,new LinearLayout.LayoutParams(-1,62));
         answer=txt("Your answer will appear here.",16,false);root.addView(answer);
+        Button help=btn("24/7 Help Line — AI + Human Support",true);root.addView(help,new LinearLayout.LayoutParams(-1,62));
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,62));back.setOnClickListener(v->finish());
-        ask.setOnClickListener(v->askAI());setContentView(root);
+        ask.setOnClickListener(v->askAI());
+        help.setOnClickListener(v->startActivity(new android.content.Intent(this,HelpLineActivity.class)));
+        setContentView(root);
     }
     private void askAI(){String q=question.getText().toString().trim();if(q.isEmpty()){answer.setText("Please enter a question first.");return;}ask.setEnabled(false);answer.setText("Thinking…");
         GenerativeModel ai=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");
