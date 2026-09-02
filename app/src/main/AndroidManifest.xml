@@ -17,6 +17,7 @@
         <activity android:name=".WalletActivity" android:exported="false" />
         <activity android:name=".ProductionCompletionActivity" android:exported="false" />
         <activity android:name=".ProfilePhotoActivity" android:exported="false" />
+        <activity android:name=".PrivacyControlCenterActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
