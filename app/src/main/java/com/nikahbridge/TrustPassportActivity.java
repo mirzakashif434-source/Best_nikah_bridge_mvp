@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.content.Intent;
 import android.widget.*;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.*;
@@ -31,6 +32,7 @@ public class TrustPassportActivity extends Activity {
         base(); root.addView(txt("Trust Passport",27,true));
         root.addView(txt("A transparent evidence card built from real account and safety records. No hidden personality judgment, no fabricated verification, and no fake trust percentage.",15,false));
         EditText uid=input("Real member Firebase UID"); Button check=btn("View Real Trust Passport",true); check.setOnClickListener(v->load(uid.getText().toString().trim()));
+        Button family=btn("Family Bridge 2.0",true); family.setOnClickListener(v->startActivity(new Intent(this,FamilyBridge2Activity.class)));
         Button back=btn("Back",false); back.setOnClickListener(v->finish());
     }
     private void load(String uid){
