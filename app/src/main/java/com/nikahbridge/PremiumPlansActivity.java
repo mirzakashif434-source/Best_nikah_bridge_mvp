@@ -9,6 +9,7 @@ import com.android.billingclient.api.BillingClient;
 import com.android.billingclient.api.BillingClientStateListener;
 import com.android.billingclient.api.BillingFlowParams;
 import com.android.billingclient.api.BillingResult;
+import com.android.billingclient.api.PendingPurchasesParams;
 import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.QueryProductDetailsParams;
@@ -78,7 +79,8 @@ public class PremiumPlansActivity extends Activity {
     private void connectBilling() {
         billing = BillingClient.newBuilder(this)
                 .setListener(this::onPurchasesUpdated)
-                .enablePendingPurchases()
+                .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+                .enableAutoServiceReconnection()
                 .build();
         billing.startConnection(new BillingClientStateListener() {
             @Override public void onBillingSetupFinished(BillingResult result) {
@@ -111,7 +113,7 @@ public class PremiumPlansActivity extends Activity {
                 return;
             }
             products.clear();
-            for (ProductDetails d : details) products.put(d.getProductId(), d);
+            for (ProductDetails d : details.getProductDetailsList()) products.put(d.getProductId(), d);
             if (products.size() == 3) {
                 status.setText("All 3 real Google Play plans are available. Prices are supplied by Google Play.");
             } else {
