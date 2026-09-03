@@ -21,6 +21,7 @@
         <activity android:name=".NikahIntelligenceActivity" android:exported="false" />
         <activity android:name=".OwnerEarningsActivity" android:exported="false" />
         <activity android:name=".WalletActivity" android:exported="false" />
+        <activity android:name=".PremiumPlansActivity" android:exported="false" />
         <activity android:name=".ProductionCompletionActivity" android:exported="false" />
         <activity android:name=".ProfilePhotoActivity" android:exported="false" />
         <activity android:name=".RealFourPhotoActivity" android:exported="false" />
