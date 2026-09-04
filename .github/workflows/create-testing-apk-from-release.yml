@@ -1,0 +1,71 @@
+name: Create Testing APK from Release AAB
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-testing-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Download exact Release AAB artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          curl -fL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -o artifact.zip \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9949222268/zip"
+          unzip -q artifact.zip
+          test -f app-release.aab
+          mv app-release.aab exact-release.aab
+
+      - name: Verify exact fixed AAB
+        run: |
+          set -e
+          unzip -p exact-release.aab base/manifest/AndroidManifest.xml > AndroidManifest.bin
+          strings AndroidManifest.bin | grep -F 'com.google.android.gms.ads.APPLICATION_ID'
+          strings AndroidManifest.bin | grep -F 'ca-app-pub-889753799457088~9402403755'
+
+      - name: Download official bundletool
+        run: |
+          curl -fL -o bundletool.jar \
+            https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
+
+      - name: Create temporary testing key
+        run: |
+          keytool -genkeypair -v \
+            -keystore testing.keystore \
+            -storepass android \
+            -alias testing \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Best Nikah Bridge Testing, O=Best Nikah Bridge, C=SA"
+
+      - name: Convert exact AAB to universal testing APK
+        run: |
+          set -e
+          java -jar bundletool.jar build-apks \
+            --bundle=exact-release.aab \
+            --output=testing.apks \
+            --mode=universal \
+            --ks=testing.keystore \
+            --ks-pass=pass:android \
+            --ks-key-alias=testing \
+            --key-pass=pass:android
+          unzip -p testing.apks universal.apk > Best-Nikah-Bridge-testing.apk
+          test -s Best-Nikah-Bridge-testing.apk
+
+      - name: Upload testing APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: best-nikah-bridge-testing-apk
+          path: Best-Nikah-Bridge-testing.apk
+          if-no-files-found: error
