@@ -11,34 +11,48 @@ jobs:
       contents: read
 
     steps:
-      - name: Download exact Release AAB artifact
+      - name: Download exact Release AAB artifact for this commit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -e
+          set -euo pipefail
+          RUN_ID=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/main.yml/runs?branch=main&status=success&per_page=20" \
+            | jq -r --arg sha "$GITHUB_SHA" '.workflow_runs[] | select(.head_sha == $sha) | .id' | head -n1)
+          test -n "$RUN_ID"
+          ARTIFACT_ID=$(curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/artifacts?per_page=100" \
+            | jq -r '.artifacts[] | select(.name == "best-nikah-bridge-release" and .expired == false) | .id' | head -n1)
+          test -n "$ARTIFACT_ID"
           curl -fL \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             -o artifact.zip \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/9949222268/zip"
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
           unzip -q artifact.zip
           test -f app-release.aab
           mv app-release.aab exact-release.aab
 
       - name: Verify exact fixed AAB
         run: |
-          set -e
+          set -euo pipefail
           unzip -p exact-release.aab base/manifest/AndroidManifest.xml > AndroidManifest.bin
           strings AndroidManifest.bin | grep -F 'com.google.android.gms.ads.APPLICATION_ID'
           strings AndroidManifest.bin | grep -F 'ca-app-pub-889753799457088~9402403755'
 
       - name: Download official bundletool
         run: |
+          set -euo pipefail
           curl -fL -o bundletool.jar \
             https://github.com/google/bundletool/releases/download/1.18.3/bundletool-all-1.18.3.jar
 
       - name: Create temporary testing key
         run: |
+          set -euo pipefail
           keytool -genkeypair -v \
             -keystore testing.keystore \
             -storepass android \
@@ -51,7 +65,7 @@ jobs:
 
       - name: Convert exact AAB to universal testing APK
         run: |
-          set -e
+          set -euo pipefail
           java -jar bundletool.jar build-apks \
             --bundle=exact-release.aab \
             --output=testing.apks \
