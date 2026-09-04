@@ -11,6 +11,7 @@ import android.text.InputType;
 import android.view.Gravity;
 import android.widget.*;
 
+import com.google.firebase.FirebaseApp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FieldValue;
@@ -35,9 +36,16 @@ public class WelcomeActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        auth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
-        if (auth.getCurrentUser() != null) {
+        try {
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                FirebaseApp.initializeApp(this);
+            }
+            auth = FirebaseAuth.getInstance();
+        } catch (RuntimeException ignored) {
+            auth = null;
+        }
+
+        if (auth != null && auth.getCurrentUser() != null) {
             startActivity(new Intent(this, MainActivity.class));
             finish();
             return;
@@ -121,6 +129,16 @@ public class WelcomeActivity extends Activity {
     }
 
     private void showAccountDialog(boolean signIn) {
+        if (auth == null) {
+            try {
+                if (FirebaseApp.getApps(this).isEmpty()) FirebaseApp.initializeApp(this);
+                auth = FirebaseAuth.getInstance();
+            } catch (RuntimeException ignored) {
+                toast("Secure account service is temporarily unavailable. Please try again.");
+                return;
+            }
+        }
+
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         box.setPadding(8, 4, 8, 0);
@@ -163,6 +181,7 @@ public class WelcomeActivity extends Activity {
                             profile.put("termsAccepted", false);
                             profile.put("intentConfirmed", false);
                             profile.put("createdAt", FieldValue.serverTimestamp());
+                            if (db == null) db = FirebaseFirestore.getInstance();
                             db.collection("users").document(u.getUid()).set(profile)
                                     .addOnSuccessListener(ok -> enterMain(dialog))
                                     .addOnFailureListener(err -> toast("Account created, but secure profile setup needs another try."));
