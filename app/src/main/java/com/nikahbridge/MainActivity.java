@@ -76,9 +76,11 @@ public class MainActivity extends Activity {
         }).addOnFailureListener(e->toast("Secure account check failed. Please sign in again."));
     }
 
+    private int dp(int value){ return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
+
     private void base(){
         ScrollView s=new ScrollView(this); s.setFillViewport(true); s.setBackgroundColor(light);
-        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(22,24,22,32); s.addView(root); setContentView(s);
+        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(22),dp(24),dp(22),dp(32)); s.addView(root); setContentView(s);
     }
     private TextView text(String v,int size,boolean bold){
         TextView t=new TextView(this); t.setText(v); t.setTextSize(size); t.setTextColor(bold?dark:gray); t.setPadding(6,8,6,12);
@@ -88,10 +90,10 @@ public class MainActivity extends Activity {
     private Button button(String label,boolean filled){
         Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(16); b.setTextColor(filled?Color.WHITE:green);
         GradientDrawable g=new GradientDrawable();g.setColor(filled?green:Color.WHITE);g.setCornerRadius(18);if(!filled)g.setStroke(2,green);b.setBackground(g);
-        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,62);p.setMargins(0,6,0,6);root.addView(b,p);return b;
+        LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,dp(62));p.setMargins(0,dp(6),0,dp(6));root.addView(b,p);return b;
     }
     private Button danger(String label){Button b=button(label,false);b.setTextColor(red);GradientDrawable g=new GradientDrawable();g.setColor(Color.WHITE);g.setCornerRadius(18);g.setStroke(2,red);b.setBackground(g);return b;}
-    private EditText input(String hint){EditText e=new EditText(this);e.setHint(hint);e.setTextSize(16);e.setPadding(14,8,14,8);root.addView(e,new LinearLayout.LayoutParams(-1,62));return e;}
+    private EditText input(String hint){EditText e=new EditText(this);e.setHint(hint);e.setTextSize(16);e.setPadding(14,8,14,8);root.addView(e,new LinearLayout.LayoutParams(-1,dp(62)));return e;}
     private void section(String v){root.addView(text(v,19,true));}
     private void toast(String v){Toast.makeText(this,v,Toast.LENGTH_LONG).show();}
     private String val(DocumentSnapshot d,String key){Object v=d.get(key);return v==null?"":String.valueOf(v);}
