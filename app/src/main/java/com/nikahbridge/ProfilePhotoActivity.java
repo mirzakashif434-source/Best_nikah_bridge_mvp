@@ -41,11 +41,13 @@ public class ProfilePhotoActivity extends Activity {
     private TextView status;
     private Uri selected;
 
+    private int dp(int value) { return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
+
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(24, 24, 24, 32);
+        root.setPadding(dp(24), dp(24), dp(24), dp(32));
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setBackgroundColor(Color.rgb(247,250,249));
         setContentView(root);
@@ -55,39 +57,44 @@ public class ProfilePhotoActivity extends Activity {
         title.setTextSize(28);
         title.setTextColor(Color.rgb(30,45,41));
         title.setGravity(Gravity.CENTER);
-        root.addView(title, new LinearLayout.LayoutParams(-1, 70));
+        root.addView(title, new LinearLayout.LayoutParams(-1, dp(70)));
 
         status = new TextView(this);
         status.setText("Choose your own genuine photo. No demo or stock profile photos are used.");
         status.setTextSize(16);
         status.setTextColor(Color.rgb(95,108,103));
-        root.addView(status, new LinearLayout.LayoutParams(-1, 90));
+        root.addView(status, new LinearLayout.LayoutParams(-1, dp(90)));
 
         preview = new ImageView(this);
         preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        root.addView(preview, new LinearLayout.LayoutParams(-1, 420));
+        root.addView(preview, new LinearLayout.LayoutParams(-1, dp(420)));
 
         Button choose = new Button(this);
         choose.setText("Choose Real Photo");
-        root.addView(choose, new LinearLayout.LayoutParams(-1, 62));
+        choose.setTextColor(Color.rgb(18,103,82));
+        root.addView(choose, new LinearLayout.LayoutParams(-1, dp(62)));
 
         Button upload = new Button(this);
         upload.setText("Upload Securely");
-        root.addView(upload, new LinearLayout.LayoutParams(-1, 62));
+        upload.setTextColor(Color.rgb(18,103,82));
+        root.addView(upload, new LinearLayout.LayoutParams(-1, dp(62)));
 
         Button four = new Button(this);
         four.setText("Camera-First 4 Photos");
-        root.addView(four, new LinearLayout.LayoutParams(-1, 62));
+        four.setTextColor(Color.rgb(18,103,82));
+        root.addView(four, new LinearLayout.LayoutParams(-1, dp(62)));
         four.setOnClickListener(v -> startActivity(new Intent(this, RealFourPhotoActivity.class)));
 
         Button genderMatches = new Button(this);
         genderMatches.setText("View Gender-Filtered Nikah Matches");
-        root.addView(genderMatches, new LinearLayout.LayoutParams(-1, 62));
+        genderMatches.setTextColor(Color.rgb(18,103,82));
+        root.addView(genderMatches, new LinearLayout.LayoutParams(-1, dp(62)));
         genderMatches.setOnClickListener(v -> startActivity(new Intent(this, GenderFilteredMatchesActivity.class)));
 
         Button back = new Button(this);
         back.setText("Back");
-        root.addView(back, new LinearLayout.LayoutParams(-1, 62));
+        back.setTextColor(Color.rgb(18,103,82));
+        root.addView(back, new LinearLayout.LayoutParams(-1, dp(62)));
 
         choose.setOnClickListener(v -> pickImage());
         upload.setOnClickListener(v -> uploadImage());
