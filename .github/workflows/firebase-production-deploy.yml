@@ -28,9 +28,27 @@ jobs:
           credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
-      - name: Deploy Firebase Functions only
-        run: firebase deploy --only functions --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
-      - name: Verify required callable exports are present in source
+      - name: Install Functions dependencies
+        working-directory: functions
+        run: npm ci --omit=dev
+      - name: Deploy Firebase Functions to the exact production project
+        run: firebase deploy --only functions --project best-nikah-bridge --non-interactive
+      - name: Verify required callable exports in source
         working-directory: functions
         run: |
-          node -e "const f=require('./bootstrap'); for (const n of ['getWallet','requestWalletWithdrawal','listWalletTransactions','getOwnerEarningsDashboard']) { if(typeof f[n] !== 'function') throw new Error('Missing export: '+n); console.log('OK '+n); }"
+          node -e "const f=require('./bootstrap'); for (const n of ['getWallet','requestWalletWithdrawal','listWalletTransactions','getOwnerEarningsDashboard','getPremiumEntitlement','verifyPremiumPurchase']) { if(typeof f[n] !== 'function') throw new Error('Missing export: '+n); console.log('SOURCE OK '+n); }"
+      - name: Verify required functions are actually deployed
+        run: |
+          firebase functions:list --project best-nikah-bridge --json > /tmp/deployed-functions.json
+          node - <<'NODE'
+          const fs=require('fs');
+          const raw=fs.readFileSync('/tmp/deployed-functions.json','utf8');
+          const data=JSON.parse(raw);
+          const names=new Set((Array.isArray(data)?data:(data.functions||data.result||[])).map(x=>x.name||x.id||''));
+          const required=['getWallet','requestWalletWithdrawal','listWalletTransactions','getOwnerEarningsDashboard','getPremiumEntitlement','verifyPremiumPurchase'];
+          for(const n of required){
+            const found=[...names].some(x=>x===n || x.endsWith('/'+n) || x.endsWith(n));
+            if(!found) throw new Error('DEPLOYED FUNCTION MISSING: '+n+'\nAvailable: '+[...names].join(', '));
+            console.log('DEPLOYED OK '+n);
+          }
+          NODE
