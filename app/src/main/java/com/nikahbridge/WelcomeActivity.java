@@ -145,9 +145,17 @@ public class WelcomeActivity extends Activity {
         EditText email = new EditText(this);
         email.setHint("Email address");
         email.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        email.setTextColor(dark);
+        email.setHintTextColor(Color.rgb(100, 100, 100));
+        email.setSingleLine(true);
+
         EditText password = new EditText(this);
         password.setHint("Password (minimum 8 characters)");
         password.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        password.setTextColor(dark);
+        password.setHintTextColor(Color.rgb(100, 100, 100));
+        password.setSingleLine(true);
+
         box.addView(email, new LinearLayout.LayoutParams(-1, 62));
         box.addView(password, new LinearLayout.LayoutParams(-1, 62));
 
