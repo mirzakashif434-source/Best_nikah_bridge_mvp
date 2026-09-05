@@ -8,6 +8,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.widget.*;
 
@@ -86,8 +87,8 @@ public class WelcomeActivity extends Activity {
 
         Button getStarted = button("GET STARTED\nآغاز کریں", true);
         Button signIn = button("SIGN IN\nلاگ اِن کریں", false);
-        root.addView(getStarted, params(-1, 72, 0, 8, 0, 8));
-        root.addView(signIn, params(-1, 72, 0, 8, 0, 8));
+        root.addView(getStarted, params(-1, dp(72), 0, 8, 0, 8));
+        root.addView(signIn, params(-1, dp(72), 0, 8, 0, 8));
 
         TextView footer = text("Serious Muslim matrimonial platform — not a dating app.", 14, false, dark);
         footer.setGravity(Gravity.CENTER);
@@ -128,6 +129,10 @@ public class WelcomeActivity extends Activity {
         return p;
     }
 
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
+    }
+
     private void showAccountDialog(boolean signIn) {
         if (auth == null) {
             try {
@@ -156,8 +161,8 @@ public class WelcomeActivity extends Activity {
         password.setHintTextColor(Color.rgb(100, 100, 100));
         password.setSingleLine(true);
 
-        box.addView(email, new LinearLayout.LayoutParams(-1, 62));
-        box.addView(password, new LinearLayout.LayoutParams(-1, 62));
+        box.addView(email, new LinearLayout.LayoutParams(-1, dp(62)));
+        box.addView(password, new LinearLayout.LayoutParams(-1, dp(62)));
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(signIn ? "Sign in to Best Nikah Bridge" : "Create your real account")
