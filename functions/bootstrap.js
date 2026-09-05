@@ -3,5 +3,6 @@ const existing = require('./index');
 const helpLine = require('./helpLineAI');
 const helpLineAdmin = require('./helpLineAdmin');
 const premiumPlans = require('./premiumPlans');
-Object.assign(existing, helpLine, helpLineAdmin, premiumPlans);
+const ownerDashboard = require('./ownerDashboard');
+Object.assign(existing, helpLine, helpLineAdmin, premiumPlans, ownerDashboard);
 module.exports = existing;
