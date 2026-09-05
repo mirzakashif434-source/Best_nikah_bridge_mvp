@@ -28,5 +28,9 @@ jobs:
           credentials_json: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
-      - name: Deploy Functions and Firestore Rules
-        run: firebase deploy --only functions,firestore --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+      - name: Deploy Firebase Functions only
+        run: firebase deploy --only functions --project "${{ secrets.FIREBASE_PROJECT_ID }}" --non-interactive
+      - name: Verify required callable exports are present in source
+        working-directory: functions
+        run: |
+          node -e "const f=require('./bootstrap'); for (const n of ['getWallet','requestWalletWithdrawal','listWalletTransactions','getOwnerEarningsDashboard']) { if(typeof f[n] !== 'function') throw new Error('Missing export: '+n); console.log('OK '+n); }"
