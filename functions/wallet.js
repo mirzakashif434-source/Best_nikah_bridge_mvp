@@ -23,3 +23,4 @@ exports.markWalletPayoutPaid=onCall(async req=>{ const adminUid=requireAdmin(req
 // Additive export: Firebase deploys functions/index.js, which already imports this wallet module.
 // Re-export the Owner Earnings Dashboard here so it is guaranteed to be part of the deployed index exports.
 Object.assign(exports, require('./ownerDashboard'));
+// Deployment trigger only: preserve all existing wallet and owner-dashboard code above unchanged.
