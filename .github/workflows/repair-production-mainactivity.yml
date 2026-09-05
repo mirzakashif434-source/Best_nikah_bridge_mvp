@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   repair-and-release:
-    if: github.event.head_commit.message != 'Apply Firebase AI compatibility fix'
+    if: github.event.head_commit.message != 'Fix verification screen sizing'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact production source
@@ -27,32 +27,21 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Replace only broken Firebase AI Java compatibility code
+      - name: Fix only verification screen sizing
         shell: python
         run: |
           from pathlib import Path
           path = Path('app/src/main/java/com/nikahbridge/MainActivity.java')
           text = path.read_text(encoding='utf-8')
-          new_import = 'import com.google.firebase.ai.type.GenerateContentResponse;'
-          futures_import = 'import com.google.firebase.ai.java.GenerativeModelFutures;'
-          if new_import in text and futures_import in text and 'GenerativeModelFutures.from(aiModel);' in text:
-              print('Firebase AI compatibility is already fixed; preserving source unchanged.')
-          else:
-              old_import = 'import com.google.firebase.ai.GenerateContentResponse;'
-              if old_import not in text:
-                  raise SystemExit('Expected old GenerateContentResponse import was not found')
-              text = text.replace(old_import, new_import, 1)
-              if futures_import not in text:
-                  anchor = 'import com.google.firebase.ai.type.GenerativeBackend;'
-                  text = text.replace(anchor, anchor + '\n' + futures_import, 1)
-              old_model = 'GenerativeModel model=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");'
-              new_model = 'GenerativeModel aiModel=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");\n                GenerativeModelFutures model=GenerativeModelFutures.from(aiModel);'
-              if old_model not in text:
-                  raise SystemExit('Expected AI model initialization was not found')
-              text = text.replace(old_model, new_model, 1)
-              if 'ListenableFuture<GenerateContentResponse> future=model.generateContent(content);' not in text:
-                  raise SystemExit('Expected AI generateContent call was not found')
-              path.write_text(text, encoding='utf-8')
+          if 'private int dp(int value)' not in text:
+              anchor = '    private void base(){'
+              helper = '    private int dp(int value){ return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }\n\n'
+              if anchor not in text: raise SystemExit('base anchor not found')
+              text = text.replace(anchor, helper + anchor, 1)
+          text = text.replace('new LinearLayout.LayoutParams(-1,62);p.setMargins(0,6,0,6);', 'new LinearLayout.LayoutParams(-1,dp(62));p.setMargins(0,dp(6),0,dp(6));', 1)
+          text = text.replace('root.addView(e,new LinearLayout.LayoutParams(-1,62));', 'root.addView(e,new LinearLayout.LayoutParams(-1,dp(62)));', 1)
+          text = text.replace('root.setPadding(22,24,22,32);', 'root.setPadding(dp(22),dp(24),dp(22),dp(32));', 1)
+          path.write_text(text, encoding='utf-8')
 
       - name: Verify locked production features remain intact
         run: |
@@ -66,6 +55,7 @@ jobs:
           grep -q 'com.google.firebase.ai.type.GenerateContentResponse' app/src/main/java/com/nikahbridge/MainActivity.java
           ! grep -q 'import com.google.firebase.ai.GenerateContentResponse;' app/src/main/java/com/nikahbridge/MainActivity.java
           ! grep -qE 'DEMO_|MockData|mockData|sample member|fake match' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'new LinearLayout.LayoutParams(-1,dp(62))' app/src/main/java/com/nikahbridge/MainActivity.java
           git diff --check
 
       - name: Verify release keystore
@@ -99,7 +89,7 @@ jobs:
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
-      - name: Commit only the Firebase AI compatibility replacement
+      - name: Commit only the sizing fix
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
@@ -107,8 +97,8 @@ jobs:
           git add app/src/main/java/com/nikahbridge/MainActivity.java
           git diff --cached --check
           if git diff --cached --quiet; then
-            echo 'No Firebase AI source change required; preserving MainActivity.'
+            echo 'No sizing change required.'
             exit 0
           fi
-          git commit -m 'Apply Firebase AI compatibility fix'
+          git commit -m 'Fix verification screen sizing'
           git push
