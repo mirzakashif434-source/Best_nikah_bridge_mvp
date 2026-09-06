@@ -20,6 +20,11 @@ jobs:
           from pathlib import Path
           p=Path('app/src/main/java/com/nikahbridge/MainActivity.java')
           s=p.read_text()
+          old='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);'
+          old2='ProfilePhotoLoader.load'
+          if old in s and old2 in s:
+              print('Real profile photo flow already present; nothing to patch.')
+              raise SystemExit(0)
           old='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),back=button("Back",false);'
           new='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);\n        photo.setOnClickListener(v->startActivity(new android.content.Intent(this, ProfilePhotoActivity.class)));'
           if old not in s: raise SystemExit('profile anchor not found')
