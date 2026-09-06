@@ -1,6 +1,7 @@
 // Additive functions entrypoint: preserve every existing export from index.js.
 // Production export verification: wallet + premium + owner dashboard remain additive.
 // Backend redeploy trigger: keep all existing exports and logic unchanged.
+// Production backend deployment verification: deploy the current real callable functions before app testing.
 const existing = require('./index');
 const helpLine = require('./helpLineAI');
 const helpLineAdmin = require('./helpLineAdmin');
