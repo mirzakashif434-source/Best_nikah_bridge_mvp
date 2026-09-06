@@ -9,45 +9,60 @@ permissions:
 
 jobs:
   patch:
-    if: github.event.head_commit.message != 'Add real profile photo flow to production MainActivity'
+    if: github.event.head_commit.message != 'Add real profile photo flow to production MainActivity' && github.event.head_commit.message != 'Add main menu back button without changing existing features'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch production MainActivity for real photos
+      - name: Patch production MainActivity safely
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           p=Path('app/src/main/java/com/nikahbridge/MainActivity.java')
           s=p.read_text()
-          old='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);'
-          old2='ProfilePhotoLoader.load'
-          if old in s and old2 in s:
-              print('Real profile photo flow already present; nothing to patch.')
-              raise SystemExit(0)
-          old='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),back=button("Back",false);'
-          new='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);\n        photo.setOnClickListener(v->startActivity(new android.content.Intent(this, ProfilePhotoActivity.class)));'
-          if old not in s: raise SystemExit('profile anchor not found')
-          s=s.replace(old,new,1)
-          old2='String n=val(d,"name");if(n.isEmpty())n="Member";LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);\n        card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));'
-          new2='String n=val(d,"name");if(n.isEmpty())n="Member";LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);\n        android.widget.ImageView photo=new android.widget.ImageView(this);photo.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);photo.setVisibility(android.view.View.GONE);card.addView(photo,new LinearLayout.LayoutParams(-1,420));String photoUrl=val(d,"photoUrl");if(!photoUrl.trim().isEmpty()){photo.setVisibility(android.view.View.VISIBLE);ProfilePhotoLoader.load(photoUrl,photo);}\n        card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));'
-          if old2 not in s: raise SystemExit('match anchor not found')
-          s=s.replace(old2,new2,1)
+          changed=False
+
+          photo_button='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);'
+          if photo_button not in s:
+              old='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),back=button("Back",false);'
+              new='Button save=button("Save & Activate Profile",true),verify=button("Request Verification",false),photo=button("Add / Update Real Profile Photo",false),back=button("Back",false);\n        photo.setOnClickListener(v->startActivity(new android.content.Intent(this, ProfilePhotoActivity.class)));'
+              if old in s:
+                  s=s.replace(old,new,1)
+                  changed=True
+
+          photo_loader='ProfilePhotoLoader.load(photoUrl,photo);'
+          if photo_loader not in s:
+              old='String n=val(d,"name");if(n.isEmpty())n="Member";LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);\n        card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));'
+              new='String n=val(d,"name");if(n.isEmpty())n="Member";LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(12,10,12,10);root.addView(card);\n        android.widget.ImageView photo=new android.widget.ImageView(this);photo.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);photo.setVisibility(android.view.View.GONE);card.addView(photo,new LinearLayout.LayoutParams(-1,420));String photoUrl=val(d,"photoUrl");if(!photoUrl.trim().isEmpty()){photo.setVisibility(android.view.View.VISIBLE);ProfilePhotoLoader.load(photoUrl,photo);}\n        card.addView(text(n+" • "+val(d,"age")+" • "+s+"% compatible",20,true));'
+              if old in s:
+                  s=s.replace(old,new,1)
+                  changed=True
+
+          home_back='Button back=button("Back",false);back.setOnClickListener(x->finish());'
+          if home_back not in s:
+              old='p.setOnClickListener(x->profile());r.setOnClickListener(x->readiness());m.setOnClickListener(x->matches());i.setOnClickListener(x->interests());w.setOnClickListener(x->wali());wallet.setOnClickListener(x->startActivity(new android.content.Intent(this,WalletActivity.class)));s.setOnClickListener(x->safety());v.setOnClickListener(x->verification());h.setOnClickListener(x->help());pr.setOnClickListener(x->privacy());a.setOnClickListener(x->account());\n        root.addView(text("Real Firebase data only. No demo members, fake match records or fake verification badges.",14,false));'
+              new='p.setOnClickListener(x->profile());r.setOnClickListener(x->readiness());m.setOnClickListener(x->matches());i.setOnClickListener(x->interests());w.setOnClickListener(x->wali());wallet.setOnClickListener(x->startActivity(new android.content.Intent(this,WalletActivity.class)));s.setOnClickListener(x->safety());v.setOnClickListener(x->verification());h.setOnClickListener(x->help());pr.setOnClickListener(x->privacy());a.setOnClickListener(x->account());\n        Button back=button("Back",false);back.setOnClickListener(x->finish());\n        root.addView(text("Real Firebase data only. No demo members, fake match records or fake verification badges.",14,false));'
+              if old not in s: raise SystemExit('home menu anchor not found')
+              s=s.replace(old,new,1)
+              changed=True
+
           p.write_text(s)
+          print('MainActivity updated.' if changed else 'MainActivity already contains all requested safe changes.')
           PY
-      - name: Verify no demo profile markers
+      - name: Verify production MainActivity
         run: |
           set -euo pipefail
           ! grep -qE 'DEMO_NAMES|DEMO_AGES|DEMO_COUNTRIES|DEMO_CITIES|DEMO_ABOUT|DEMO_REASONS|premium_demo|Watch Ad.*Demo' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -q 'Real Firebase data only' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -q 'ProfilePhotoActivity' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -q 'ProfilePhotoLoader.load' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Button back=button("Back",false);back.setOnClickListener(x->finish());' app/src/main/java/com/nikahbridge/MainActivity.java
           git diff --check
-      - name: Commit production photo flow
+      - name: Commit production changes
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app/src/main/java/com/nikahbridge/MainActivity.java
-          git commit -m 'Add real profile photo flow to production MainActivity' || exit 0
+          git commit -m 'Add main menu back button without changing existing features' || exit 0
           git push
