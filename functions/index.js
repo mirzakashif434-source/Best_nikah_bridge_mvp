@@ -43,3 +43,5 @@ exports.sendLike=onCall(async req=>{ const uid=auth(req), toUid=String(req.data?
 Object.assign(exports, require('./ownerEarnings'));
 // Additive production modules: preserve all existing exports while wiring real community, safety, verification and AdMob functions into Firebase's actual index entrypoint.
 Object.assign(exports, require('./helpLineAI'), require('./helpLineAdmin'), require('./premiumPlans'), require('./ownerDashboard'), require('./community'), require('./communitySafety'), require('./verification'), require('./verificationAdmin'), require('./admobRewarded'));
+// Additive Step 6 wiring: expose the existing real Family Bridge 2.0 functions without replacing legacy Family Bridge handlers.
+Object.assign(exports, require('./familyBridge2'));
