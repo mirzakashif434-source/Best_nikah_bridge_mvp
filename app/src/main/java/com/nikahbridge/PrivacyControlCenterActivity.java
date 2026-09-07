@@ -17,7 +17,7 @@ import java.util.Map;
 /** Production Privacy Control Center. Uses the authenticated user's real Firebase profile. */
 public class PrivacyControlCenterActivity extends Activity {
     private FirebaseAuth auth; private FirebaseFirestore db; private LinearLayout root; private Switch discoverable; private TextView status;
-    private final int green=Color.rgb(18,103,82), dark=Color.rgb(30,45,41), gray=Color.rgb(85,100,95), light=Color.rgb(247,250,249);
+    private final int green=Color.rgb(18,103,82), dark=Color.rgb(30,45,41), gray=Color.rgb(85,100,95), red=Color.rgb(165,50,50), light=Color.rgb(247,250,249);
     @Override public void onCreate(Bundle b){ super.onCreate(b); auth=FirebaseAuth.getInstance(); db=FirebaseFirestore.getInstance(); render(); loadRealSettings(); }
     private TextView txt(String s,int size,boolean bold){ TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(bold?dark:gray); t.setPadding(6,8,6,10); if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD); return t; }
     private Button btn(String s,boolean fill){ Button b=new Button(this); b.setText(s); b.setAllCaps(false); b.setTextSize(16); b.setTextColor(fill?Color.WHITE:green); GradientDrawable g=new GradientDrawable(); g.setColor(fill?green:Color.WHITE); g.setCornerRadius(18); if(!fill)g.setStroke(2,green); b.setBackground(g); root.addView(b,new LinearLayout.LayoutParams(-1,62)); return b; }
@@ -28,6 +28,7 @@ public class PrivacyControlCenterActivity extends Activity {
         root.addView(txt("When disabled, your profile is removed from the discoverable match pool. Existing mutual connections are not automatically deleted by this setting.",14,false));
         Button save=btn("Save Privacy Settings",true); save.setOnClickListener(v->saveRealSettings());
         Button blocked=btn("Blocked Members",false); blocked.setOnClickListener(v->startActivity(new Intent(this,BlockedMembersActivity.class)));
+        Button delete=btn("Delete My Account & Data",false); delete.setTextColor(red); GradientDrawable danger=new GradientDrawable(); danger.setColor(Color.WHITE); danger.setCornerRadius(18); danger.setStroke(2,red); delete.setBackground(danger); delete.setOnClickListener(v->startActivity(new Intent(this,AccountDeletionActivity.class)));
         Button refresh=btn("Refresh Real Settings",false); refresh.setOnClickListener(v->loadRealSettings());
         Button back=btn("Back",false); back.setOnClickListener(v->finish()); status=txt("Status: waiting",15,false); root.addView(status);
     }
