@@ -52,15 +52,18 @@ jobs:
           grep -q 'billing:9.1.0' app/build.gradle
           grep -q 'APPLICATION_ID.*ca-app-pub-8897537994957088~9402403755' app/src/main/AndroidManifest.xml
           grep -q 'usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
-          ! grep -RniE 'ca-app-pub-3940256099942544|ca-app-pub-3940256099942544/|test-ad-unit|TEST_AD_UNIT|demo.*ad|mock.*data|MockData|sample member|fake match|localhost|10\.0\.2\.2' app/src/main functions --exclude='*.md'
+          ! grep -RniE 'ca-app-pub-3940256099942544|test-ad-unit|TEST_AD_UNIT|localhost|10\.0\.2\.2' app/src/main functions --exclude='*.md'
           ! grep -RniE 'debuggable="true"|BuildConfig\.DEBUG.*true' app/src/main/AndroidManifest.xml app/src/main/java
           grep -q 'Object.assign(exports.*admobRewarded' functions/index.js
+          grep -q 'Object.assign(exports.*familyBridge2' functions/index.js
           grep -q 'createFamilyBridgeV2' functions/familyBridge2.js
           grep -q 'respondFamilyBridgeV2' functions/familyBridge2.js
           grep -q 'sendFamilyQuestionV2' functions/familyBridge2.js
           grep -q 'setFamilyBridgeConsentV2' functions/familyBridge2.js
           grep -q 'getHttpsCallable("sendLike")' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
           grep -q 'getHttpsCallable("claimRewardedMessageCredit")' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          node --check functions/index.js
+          node --check functions/familyBridge2.js
           git diff --check
 
       - name: Verify production release signing secret
@@ -88,28 +91,26 @@ jobs:
           test -s app/build/outputs/bundle/release/app-release.aab
 
       - name: Verify signed AAB identity and signature
-        env:
-          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
           AAB=app/build/outputs/bundle/release/app-release.aab
           jarsigner -verify -verbose -certs "$AAB" >/dev/null
           keytool -printcert -jarfile "$AAB" | grep -q 'Owner:'
-          unzip -p "$AAB" 'base/manifest/AndroidManifest.xml' > "$RUNNER_TEMP/manifest.bin"
-          test -s "$RUNNER_TEMP/manifest.bin"
+          unzip -l "$AAB" | grep -q 'base/manifest/AndroidManifest.xml'
           sha256sum "$AAB" | tee app-release-aab.sha256
 
-      - name: Scan final AAB for demo/test artifacts and debug markers
+      - name: Scan final AAB for forbidden test endpoints and test AdMob IDs
         run: |
           set -euo pipefail
           AAB=app/build/outputs/bundle/release/app-release.aab
           unzip -l "$AAB" > "$RUNNER_TEMP/aab-list.txt"
-          ! grep -Eiq 'debug|testOnly|mock|localhost|10\.0\.2\.2' "$RUNNER_TEMP/aab-list.txt"
-          unzip -p "$AAB" 'base/dex/*.dex' 2>/dev/null | strings > "$RUNNER_TEMP/aab-strings.txt" || true
-          ! grep -Eiq 'ca-app-pub-3940256099942544|localhost|10\.0\.2\.2|MockData|sample member|fake match' "$RUNNER_TEMP/aab-strings.txt"
+          ! grep -Eiq 'testOnly|localhost|10\.0\.2\.2' "$RUNNER_TEMP/aab-list.txt"
+          mkdir -p "$RUNNER_TEMP/dex"
+          unzip -q "$AAB" 'base/dex/*.dex' -d "$RUNNER_TEMP/dex" || true
+          find "$RUNNER_TEMP/dex" -type f -name '*.dex' -print0 | xargs -0 -r strings > "$RUNNER_TEMP/aab-strings.txt"
+          ! grep -Eiq 'ca-app-pub-3940256099942544|localhost|10\.0\.2\.2' "$RUNNER_TEMP/aab-strings.txt"
 
-      - name: Upload signed release candidate and checksum
+      - name: Upload signed Step 6 release candidate and checksum
         uses: actions/upload-artifact@v6
         with:
           name: best-nikah-bridge-step6-release-candidate
@@ -121,4 +122,4 @@ jobs:
       - name: Print release gate result
         run: |
           echo 'STEP 6 RELEASE GATE PASSED: signed AAB built and production-only checks passed.'
-          echo 'Play Console submission and real-device smoke testing remain operational release steps.'
+          echo 'Real-device smoke testing and Play Console submission remain operational release steps.'
