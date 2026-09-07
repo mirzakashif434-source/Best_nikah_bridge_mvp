@@ -30,7 +30,11 @@ service cloud.firestore {
     match /users/{uid} {
       allow create: if owner(uid) && request.resource.data.uid == uid && request.resource.data.profileActive == false && request.resource.data.discoverable == false && request.resource.data.verificationStatus == 'unverified';
       allow read: if owner(uid) || (signedIn() && resource.data.profileActive == true && resource.data.discoverable == true && resource.data.age is int && resource.data.age >= 18 && resource.data.termsAccepted == true && resource.data.intentConfirmed == true);
-      allow update: if owner(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.verificationStatus == resource.data.verificationStatus && request.resource.data.email == resource.data.email && (request.resource.data.profileActive == false || (request.resource.data.age is int && request.resource.data.age >= 18 && request.auth.token.email_verified == true && request.resource.data.profileActive == true && request.resource.data.discoverable == true && request.resource.data.termsAccepted == true && request.resource.data.intentConfirmed == true));
+      allow update: if owner(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.verificationStatus == resource.data.verificationStatus && request.resource.data.email == resource.data.email && (
+        (request.resource.data.termsAccepted == true && request.resource.data.termsVersion is string)
+        || request.resource.data.profileActive == false
+        || (request.resource.data.age is int && request.resource.data.age >= 18 && request.auth.token.email_verified == true && request.resource.data.profileActive == true && request.resource.data.discoverable == true && request.resource.data.termsAccepted == true && request.resource.data.intentConfirmed == true)
+      );
       allow delete: if false;
       match /settings/{id} { allow read,write: if owner(uid); }
       match /communityMutes/{mutedUid} { allow read: if owner(uid); allow write,delete: if false; }
