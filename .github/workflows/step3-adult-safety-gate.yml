@@ -1,0 +1,38 @@
+name: Step 3 Adult Safety & Child Safety Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  adult-safety-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production source
+        uses: actions/checkout@v6
+
+      - name: Verify adult-only product controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f AGE_RESTRICTION_POLICY.md
+          test -f child-safety.html
+          test -f firestore.rules
+          test -f app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'Age (18+)' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'a<18' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -q 'age is int' firestore.rules
+          grep -q 'age >= 18' firestore.rules
+          grep -q 'adultUser' firestore.rules
+          grep -q '18 and over' functions/index.js
+          grep -q 'CSAE' child-safety.html
+          grep -q 'CSAM' child-safety.html
+          grep -q 'Designated child-safety contact' child-safety.html
+          git diff --check
+          echo 'Step 3 adult-only and child-safety source controls verified.'
