@@ -1,0 +1,28 @@
+name: Configure AdMob Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'config/admob-production.json'
+      - 'scripts/configure-admob.js'
+      - 'functions/package.json'
+  workflow_dispatch:
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Firebase Admin dependencies
+        working-directory: functions
+        run: npm install --omit=dev
+      - name: Write real AdMob configuration to Firestore
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: node scripts/configure-admob.js
