@@ -10,6 +10,7 @@
         <activity android:name=".HelpLineAdminActivity" android:exported="false" />
         <activity android:name=".ConversationHealthActivity" android:exported="false" />
         <activity android:name=".NikahJourneyActivity" android:exported="false" />
+        <activity android:name=".NikahBlueprintActivity" android:exported="false" />
         <activity android:name=".NikahSuccessPlanActivity" android:exported="false" />
         <activity android:name=".SmartSeriousQuestionsActivity" android:exported="false" />
         <activity android:name=".NikahAssistantActivity" android:exported="false" />
