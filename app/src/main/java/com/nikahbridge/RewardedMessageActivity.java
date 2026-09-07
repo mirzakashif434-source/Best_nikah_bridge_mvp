@@ -13,9 +13,11 @@ import com.google.android.gms.ads.rewarded.RewardItem;
 import com.google.android.gms.ads.rewarded.RewardedAd;
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
 import com.google.android.gms.ads.rewarded.ServerSideVerificationOptions;
+import com.google.android.ump.ConsentInformation;
+import com.google.android.ump.ConsentRequestParameters;
+import com.google.android.ump.UserMessagingPlatform;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.functions.FirebaseFunctions;
-import com.google.firebase.functions.HttpsCallableReference;
 import java.util.*;
 
 /** Real rewarded-ad entry point. Credits are granted only by verified AdMob SSV callback. */
@@ -27,6 +29,7 @@ public class RewardedMessageActivity extends Activity {
     private Button watch;
     private TextView status;
     private String productionUnit;
+    private ConsentInformation consentInformation;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -55,9 +58,31 @@ public class RewardedMessageActivity extends Activity {
             Map<?,?> data = (Map<?,?>) result.getData();
             if (!Boolean.TRUE.equals(data.get("configured"))) { status.setText("Rewarded ads are not configured for production yet."); return; }
             productionUnit = String.valueOf(data.get("rewardedAdUnitId"));
-            if (!productionUnit.startsWith("ca-app-pub-")) { status.setText("Production rewarded-ad configuration is invalid."); return; }
-            MobileAds.initialize(this, s -> loadRewarded());
+            if (!productionUnit.matches("ca-app-pub-\\d{16}/\\d+")) { status.setText("Production rewarded-ad configuration is invalid."); return; }
+            requestConsentThenLoad();
         }).addOnFailureListener(e -> status.setText("Could not load secure rewarded-ad configuration."));
+    }
+
+    private void requestConsentThenLoad() {
+        consentInformation = UserMessagingPlatform.getConsentInformation(this);
+        ConsentRequestParameters params = new ConsentRequestParameters.Builder().build();
+        consentInformation.requestConsentInfoUpdate(this, params,
+                () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(this, formError -> {
+                    if (formError != null) {
+                        status.setText("Privacy consent could not be completed. Please try again later.");
+                        return;
+                    }
+                    initializeAdsIfAllowed();
+                }),
+                error -> status.setText("Privacy consent status could not be loaded. Please try again later."));
+    }
+
+    private void initializeAdsIfAllowed() {
+        if (consentInformation == null || !consentInformation.canRequestAds()) {
+            status.setText("Ads cannot be requested until privacy consent is available.");
+            return;
+        }
+        MobileAds.initialize(this, s -> loadRewarded());
     }
 
     private void loadRewarded() {
@@ -66,7 +91,10 @@ public class RewardedMessageActivity extends Activity {
             @Override public void onAdLoaded(RewardedAd ad) {
                 rewardedAd = ad;
                 String uid = auth.getUid();
-                rewardedAd.setServerSideVerificationOptions(new ServerSideVerificationOptions.Builder().setCustomData(uid).build());
+                rewardedAd.setServerSideVerificationOptions(new ServerSideVerificationOptions.Builder()
+                        .setUserId(uid)
+                        .setCustomData(uid)
+                        .build());
                 watch.setEnabled(true); status.setText("Ad ready. Watch it fully to earn 1 message credit.");
             }
             @Override public void onAdFailedToLoad(LoadAdError error) { rewardedAd = null; status.setText("Rewarded ad unavailable right now. Please try again later."); }
