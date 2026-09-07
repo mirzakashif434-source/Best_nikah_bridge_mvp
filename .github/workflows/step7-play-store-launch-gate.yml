@@ -64,8 +64,26 @@ jobs:
           grep -q 'verification' functions/index.js
           grep -q 'community' functions/index.js
           grep -q 'familyBridge2' functions/index.js
+          grep -q 'deleteMyAccount' functions/index.js
+          test -f app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
 
-      - name: Build unsigned release candidate for launch validation
+      - name: Create ephemeral CI validation keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          keytool -genkeypair -v -keystore "$RUNNER_TEMP/ci-validation.jks" \
+            -storepass ci-validation-password \
+            -keypass ci-validation-password \
+            -alias ci-validation \
+            -keyalg RSA -keysize 2048 -validity 1 \
+            -dname 'CN=Best Nikah Bridge CI Validation, OU=CI, O=Best Nikah Bridge, L=CI, S=CI, C=US'
+
+      - name: Build release candidate for launch validation
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/ci-validation.jks
+          KEYSTORE_PASSWORD: ci-validation-password
+          KEY_ALIAS: ci-validation
+          KEY_PASSWORD: ci-validation-password
         run: |
           set -euo pipefail
           chmod +x ./gradlew
