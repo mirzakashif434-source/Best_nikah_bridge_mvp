@@ -8,5 +8,6 @@ const helpLineAdmin = require('./helpLineAdmin');
 const premiumPlans = require('./premiumPlans');
 const ownerDashboard = require('./ownerDashboard');
 const community = require('./community');
-Object.assign(existing, helpLine, helpLineAdmin, premiumPlans, ownerDashboard, community);
+const communitySafety = require('./communitySafety');
+Object.assign(existing, helpLine, helpLineAdmin, premiumPlans, ownerDashboard, community, communitySafety);
 module.exports = existing;
