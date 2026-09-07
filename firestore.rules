@@ -27,12 +27,14 @@ service cloud.firestore {
       allow update: if owner(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.verificationStatus == resource.data.verificationStatus && request.resource.data.email == resource.data.email && (request.resource.data.profileActive == false || (request.auth.token.email_verified == true && request.resource.data.profileActive == true && request.resource.data.discoverable == true && request.resource.data.termsAccepted == true && request.resource.data.intentConfirmed == true));
       allow delete: if false;
       match /settings/{id} { allow read,write: if owner(uid); }
+      match /communityMutes/{mutedUid} { allow read: if owner(uid); allow write,delete: if false; }
     }
     match /communityMessages/{messageId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.authorUid == request.auth.uid && activeUser(request.auth.uid) && request.resource.data.authorName is string && request.resource.data.country is string && request.resource.data.text is string && request.resource.data.type == 'community' && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500 && request.resource.data.createdAt == request.time;
       allow update,delete: if admin();
     }
+    match /communityRateLimits/{uid} { allow read,write: if false; }
     match /interests/{id} {
       allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.status == 'pending' && activeUser(request.auth.uid) && activeUser(request.resource.data.toUid) && !blocked(request.auth.uid, request.resource.data.toUid);
       allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
@@ -44,7 +46,6 @@ service cloud.firestore {
       allow create,update,delete: if false;
       match /messages/{messageId} {
         allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid) && connected(resource.data.fromUid,resource.data.toUid);
-        // Message creation is backend-only. This prevents clients from bypassing the no-reply safety rule.
         allow create,update,delete: if false;
       }
     }
