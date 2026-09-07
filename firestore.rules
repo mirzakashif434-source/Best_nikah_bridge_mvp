@@ -29,11 +29,7 @@ service cloud.firestore {
       match /settings/{id} { allow read,write: if owner(uid); }
       match /communityMutes/{mutedUid} { allow read: if owner(uid); allow write,delete: if false; }
     }
-    match /communityMessages/{messageId} {
-      allow read: if signedIn();
-      allow create: if false;
-      allow update,delete: if admin();
-    }
+    match /communityMessages/{messageId} { allow read: if signedIn(); allow create: if false; allow update,delete: if admin(); }
     match /communityRateLimits/{uid} { allow read,write: if false; }
     match /interests/{id} {
       allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.status == 'pending' && activeUser(request.auth.uid) && activeUser(request.resource.data.toUid) && !blocked(request.auth.uid, request.resource.data.toUid);
@@ -44,20 +40,13 @@ service cloud.firestore {
     match /connections/{id} {
       allow read: if signedIn() && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid) && resource.data.status == 'active';
       allow create,update,delete: if false;
-      match /messages/{messageId} {
-        allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid) && connected(resource.data.fromUid,resource.data.toUid);
-        allow create,update,delete: if false;
-      }
+      match /messages/{messageId} { allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid) && connected(resource.data.fromUid,resource.data.toUid); allow create,update,delete: if false; }
     }
     match /blocks/{id} { allow read: if signedIn() && (resource.data.blockerUid == request.auth.uid || resource.data.blockedUid == request.auth.uid); allow write,delete: if false; }
     match /reports/{id} { allow create: if signedIn() && request.resource.data.reporterUid == request.auth.uid && request.resource.data.reportedUid != request.auth.uid && request.resource.data.status == 'pending'; allow read: if admin() || (signedIn() && resource.data.reporterUid == request.auth.uid); allow update,delete: if admin(); }
-    match /verifications/{id} { allow create: if signedIn() && request.resource.data.userUid == request.auth.uid && request.resource.data.status == 'pending'; allow read: if admin() || (signedIn() && resource.data.userUid == request.auth.uid); allow update,delete: if admin(); }
+    match /verifications/{id} { allow create: if false; allow read: if admin() || (signedIn() && resource.data.userUid == request.auth.uid); allow update,delete: if false; }
     match /waliConnections/{id} { allow read: if signedIn() && (resource.data.userUid == request.auth.uid || resource.data.waliUid == request.auth.uid); allow write,delete: if false; }
-    match /familyBridges/{bridgeId} {
-      allow read: if signedIn() && request.auth.uid in resource.data.participants;
-      allow create,update,delete: if false;
-      match /questions/{questionId} { allow read: if signedIn() && get(/databases/$(database)/documents/familyBridges/$(bridgeId)).data.participants.hasAny([request.auth.uid]); allow create,update,delete: if false; }
-    }
+    match /familyBridges/{bridgeId} { allow read: if signedIn() && request.auth.uid in resource.data.participants; allow create,update,delete: if false; match /questions/{questionId} { allow read: if signedIn() && get(/databases/$(database)/documents/familyBridges/$(bridgeId)).data.participants.hasAny([request.auth.uid]); allow create,update,delete: if false; } }
     match /privacy/{uid} { allow read,write: if owner(uid); }
     match /wallets/{uid} { allow read: if owner(uid); allow create,update,delete: if false; }
     match /walletLedger/{id} { allow read: if signedIn() && resource.data.uid == request.auth.uid; allow create,update,delete: if false; }
@@ -68,6 +57,9 @@ service cloud.firestore {
     match /moderationQueue/{id} { allow read,write: if admin(); }
     match /riskSignals/{id} { allow read,write: if admin(); }
     match /admin/{doc=**} { allow read,write: if admin(); }
+    match /rewardedAdTransactions/{id} { allow read: if admin(); allow write,delete: if false; }
+    match /dailyRewardClaims/{id} { allow read: if owner(resource.data.uid); allow write,delete: if false; }
+    match /publicConfig/{id} { allow read: if signedIn() && id == 'admob'; allow write,delete: if false; }
     match /{doc=**} { allow read,write: if false; }
   }
 }
