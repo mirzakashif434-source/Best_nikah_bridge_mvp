@@ -12,19 +12,43 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import com.google.android.ump.ConsentInformation;
+import com.google.android.ump.ConsentRequestParameters;
+import com.google.android.ump.UserMessagingPlatform;
 
 /**
  * Additive navigation helper. It does not replace any Activity layout or flow.
  * Secondary screens get a consistent visible Back button when they do not
  * already provide one. Main screens additionally receive production entries
  * for Global Community Chat and the real rewarded-message flow.
+ *
+ * Privacy consent is initialized at app start through Google's UMP SDK. Ad
+ * requests remain controlled by the consent state; no test/demo ad IDs are used.
  */
 public class NikahBridgeApplication extends Application implements Application.ActivityLifecycleCallbacks {
     private static final int BACK_TAG = 0x4E42424B;
     private static final int COMMUNITY_TAG = 0x4E42434D;
     private static final int REWARD_TAG = 0x4E425257;
+    private ConsentInformation consentInformation;
 
-    @Override public void onCreate() { super.onCreate(); registerActivityLifecycleCallbacks(this); }
+    @Override public void onCreate() {
+        super.onCreate();
+        registerActivityLifecycleCallbacks(this);
+        initializePrivacyConsent();
+    }
+
+    private void initializePrivacyConsent() {
+        consentInformation = UserMessagingPlatform.getConsentInformation(this);
+        ConsentRequestParameters params = new ConsentRequestParameters.Builder().build();
+        consentInformation.requestConsentInfoUpdate(this, params,
+                () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(this, formError -> {
+                    if (formError != null) android.util.Log.w("BestNikahBridge", "UMP consent form: " + formError.getMessage());
+                }),
+                error -> android.util.Log.w("BestNikahBridge", "UMP consent update: " + error.getMessage()));
+    }
+
+    public boolean canRequestAds() { return consentInformation != null && consentInformation.canRequestAds(); }
+
     private int dp(Activity a,int value){return Math.round(value*a.getResources().getDisplayMetrics().density);}
     private boolean isMainScreen(Activity a){String n=a.getClass().getSimpleName();return "WelcomeActivity".equals(n)||"MainActivity".equals(n)||"ProductionMainActivity".equals(n);}
     private boolean isCommunityHost(Activity a){String n=a.getClass().getSimpleName();return "MainActivity".equals(n)||"ProductionMainActivity".equals(n);}
