@@ -5,8 +5,13 @@ service cloud.firestore {
     function owner(uid) { return signedIn() && request.auth.uid == uid; }
     function admin() { return signedIn() && request.auth.token.admin == true; }
     function userExists(uid) { return exists(/databases/$(database)/documents/users/$(uid)); }
-    function activeUser(uid) {
+    function adultUser(uid) {
       return userExists(uid)
+        && get(/databases/$(database)/documents/users/$(uid)).data.age is int
+        && get(/databases/$(database)/documents/users/$(uid)).data.age >= 18;
+    }
+    function activeUser(uid) {
+      return adultUser(uid)
         && get(/databases/$(database)/documents/users/$(uid)).data.profileActive == true
         && get(/databases/$(database)/documents/users/$(uid)).data.discoverable == true
         && get(/databases/$(database)/documents/users/$(uid)).data.termsAccepted == true
@@ -16,6 +21,7 @@ service cloud.firestore {
     function blocked(a,b) { return exists(/databases/$(database)/documents/blocks/$(pair(a,b))); }
     function connected(a,b) {
       return signedIn() && a != b && !blocked(a,b)
+        && adultUser(a) && adultUser(b)
         && exists(/databases/$(database)/documents/connections/$(pair(a,b)))
         && get(/databases/$(database)/documents/connections/$(pair(a,b))).data.status == 'active'
         && ((get(/databases/$(database)/documents/connections/$(pair(a,b))).data.uid1 == a && get(/databases/$(database)/documents/connections/$(pair(a,b))).data.uid2 == b)
@@ -23,24 +29,24 @@ service cloud.firestore {
     }
     match /users/{uid} {
       allow create: if owner(uid) && request.resource.data.uid == uid && request.resource.data.profileActive == false && request.resource.data.discoverable == false && request.resource.data.verificationStatus == 'unverified';
-      allow read: if owner(uid) || (signedIn() && resource.data.profileActive == true && resource.data.discoverable == true);
-      allow update: if owner(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.verificationStatus == resource.data.verificationStatus && request.resource.data.email == resource.data.email && (request.resource.data.profileActive == false || (request.auth.token.email_verified == true && request.resource.data.profileActive == true && request.resource.data.discoverable == true && request.resource.data.termsAccepted == true && request.resource.data.intentConfirmed == true));
+      allow read: if owner(uid) || (signedIn() && resource.data.profileActive == true && resource.data.discoverable == true && resource.data.age is int && resource.data.age >= 18 && resource.data.termsAccepted == true && resource.data.intentConfirmed == true);
+      allow update: if owner(uid) && request.resource.data.uid == resource.data.uid && request.resource.data.verificationStatus == resource.data.verificationStatus && request.resource.data.email == resource.data.email && (request.resource.data.profileActive == false || (request.resource.data.age is int && request.resource.data.age >= 18 && request.auth.token.email_verified == true && request.resource.data.profileActive == true && request.resource.data.discoverable == true && request.resource.data.termsAccepted == true && request.resource.data.intentConfirmed == true));
       allow delete: if false;
       match /settings/{id} { allow read,write: if owner(uid); }
       match /communityMutes/{mutedUid} { allow read: if owner(uid); allow write,delete: if false; }
     }
-    match /communityMessages/{messageId} { allow read: if signedIn(); allow create: if false; allow update,delete: if admin(); }
+    match /communityMessages/{messageId} { allow read: if signedIn() && adultUser(request.auth.uid); allow create: if false; allow update,delete: if admin(); }
     match /communityRateLimits/{uid} { allow read,write: if false; }
     match /interests/{id} {
       allow create: if signedIn() && request.resource.data.fromUid == request.auth.uid && request.resource.data.toUid != request.auth.uid && request.resource.data.status == 'pending' && activeUser(request.auth.uid) && activeUser(request.resource.data.toUid) && !blocked(request.auth.uid, request.resource.data.toUid);
       allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
-      allow update: if signedIn() && resource.data.status == 'pending' && resource.data.toUid == request.auth.uid && request.resource.data.fromUid == resource.data.fromUid && request.resource.data.toUid == resource.data.toUid && request.resource.data.status in ['accepted','declined'];
+      allow update: if signedIn() && adultUser(request.auth.uid) && resource.data.status == 'pending' && resource.data.toUid == request.auth.uid && request.resource.data.fromUid == resource.data.fromUid && request.resource.data.toUid == resource.data.toUid && request.resource.data.status in ['accepted','declined'];
       allow delete: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
     }
     match /connections/{id} {
-      allow read: if signedIn() && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid) && resource.data.status == 'active';
+      allow read: if signedIn() && adultUser(request.auth.uid) && (resource.data.uid1 == request.auth.uid || resource.data.uid2 == request.auth.uid) && resource.data.status == 'active';
       allow create,update,delete: if false;
-      match /messages/{messageId} { allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid) && connected(resource.data.fromUid,resource.data.toUid); allow create,update,delete: if false; }
+      match /messages/{messageId} { allow read: if signedIn() && adultUser(request.auth.uid) && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid) && connected(resource.data.fromUid,resource.data.toUid); allow create,update,delete: if false; }
     }
     match /blocks/{id} { allow read: if signedIn() && (resource.data.blockerUid == request.auth.uid || resource.data.blockedUid == request.auth.uid); allow write,delete: if false; }
     match /reports/{id} { allow create: if signedIn() && request.resource.data.reporterUid == request.auth.uid && request.resource.data.reportedUid != request.auth.uid && request.resource.data.status == 'pending'; allow read: if admin() || (signedIn() && resource.data.reporterUid == request.auth.uid); allow update,delete: if admin(); }
