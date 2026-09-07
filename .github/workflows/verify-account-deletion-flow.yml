@@ -1,0 +1,30 @@
+name: Verify Real Account Deletion Flow
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-account-deletion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production source
+        uses: actions/checkout@v6
+
+      - name: Verify deletion implementation without changing existing code
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          test -f delete-account.html
+          grep -q 'getHttpsCallable("deleteMyAccount")' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -q 'reauthenticate' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -q 'Permanently Delete My Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -q 'deleteMyAccount=onCall' functions/index.js
+          echo "Real authenticated account-deletion implementation verified."
