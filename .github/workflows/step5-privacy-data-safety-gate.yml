@@ -1,0 +1,81 @@
+name: Step 5 Privacy and Data Safety Gate
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  privacy-data-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production source
+        uses: actions/checkout@v6
+
+      - name: Verify public privacy and deletion resources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s privacy.html
+          test -s data-deletion.html
+          test -s delete-account.html
+          test -s child-safety.html
+          grep -qi 'Privacy Policy' privacy.html
+          grep -qi 'Data Retention and Deletion' privacy.html
+          grep -qi 'contact' privacy.html
+          grep -qi 'In-app deletion' data-deletion.html
+          grep -qi 'Privacy Control Center' data-deletion.html
+          grep -qi 'Account Deletion Request' data-deletion.html
+          grep -qi 'CSAM\|child sexual abuse' child-safety.html
+
+      - name: Verify in-app privacy/deletion components exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
+          test -f app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          test -f app/src/main/java/com/nikahbridge/TermsAndCommunityGuidelinesActivity.java
+          grep -q 'Delete My Account & Data' app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
+          grep -q 'deleteMyAccount' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -q 'termsAccepted' app/src/main/java/com/nikahbridge/TermsAndCommunityGuidelinesActivity.java
+
+      - name: Verify Play Store release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'compileSdk 36' app/build.gradle
+          grep -q 'targetSdk 36' app/build.gradle
+          grep -q 'usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          grep -q 'PrivacyControlCenterActivity' app/src/main/AndroidManifest.xml
+          grep -q 'AccountDeletionActivity' app/src/main/AndroidManifest.xml
+          grep -q 'TermsAndCommunityGuidelinesActivity' app/src/main/AndroidManifest.xml
+          grep -q 'APPLICATION_ID.*ca-app-pub-8897537994957088~9402403755' app/src/main/AndroidManifest.xml
+          grep -q 'firebase-appcheck-playintegrity' app/build.gradle
+
+      - name: Verify no fake/test app endpoints in source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -RniE 'localhost|10\.0\.2\.2|test-ad-unit|TEST_AD_UNIT' app/src/main functions --exclude='*.md'
+
+      - name: Verify Firebase security rules are present
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s firestore.rules
+          test -s storage.rules
+          grep -q 'adultUser' firestore.rules
+          grep -q 'termsAccepted' firestore.rules
+          grep -q 'delete' firestore.rules
+
+      - name: Validate JavaScript backend syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/index.js
+
+      - name: Report Step 5 gate result
+        run: echo 'STEP 5 PRIVACY/DATA SAFETY SOURCE GATE PASSED.'
