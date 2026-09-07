@@ -14,6 +14,7 @@ import android.widget.TextView;
 import android.graphics.Color;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.storage.FirebaseStorage;
@@ -96,20 +97,35 @@ public class ProfilePhotoActivity extends Activity {
         back.setTextColor(Color.rgb(18,103,82));
         root.addView(back, new LinearLayout.LayoutParams(-1, dp(62)));
 
-        choose.setOnClickListener(v -> pickImage());
-        upload.setOnClickListener(v -> uploadImage());
+        choose.setOnClickListener(v -> requireTermsBeforePhotoAction(this::pickImage));
+        upload.setOnClickListener(v -> requireTermsBeforePhotoAction(this::uploadImage));
         back.setOnClickListener(v -> finish());
     }
 
-    private void pickImage() {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        i.setType("image/*");
-        startActivityForResult(i, PICK_IMAGE);
+    private void requireTermsBeforePhotoAction(Runnable action) {
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        if (auth.getCurrentUser() == null) { status.setText("Please sign in again."); return; }
+        String uid = auth.getCurrentUser().getUid();
+        FirebaseFirestore.getInstance().collection("users").document(uid).get()
+                .addOnSuccessListener(doc -> {
+                    if (isAdultAndTermsAccepted(doc)) action.run();
+                    else {
+                        status.setText("Please accept the Terms & Community Guidelines before uploading user content.");
+                        startActivityForResult(new Intent(this, TermsAndCommunityGuidelinesActivity.class), 7201);
+                    }
+                })
+                .addOnFailureListener(e -> status.setText("Could not verify content permissions. Please try again."));
+    }
+
+    private boolean isAdultAndTermsAccepted(DocumentSnapshot doc) {
+        Object ageObj = doc.get("age");
+        long age = ageObj instanceof Number ? ((Number)ageObj).longValue() : 0;
+        return age >= 18 && Boolean.TRUE.equals(doc.getBoolean("termsAccepted"));
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == 7201 && resultCode == RESULT_OK) status.setText("Terms accepted. You can now choose or upload your real profile photo.");
         if (requestCode != PICK_IMAGE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
         selected = data.getData();
         long size = getSize(selected);
@@ -121,6 +137,13 @@ public class ProfilePhotoActivity extends Activity {
         try { getContentResolver().takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) {}
         preview.setImageURI(selected);
         status.setText("Photo selected. Tap Upload Securely.");
+    }
+
+    private void pickImage() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("image/*");
+        startActivityForResult(i, PICK_IMAGE);
     }
 
     private long getSize(Uri uri) {
