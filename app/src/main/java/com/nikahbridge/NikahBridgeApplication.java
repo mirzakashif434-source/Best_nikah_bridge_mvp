@@ -16,59 +16,24 @@ import com.google.android.ump.ConsentInformation;
 import com.google.android.ump.ConsentRequestParameters;
 import com.google.android.ump.UserMessagingPlatform;
 
-/**
- * Additive navigation helper. It does not replace any Activity layout or flow.
- * Secondary screens get a consistent visible Back button when they do not
- * already provide one. Main screens additionally receive production entries
- * for Global Community Chat, the real rewarded-message flow, Premium Upgrade,
- * and the real Nikah Blueprint.
- *
- * Privacy consent is initialized when the first Activity resumes through
- * Google's UMP SDK. Ad requests remain controlled by the consent state; no
- * test/demo ad IDs are used.
- */
+/** Additive navigation helper. Existing screens and flows are preserved. */
 public class NikahBridgeApplication extends Application implements Application.ActivityLifecycleCallbacks {
-    private static final int BACK_TAG = 0x4E42424B;
-    private static final int COMMUNITY_TAG = 0x4E42434D;
-    private static final int REWARD_TAG = 0x4E425257;
-    private static final int PREMIUM_TAG = 0x4E425050;
-    private static final int BLUEPRINT_TAG = 0x4E424250;
-    private ConsentInformation consentInformation;
-    private boolean privacyConsentStarted;
-
-    @Override public void onCreate() {
-        super.onCreate();
-        registerActivityLifecycleCallbacks(this);
-    }
-
-    private void initializePrivacyConsent(Activity activity) {
-        if (privacyConsentStarted || activity == null || activity.isFinishing()) return;
-        privacyConsentStarted = true;
-        consentInformation = UserMessagingPlatform.getConsentInformation(getApplicationContext());
-        ConsentRequestParameters params = new ConsentRequestParameters.Builder().build();
-        consentInformation.requestConsentInfoUpdate(activity, params,
-                () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity, formError -> {
-                    if (formError != null) android.util.Log.w("BestNikahBridge", "UMP consent form: " + formError.getMessage());
-                }),
-                error -> android.util.Log.w("BestNikahBridge", "UMP consent update: " + error.getMessage()));
-    }
-
-    public boolean canRequestAds() { return consentInformation != null && consentInformation.canRequestAds(); }
-
-    private int dp(Activity a,int value){return Math.round(value*a.getResources().getDisplayMetrics().density);}
+    private static final int BACK_TAG=0x4E42424B, COMMUNITY_TAG=0x4E42434D, REWARD_TAG=0x4E425257, PREMIUM_TAG=0x4E425050, BLUEPRINT_TAG=0x4E424250, MEDIATOR_TAG=0x4E424D44;
+    private ConsentInformation consentInformation; private boolean privacyConsentStarted;
+    @Override public void onCreate(){super.onCreate();registerActivityLifecycleCallbacks(this);}
+    private void initializePrivacyConsent(Activity a){if(privacyConsentStarted||a==null||a.isFinishing())return;privacyConsentStarted=true;consentInformation=UserMessagingPlatform.getConsentInformation(getApplicationContext());ConsentRequestParameters p=new ConsentRequestParameters.Builder().build();consentInformation.requestConsentInfoUpdate(a,p,()->UserMessagingPlatform.loadAndShowConsentFormIfRequired(a,e->{if(e!=null)android.util.Log.w("BestNikahBridge","UMP consent form: "+e.getMessage());}),e->android.util.Log.w("BestNikahBridge","UMP consent update: "+e.getMessage()));}
+    public boolean canRequestAds(){return consentInformation!=null&&consentInformation.canRequestAds();}
+    private int dp(Activity a,int v){return Math.round(v*a.getResources().getDisplayMetrics().density);}
     private boolean isMainScreen(Activity a){String n=a.getClass().getSimpleName();return "WelcomeActivity".equals(n)||"MainActivity".equals(n)||"ProductionMainActivity".equals(n);}
-    private boolean isCommunityHost(Activity a){String n=a.getClass().getSimpleName();return "MainActivity".equals(n)||"ProductionMainActivity".equals(n);}
-    private boolean containsBack(View v){if(v instanceof TextView){CharSequence text=((TextView)v).getText();if(text!=null&&"Back".equalsIgnoreCase(text.toString().trim()))return true;CharSequence desc=v.getContentDescription();if(desc!=null&&"Back".equalsIgnoreCase(desc.toString().trim()))return true;}if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(containsBack(g.getChildAt(i)))return true;}return false;}
-    private void addBack(Activity a){if(a.isFinishing()||isMainScreen(a))return;ViewGroup content=a.findViewById(android.R.id.content);if(content==null||content.getTag(BACK_TAG)!=null||containsBack(content)||!(content instanceof FrameLayout))return;Button back=new Button(a);back.setText("‹  Back");back.setAllCaps(false);back.setTextSize(15);back.setTextColor(Color.rgb(18,103,82));back.setContentDescription("Back");back.setElevation(dp(a,5));GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadius(dp(a,22));bg.setStroke(dp(a,1),Color.rgb(18,103,82));back.setBackground(bg);back.setPadding(dp(a,8),0,dp(a,10),0);back.setOnClickListener(v->a.finish());FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(a,104),dp(a,48),Gravity.TOP|Gravity.START);lp.leftMargin=dp(a,12);lp.topMargin=dp(a,10);content.addView(back,lp);content.setTag(BACK_TAG,Boolean.TRUE);}
-    private void addCommunityEntry(Activity a){if(!isCommunityHost(a)||a.isFinishing())return;ViewGroup content=a.findViewById(android.R.id.content);if(content==null||content.getTag(COMMUNITY_TAG)!=null||!(content instanceof FrameLayout))return;Button community=new Button(a);community.setText("🌍  Global Community Chat");community.setAllCaps(false);community.setTextSize(14);community.setTextColor(Color.WHITE);community.setContentDescription("Global Community Chat");community.setElevation(dp(a,7));GradientDrawable bg=new GradientDrawable();bg.setColor(Color.rgb(18,103,82));bg.setCornerRadius(dp(a,22));community.setBackground(bg);community.setPadding(dp(a,8),0,dp(a,8),0);community.setOnClickListener(v->a.startActivity(new Intent(a,CommunityChatActivity.class)));FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(a,220),dp(a,54),Gravity.TOP|Gravity.END);lp.rightMargin=dp(a,12);lp.topMargin=dp(a,10);content.addView(community,lp);content.setTag(COMMUNITY_TAG,Boolean.TRUE);}
-    private void addRewardEntry(Activity a){if(!isCommunityHost(a)||a.isFinishing())return;ViewGroup content=a.findViewById(android.R.id.content);if(content==null||content.getTag(REWARD_TAG)!=null||!(content instanceof FrameLayout))return;Button reward=new Button(a);reward.setText("🎁  Earn 1 Message Credit");reward.setAllCaps(false);reward.setTextSize(14);reward.setTextColor(Color.WHITE);reward.setContentDescription("Earn Message Credit");reward.setElevation(dp(a,7));GradientDrawable bg=new GradientDrawable();bg.setColor(Color.rgb(35,92,72));bg.setCornerRadius(dp(a,22));reward.setBackground(bg);reward.setPadding(dp(a,8),0,dp(a,8),0);reward.setOnClickListener(v->a.startActivity(new Intent(a,RewardedMessageActivity.class)));FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(a,220),dp(a,54),Gravity.TOP|Gravity.END);lp.rightMargin=dp(a,12);lp.topMargin=dp(a,72);content.addView(reward,lp);content.setTag(REWARD_TAG,Boolean.TRUE);}
-    private void addPremiumEntry(Activity a){if(!isCommunityHost(a)||a.isFinishing())return;ViewGroup content=a.findViewById(android.R.id.content);if(content==null||content.getTag(PREMIUM_TAG)!=null||!(content instanceof FrameLayout))return;Button premium=new Button(a);premium.setText("⭐  Premium Upgrade • 20 / 40 / 60 SAR");premium.setAllCaps(false);premium.setTextSize(14);premium.setTextColor(Color.WHITE);premium.setContentDescription("Premium Upgrade");premium.setElevation(dp(a,7));GradientDrawable bg=new GradientDrawable();bg.setColor(Color.rgb(18,103,82));bg.setCornerRadius(dp(a,22));premium.setBackground(bg);premium.setPadding(dp(a,8),0,dp(a,8),0);premium.setOnClickListener(v->a.startActivity(new Intent(a,PremiumPlansActivity.class)));FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(a,250),dp(a,54),Gravity.TOP|Gravity.END);lp.rightMargin=dp(a,12);lp.topMargin=dp(a,134);content.addView(premium,lp);content.setTag(PREMIUM_TAG,Boolean.TRUE);}
-    private void addBlueprintEntry(Activity a){if(!isCommunityHost(a)||a.isFinishing())return;ViewGroup content=a.findViewById(android.R.id.content);if(content==null||content.getTag(BLUEPRINT_TAG)!=null||!(content instanceof FrameLayout))return;Button blueprint=new Button(a);blueprint.setText("💎  Nikah Blueprint");blueprint.setAllCaps(false);blueprint.setTextSize(14);blueprint.setTextColor(Color.WHITE);blueprint.setContentDescription("Nikah Blueprint");blueprint.setElevation(dp(a,7));GradientDrawable bg=new GradientDrawable();bg.setColor(Color.rgb(35,92,72));bg.setCornerRadius(dp(a,22));blueprint.setBackground(bg);blueprint.setPadding(dp(a,8),0,dp(a,8),0);blueprint.setOnClickListener(v->a.startActivity(new Intent(a,NikahBlueprintActivity.class)));FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(a,220),dp(a,54),Gravity.TOP|Gravity.END);lp.rightMargin=dp(a,12);lp.topMargin=dp(a,196);content.addView(blueprint,lp);content.setTag(BLUEPRINT_TAG,Boolean.TRUE);}
-    @Override public void onActivityResumed(Activity activity){initializePrivacyConsent(activity);addBack(activity);addCommunityEntry(activity);addRewardEntry(activity);addPremiumEntry(activity);addBlueprintEntry(activity);}
-    @Override public void onActivityCreated(Activity activity,Bundle state){}
-    @Override public void onActivityStarted(Activity activity){}
-    @Override public void onActivityPaused(Activity activity){}
-    @Override public void onActivityStopped(Activity activity){}
-    @Override public void onActivitySaveInstanceState(Activity activity,Bundle outState){}
-    @Override public void onActivityDestroyed(Activity activity){}
+    private boolean isHost(Activity a){String n=a.getClass().getSimpleName();return "MainActivity".equals(n)||"ProductionMainActivity".equals(n);}
+    private boolean containsBack(View v){if(v instanceof TextView){CharSequence t=((TextView)v).getText();if(t!=null&&"Back".equalsIgnoreCase(t.toString().trim()))return true;CharSequence d=v.getContentDescription();if(d!=null&&"Back".equalsIgnoreCase(d.toString().trim()))return true;}if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(containsBack(g.getChildAt(i)))return true;}return false;}
+    private void addBack(Activity a){if(a.isFinishing()||isMainScreen(a))return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(BACK_TAG)!=null||containsBack(c)||!(c instanceof FrameLayout))return;Button b=new Button(a);b.setText("‹  Back");b.setAllCaps(false);b.setTextSize(15);b.setTextColor(Color.rgb(18,103,82));b.setContentDescription("Back");b.setElevation(dp(a,5));GradientDrawable g=new GradientDrawable();g.setColor(Color.WHITE);g.setCornerRadius(dp(a,22));g.setStroke(dp(a,1),Color.rgb(18,103,82));b.setBackground(g);b.setOnClickListener(v->a.finish());FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(a,104),dp(a,48),Gravity.TOP|Gravity.START);lp.leftMargin=dp(a,12);lp.topMargin=dp(a,10);c.addView(b,lp);c.setTag(BACK_TAG,Boolean.TRUE);}
+    private Button overlay(Activity a,String text,int width,int top,int tag){Button b=new Button(a);b.setText(text);b.setAllCaps(false);b.setTextSize(14);b.setTextColor(Color.WHITE);b.setElevation(dp(a,7));GradientDrawable g=new GradientDrawable();g.setColor(Color.rgb(18,103,82));g.setCornerRadius(dp(a,22));b.setBackground(g);FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(a,width),dp(a,54),Gravity.TOP|Gravity.END);lp.rightMargin=dp(a,12);lp.topMargin=dp(a,top);ViewGroup c=a.findViewById(android.R.id.content);c.addView(b,lp);c.setTag(tag,Boolean.TRUE);return b;}
+    private void addCommunityEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(COMMUNITY_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"🌍  Global Community Chat",220,10,COMMUNITY_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,CommunityChatActivity.class)));}
+    private void addRewardEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(REWARD_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"🎁  Earn 1 Message Credit",220,72,REWARD_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,RewardedMessageActivity.class)));}
+    private void addPremiumEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(PREMIUM_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"⭐  Premium Upgrade • 20 / 40 / 60 SAR",250,134,PREMIUM_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,PremiumPlansActivity.class)));}
+    private void addBlueprintEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(BLUEPRINT_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"💎  Nikah Blueprint",220,196,BLUEPRINT_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,NikahBlueprintActivity.class)));}
+    private void addMediatorEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(MEDIATOR_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"🧠  AI Nikah Mediator",220,258,MEDIATOR_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,NikahMediatorActivity.class)));}
+    @Override public void onActivityResumed(Activity a){initializePrivacyConsent(a);addBack(a);addCommunityEntry(a);addRewardEntry(a);addPremiumEntry(a);addBlueprintEntry(a);addMediatorEntry(a);}
+    @Override public void onActivityCreated(Activity a,Bundle s){} @Override public void onActivityStarted(Activity a){} @Override public void onActivityPaused(Activity a){} @Override public void onActivityStopped(Activity a){} @Override public void onActivitySaveInstanceState(Activity a,Bundle s){} @Override public void onActivityDestroyed(Activity a){}
 }
