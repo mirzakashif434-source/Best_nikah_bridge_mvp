@@ -1,0 +1,57 @@
+name: Step 5 Rewarded Ads Production Validation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact production source
+        uses: actions/checkout@v6
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+      - name: Validate Step 5 production sources
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/nikahbridge/RewardedMessageActivity.java
+          grep -q 'ServerSideVerificationOptions' app/src/main/java/com/nikahbridge/RewardedMessageActivity.java
+          grep -q 'getHttpsCallable("getRewardedAdConfig")' app/src/main/java/com/nikahbridge/RewardedMessageActivity.java
+          grep -q 'admobRewardedSsv' functions/admobRewarded.js
+          grep -q 'rewardedAdTransactions' functions/admobRewarded.js
+          grep -q 'dailyRewardClaims' functions/admobRewarded.js
+          grep -q 'admobRewarded' functions/bootstrap.js
+          git diff --check
+          node --check functions/admobRewarded.js
+      - name: Build signed Release AAB
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          test -s "$KEYSTORE_FILE"
+          keytool -list -keystore "$KEYSTORE_FILE" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+          chmod +x ./gradlew
+          ./gradlew clean bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+      - name: Upload Step 5 AAB
+        uses: actions/upload-artifact@v6
+        with:
+          name: best-nikah-bridge-step5-release
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
