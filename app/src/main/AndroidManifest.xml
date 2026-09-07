@@ -31,6 +31,7 @@
         <activity android:name=".CommunityChatActivity" android:exported="false" />
         <activity android:name=".BlockedMembersActivity" android:exported="false" />
         <activity android:name=".IdentityVerificationActivity" android:exported="false" />
+        <activity android:name=".RewardedMessageActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="false" />
         <activity android:name=".ProductionMainActivity" android:exported="false" />
     </application>
