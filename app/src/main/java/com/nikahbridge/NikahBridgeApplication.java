@@ -12,15 +12,16 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import com.google.android.gms.ads.MobileAds;
 import com.google.android.ump.ConsentInformation;
 import com.google.android.ump.ConsentRequestParameters;
 import com.google.android.ump.UserMessagingPlatform;
 
 /** Additive navigation helper. Existing screens and flows are preserved. */
 public class NikahBridgeApplication extends Application implements Application.ActivityLifecycleCallbacks {
-    private static final int BACK_TAG=0x4E42424B, COMMUNITY_TAG=0x4E42434D, REWARD_TAG=0x4E425257, PREMIUM_TAG=0x4E425050, BLUEPRINT_TAG=0x4E424250, MEDIATOR_TAG=0x4E424D44, SUCCESS_NETWORK_TAG=0x4E42534E;
+    private static final int BACK_TAG=0x4E42424B, COMMUNITY_TAG=0x4E42434D, REWARD_TAG=0x4E425257, PREMIUM_TAG=0x4E425050, BLUEPRINT_TAG=0x4E424250, MEDIATOR_TAG=0x4E424D44, SUCCESS_NETWORK_TAG=0x4E42534E, FUTURE_SIM_TAG=0x4E424653;
     private ConsentInformation consentInformation; private boolean privacyConsentStarted;
-    @Override public void onCreate(){super.onCreate();registerActivityLifecycleCallbacks(this);}
+    @Override public void onCreate(){super.onCreate();registerActivityLifecycleCallbacks(this); MobileAds.initialize(this,status->{});}
     private void initializePrivacyConsent(Activity a){if(privacyConsentStarted||a==null||a.isFinishing())return;privacyConsentStarted=true;consentInformation=UserMessagingPlatform.getConsentInformation(getApplicationContext());ConsentRequestParameters p=new ConsentRequestParameters.Builder().build();consentInformation.requestConsentInfoUpdate(a,p,()->UserMessagingPlatform.loadAndShowConsentFormIfRequired(a,e->{if(e!=null)android.util.Log.w("BestNikahBridge","UMP consent form: "+e.getMessage());}),e->android.util.Log.w("BestNikahBridge","UMP consent update: "+e.getMessage()));}
     public boolean canRequestAds(){return consentInformation!=null&&consentInformation.canRequestAds();}
     private int dp(Activity a,int v){return Math.round(v*a.getResources().getDisplayMetrics().density);}
@@ -35,6 +36,7 @@ public class NikahBridgeApplication extends Application implements Application.A
     private void addBlueprintEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(BLUEPRINT_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"💎  Nikah Blueprint",220,196,BLUEPRINT_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,NikahBlueprintActivity.class)));}
     private void addMediatorEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(MEDIATOR_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"🧠  AI Nikah Mediator",220,258,MEDIATOR_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,NikahMediatorActivity.class)));}
     private void addSuccessNetworkEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(SUCCESS_NETWORK_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"❤️  Nikah Success Network",250,320,SUCCESS_NETWORK_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,NikahSuccessNetworkActivity.class)));}
-    @Override public void onActivityResumed(Activity a){initializePrivacyConsent(a);addBack(a);addCommunityEntry(a);addRewardEntry(a);addPremiumEntry(a);addBlueprintEntry(a);addMediatorEntry(a);addSuccessNetworkEntry(a);}
+    private void addFutureSimulationEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(FUTURE_SIM_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"🔥  Future Life Simulation",250,382,FUTURE_SIM_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,FutureLifeSimulationActivity.class)));}
+    @Override public void onActivityResumed(Activity a){initializePrivacyConsent(a);addBack(a);addCommunityEntry(a);addRewardEntry(a);addPremiumEntry(a);addBlueprintEntry(a);addMediatorEntry(a);addSuccessNetworkEntry(a);addFutureSimulationEntry(a);}
     @Override public void onActivityCreated(Activity a,Bundle s){} @Override public void onActivityStarted(Activity a){} @Override public void onActivityPaused(Activity a){} @Override public void onActivityStopped(Activity a){} @Override public void onActivitySaveInstanceState(Activity a,Bundle s){} @Override public void onActivityDestroyed(Activity a){}
 }
