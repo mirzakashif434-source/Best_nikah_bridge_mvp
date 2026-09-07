@@ -2,6 +2,7 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Intent;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
@@ -15,10 +16,12 @@ import android.widget.TextView;
 /**
  * Additive navigation helper. It does not replace any Activity layout or flow.
  * Secondary screens get a consistent visible Back button when they do not
- * already provide one. Welcome/Main screens are intentionally left unchanged.
+ * already provide one. Main screens additionally receive a dedicated
+ * production Global Community Chat entry point.
  */
 public class NikahBridgeApplication extends Application implements Application.ActivityLifecycleCallbacks {
     private static final int BACK_TAG = 0x4E42424B;
+    private static final int COMMUNITY_TAG = 0x4E42434D;
 
     @Override public void onCreate() {
         super.onCreate();
@@ -32,6 +35,11 @@ public class NikahBridgeApplication extends Application implements Application.A
     private boolean isMainScreen(Activity a) {
         String n = a.getClass().getSimpleName();
         return "WelcomeActivity".equals(n) || "MainActivity".equals(n) || "ProductionMainActivity".equals(n);
+    }
+
+    private boolean isCommunityHost(Activity a) {
+        String n = a.getClass().getSimpleName();
+        return "MainActivity".equals(n) || "ProductionMainActivity".equals(n);
     }
 
     private boolean containsBack(View v) {
@@ -75,7 +83,36 @@ public class NikahBridgeApplication extends Application implements Application.A
         content.setTag(BACK_TAG, Boolean.TRUE);
     }
 
-    @Override public void onActivityResumed(Activity activity) { addBack(activity); }
+    private void addCommunityEntry(Activity a) {
+        if (!isCommunityHost(a) || a.isFinishing()) return;
+        ViewGroup content = a.findViewById(android.R.id.content);
+        if (content == null || content.getTag(COMMUNITY_TAG) != null || !(content instanceof FrameLayout)) return;
+
+        Button community = new Button(a);
+        community.setText("🌍  Global Community Chat");
+        community.setAllCaps(false);
+        community.setTextSize(14);
+        community.setTextColor(Color.WHITE);
+        community.setContentDescription("Global Community Chat");
+        community.setElevation(dp(a, 7));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.rgb(18, 103, 82));
+        bg.setCornerRadius(dp(a, 22));
+        community.setBackground(bg);
+        community.setPadding(dp(a, 8), 0, dp(a, 8), 0);
+        community.setOnClickListener(v -> a.startActivity(new Intent(a, CommunityChatActivity.class)));
+
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(a, 220), dp(a, 54), Gravity.TOP | Gravity.END);
+        lp.rightMargin = dp(a, 12);
+        lp.topMargin = dp(a, 10);
+        content.addView(community, lp);
+        content.setTag(COMMUNITY_TAG, Boolean.TRUE);
+    }
+
+    @Override public void onActivityResumed(Activity activity) {
+        addBack(activity);
+        addCommunityEntry(activity);
+    }
     @Override public void onActivityCreated(Activity activity, Bundle state) { }
     @Override public void onActivityStarted(Activity activity) { }
     @Override public void onActivityPaused(Activity activity) { }
