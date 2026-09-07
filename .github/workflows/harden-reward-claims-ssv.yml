@@ -1,0 +1,44 @@
+name: Harden Reward Claims To AdMob SSV
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Disable client-side reward granting
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path('functions/index.js')
+          s=p.read_text()
+          start="exports.claimRewardedMessageCredit=onCall(async req=>{"
+          marker="exports.sendLike=onCall(async req=>{"
+          if start in s:
+              a=s.index(start); b=s.find(marker,a)
+              if b<0: raise SystemExit('Reward claim boundary not found')
+              replacement="exports.claimRewardedMessageCredit=onCall(async req=>{ throw new HttpsError('failed-precondition','Reward credits are granted only after verified AdMob server-side verification.'); });\n\n"
+              s=s[:a]+replacement+s[b:]
+              p.write_text(s)
+      - name: Validate
+        run: |
+          node --check functions/index.js
+          grep -q "Reward credits are granted only after verified AdMob server-side verification" functions/index.js
+          grep -q "exports.admobRewardedSsv" functions/admobRewarded.js
+          git diff --check
+      - name: Commit
+        run: |
+          if git diff --quiet; then echo "No changes needed."; exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add functions/index.js
+          git commit -m "Require verified AdMob SSV for rewarded credits"
+          git push
