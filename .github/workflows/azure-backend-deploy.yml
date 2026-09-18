@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      AZURE_FUNCTIONAPP_NAME: bestnikahbredge-prod-fn
     steps:
       - uses: actions/checkout@v4
 
@@ -19,17 +21,35 @@ jobs:
         working-directory: azure-backend
         run: npm install --omit=dev
 
+      - name: Validate backend entrypoint
+        working-directory: azure-backend
+        run: node --check src/index.js
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Deploy to the existing Azure Function App
         uses: Azure/functions-action@v1
         with:
-          app-name: bestnikahbredge-prod-fn
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: azure-backend
-          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
 
       - name: Verify live health endpoint
         run: |
-          set -e
-          URL="https://bestnikahbredge-prod-fn.azurewebsites.net/api/health"
+          set -euo pipefail
+          URL="https://${AZURE_FUNCTIONAPP_NAME}.azurewebsites.net/api/health"
           echo "Checking $URL"
-          curl --fail --silent --show-error --max-time 30 "$URL"
-          echo
+          for i in 1 2 3 4 5 6; do
+            HTTP_CODE="$(curl -sS -o /tmp/health.json -w "%{http_code}" "$URL" || true)"
+            echo "Attempt $i: HTTP $HTTP_CODE"
+            cat /tmp/health.json || true
+            if [ "$HTTP_CODE" = "200" ] && grep -q '"ok":true' /tmp/health.json; then
+              echo "LIVE HEALTH CHECK: PASS"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "LIVE HEALTH CHECK: FAIL"
+          exit 1
