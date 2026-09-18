@@ -1,0 +1,35 @@
+name: Azure Functions Additive Backend Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Azure backend dependencies
+        working-directory: azure-backend
+        run: npm install --omit=dev
+
+      - name: Deploy to the existing Azure Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: bestnikahbredge-prod-fn
+          package: azure-backend
+          publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+
+      - name: Verify live health endpoint
+        run: |
+          set -e
+          URL="https://bestnikahbredge-prod-fn.azurewebsites.net/api/health"
+          echo "Checking $URL"
+          curl --fail --silent --show-error --max-time 30 "$URL"
+          echo
