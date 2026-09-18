@@ -59,9 +59,11 @@ CREATE TABLE IF NOT EXISTS conversations (
   user_b_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status TEXT NOT NULL DEFAULT 'mutual' CHECK (status IN ('mutual','blocked','closed')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (user_a_id, user_b_id),
   CHECK (user_a_id <> user_b_id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_conversations_canonical_pair
+  ON conversations (LEAST(user_a_id, user_b_id), GREATEST(user_a_id, user_b_id));
 
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
