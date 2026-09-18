@@ -48,38 +48,27 @@ jobs:
       - name: Create PostgreSQL Flexible Server if missing
         shell: bash
         run: |
-          # Keep the existing Function App untouched. Try real PostgreSQL provisioning
-          # in candidate regions because subscription access can differ by region.
-          DB_LOCATION=""
+          # Preserve the existing Function App and use the already-provisioned
+          # production region only when PostgreSQL is allowed there.
+          DB_LOCATION="$(az functionapp show --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --query location -o tsv)"
           if az postgres flexible-server show --resource-group "$RESOURCE_GROUP" --name "$DB_SERVER" >/dev/null 2>&1; then
             echo "PostgreSQL server already exists; preserving it."
           else
-            for LOCATION in centralus westus3 eastus2 northeurope westeurope uksouth francecentral swedencentral canadacentral; do
-              echo "Trying PostgreSQL provisioning in: $LOCATION"
-              if az postgres flexible-server create \
-                --resource-group "$RESOURCE_GROUP" \
-                --name "$DB_SERVER" \
-                --location "$LOCATION" \
-                --admin-user "$DB_ADMIN" \
-                --admin-password "$DB_PASSWORD" \
-                --sku-name Standard_B1ms \
-                --tier Burstable \
-                --storage-size 32 \
-                --storage-auto-grow Enabled \
-                --version 16 \
-                --public-access "$RUNNER_IP" \
-                --backup-retention 7 \
-                --tags "Environment=Production" "Component=Database"; then
-                DB_LOCATION="$LOCATION"
-                echo "PostgreSQL provisioning succeeded in: $DB_LOCATION"
-                break
-              fi
-              echo "PostgreSQL provisioning is not permitted/available in $LOCATION; trying the next region."
-            done
-            if [ -z "$DB_LOCATION" ]; then
-              echo "No candidate PostgreSQL region could provision this subscription."
-              exit 1
-            fi
+            echo "Attempting PostgreSQL Flexible Server in $DB_LOCATION"
+            az postgres flexible-server create \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$DB_SERVER" \
+              --location "$DB_LOCATION" \
+              --admin-user "$DB_ADMIN" \
+              --admin-password "$DB_PASSWORD" \
+              --sku-name Standard_B1ms \
+              --tier Burstable \
+              --storage-size 32 \
+              --storage-auto-grow Enabled \
+              --version 16 \
+              --public-access "$RUNNER_IP" \
+              --backup-retention 7 \
+              --tags "Environment=Production" "Component=Database"
           fi
 
           if az postgres flexible-server show             --resource-group "$RESOURCE_GROUP"             --name "$DB_SERVER" >/dev/null 2>&1; then
