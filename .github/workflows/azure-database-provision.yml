@@ -48,13 +48,29 @@ jobs:
       - name: Create PostgreSQL Flexible Server if missing
         shell: bash
         run: |
-          # Preserve the existing Function App and use the already-provisioned
-          # production region only when PostgreSQL is allowed there.
-          DB_LOCATION="$(az functionapp show --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --query location -o tsv)"
+          # Preserve the existing Function App. Check PostgreSQL capability
+          # for this subscription before choosing a database region.
+          DB_LOCATION=""
           if az postgres flexible-server show --resource-group "$RESOURCE_GROUP" --name "$DB_SERVER" >/dev/null 2>&1; then
             echo "PostgreSQL server already exists; preserving it."
           else
-            echo "Attempting PostgreSQL Flexible Server in $DB_LOCATION"
+            for LOCATION in westus3 centralus eastus2 westus2 northeurope westeurope uksouth francecentral swedencentral canadacentral; do
+              echo "Checking PostgreSQL capability for subscription in $LOCATION"
+              RESTRICTED="$(az rest --method get \
+                --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/providers/Microsoft.DBforPostgreSQL/locations/$LOCATION/capabilities?api-version=2024-08-01" \
+                --query "value[0].restricted" -o tsv 2>/dev/null || true)"
+              if [ "$RESTRICTED" = "Disabled" ]; then
+                DB_LOCATION="$LOCATION"
+                echo "PostgreSQL location allowed for this subscription: $DB_LOCATION"
+                break
+              fi
+              echo "PostgreSQL location restricted: $LOCATION"
+            done
+            if [ -z "$DB_LOCATION" ]; then
+              echo "No PostgreSQL Flexible Server location is currently allowed for this subscription."
+              exit 1
+            fi
+
             az postgres flexible-server create \
               --resource-group "$RESOURCE_GROUP" \
               --name "$DB_SERVER" \
@@ -70,13 +86,6 @@ jobs:
               --backup-retention 7 \
               --tags "Environment=Production" "Component=Database"
           fi
-
-          if az postgres flexible-server show             --resource-group "$RESOURCE_GROUP"             --name "$DB_SERVER" >/dev/null 2>&1; then
-            echo "PostgreSQL server already exists; preserving it."
-          else
-            az postgres flexible-server create               --resource-group "$RESOURCE_GROUP"               --name "$DB_SERVER"       --location "$DB_LOCATION"                      --admin-user "$DB_ADMIN"               --admin-password "$DB_PASSWORD"               --sku-name Standard_B1ms               --tier Burstable               --storage-size 32               --storage-auto-grow Enabled               --version 16               --public-access "$RUNNER_IP"               --backup-retention 7               --tags "Environment=Production" "Component=Database"
-          fi
-
       - name: Allow Function App outbound IPs
         shell: bash
         run: |
