@@ -1,0 +1,11 @@
+{
+  "name": "best-nikah-bridge-azure-backend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Additive Azure Functions backend. Existing Firebase code remains untouched.",
+  "main": "src/index.js",
+  "engines": { "node": "22.x" },
+  "dependencies": {
+    "@azure/functions": "^4.9.0"
+  }
+}
