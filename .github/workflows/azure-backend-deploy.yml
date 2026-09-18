@@ -2,40 +2,42 @@ name: Azure Functions Additive Backend Deploy
 
 on:
   workflow_dispatch:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'azure-backend/**'
+      - '.github/workflows/azure-backend-deploy.yml'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: read
     env:
       AZURE_FUNCTIONAPP_NAME: bestnikahbredge-prod-fn
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install Azure backend dependencies
         working-directory: azure-backend
         run: npm install --omit=dev
-
       - name: Validate backend entrypoint
         working-directory: azure-backend
         run: node --check src/index.js
-
-      - name: Azure login
-        uses: azure/login@v2
+      - name: Azure login via OIDC
+        uses: azure/login@v3
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Deploy to the existing Azure Function App
         uses: Azure/functions-action@v1
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: azure-backend
-
       - name: Verify live health endpoint
         run: |
           set -euo pipefail
