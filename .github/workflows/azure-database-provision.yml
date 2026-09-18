@@ -48,7 +48,20 @@ jobs:
       - name: Create PostgreSQL Flexible Server if missing
         shell: bash
         run: |
-          DB_LOCATION="$(az functionapp show --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --query location -o tsv)"
+          # Keep the existing Function App untouched. PostgreSQL may be restricted in its region.
+          # Select the first PostgreSQL region that this subscription can provision.
+          DB_LOCATION=""
+          for LOCATION in eastus2 westus3 centralus northeurope uksouth francecentral; do
+            if COUNT="$(az postgres flexible-server list-skus --location "$LOCATION" --query "length(@)" -o tsv 2>/dev/null)" && [ "${COUNT:-0}" -gt 0 ]; then
+              DB_LOCATION="$LOCATION"
+              echo "PostgreSQL provisioning region selected: $DB_LOCATION"
+              break
+            fi
+          done
+          if [ -z "$DB_LOCATION" ]; then
+            echo "No permitted PostgreSQL Flexible Server region was found for this subscription."
+            exit 1
+          fi
           if az postgres flexible-server show             --resource-group "$RESOURCE_GROUP"             --name "$DB_SERVER" >/dev/null 2>&1; then
             echo "PostgreSQL server already exists; preserving it."
           else
