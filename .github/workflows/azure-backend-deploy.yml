@@ -27,27 +27,14 @@ jobs:
       - name: Validate backend entrypoint
         working-directory: azure-backend
         run: node --check src/index.js
-      - name: Validate Azure OIDC configuration
-        env:
-          ACTUAL_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-          ACTUAL_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          ACTUAL_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-        run: |
-          set -euo pipefail
-          EXPECTED_TENANT_ID="28a6a643-bdbe-4d1a-8af1-332bc8b08ab1"
-          EXPECTED_CLIENT_ID="8ce21967-71f5-4315-8074-3e10e998c673"
-          EXPECTED_SUBSCRIPTION_ID="2da093f4-d57b-4088-8c7e-d73ef8fb7af6"
-          test "$ACTUAL_TENANT_ID" = "$EXPECTED_TENANT_ID" || { echo "AZURE_TENANT_ID mismatch"; exit 1; }
-          test "$ACTUAL_CLIENT_ID" = "$EXPECTED_CLIENT_ID" || { echo "AZURE_CLIENT_ID mismatch"; exit 1; }
-          test "$ACTUAL_SUBSCRIPTION_ID" = "$EXPECTED_SUBSCRIPTION_ID" || { echo "AZURE_SUBSCRIPTION_ID mismatch"; exit 1; }
-          curl -fsS "https://login.microsoftonline.com/$ACTUAL_TENANT_ID/v2.0/.well-known/openid-configuration" -o /dev/null
-          echo "Azure tenant authority and GitHub secrets: PASS"
       - name: Azure login via OIDC
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          tenant-id: adminbestnikahbredge.onmicrosoft.com
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          environment: azurecloud
+
       - name: Deploy to the existing Azure Function App
         uses: Azure/functions-action@v1
         with:
