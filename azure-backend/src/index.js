@@ -24,6 +24,7 @@ require("./authHealth");
 require("./profile");
 require("./matches");
 require("./matchDetail");
+require("./aiNikahAssistant");
 require("./interests");
 require("./chat");
 require("./family");
