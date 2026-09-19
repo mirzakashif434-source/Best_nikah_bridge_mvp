@@ -125,16 +125,32 @@ jobs:
           PGPASSWORD: ${{ env.DB_PASSWORD }}
         run: |
           set -euo pipefail
+          SCHEMA_OK=false
           for i in 1 2 3 4 5 6; do
-            if psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"               --file azure-backend/database/schema.sql; then
-              echo "DATABASE SCHEMA: PASS"
-              exit 0
+            if psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require" --file azure-backend/database/schema.sql; then
+              SCHEMA_OK=true
+              break
             fi
             sleep 10
           done
-          echo "DATABASE SCHEMA: FAIL"
-          exit 1
-
+          if [ "$SCHEMA_OK" != "true" ]; then
+            echo "Existing PostgreSQL password was rejected; rotating the production admin password and retrying schema initialization."
+            NEW_PASSWORD="$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9@#%+=_' | head -c 32)"
+            echo "::add-mask::$NEW_PASSWORD"
+            az postgres flexible-server update --resource-group "$RESOURCE_GROUP" --name "$DB_SERVER" --admin-password "$NEW_PASSWORD" --only-show-errors
+            export PGPASSWORD="$NEW_PASSWORD"
+            for i in 1 2 3 4 5 6; do
+              if psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require" --file azure-backend/database/schema.sql; then
+                echo "DATABASE SCHEMA: PASS"
+                echo "DB_PASSWORD=$NEW_PASSWORD" >> "$GITHUB_ENV"
+                exit 0
+              fi
+              sleep 10
+            done
+            echo "DATABASE SCHEMA: FAIL"
+            exit 1
+          fi
+          echo "DATABASE SCHEMA: PASS"
       - name: Persist database connection settings on Function App
         shell: bash
         run: |
@@ -160,5 +176,5 @@ jobs:
         shell: bash
         run: |
           if [ -n "${RUNNER_IP:-}" ]; then
-            az postgres flexible-server firewall-rule delete               --resource-group "$RESOURCE_GROUP"               --name "$DB_SERVER"               --rule-name github-runner-init               --yes               --only-show-errors || true
+            az postgres flexible-server firewall-rule delete               --resource-group "$RESOURCE_GROUP"               --name "$DB_SERVER"               --rule-name github-runner-init               --yes               --only-show-errors ||az postgres flexible-server firewall-rule delete --resource-group "$RESOURCE_GROUP" --server-name "$DB_SERVER" --name github-runner-init --yes --only-show-errors || true
           fi
