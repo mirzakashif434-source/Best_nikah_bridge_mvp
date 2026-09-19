@@ -97,7 +97,7 @@ jobs:
           MODEL_FORMAT=""
           MODEL_SKU=""
           MODEL_JSON="$(az cognitiveservices account list-models --name "$AI_ACCOUNT" --resource-group "$RESOURCE_GROUP" -o json)"
-          for CANDIDATE in gpt-4o-mini gpt-4.1-mini gpt-4o gpt-4.1; do
+          for CANDIDATE in gpt-4.1-mini gpt-4.1 gpt-4o gpt-4o-mini; do
             ROW="$(echo "$MODEL_JSON" | jq -c --arg name "$CANDIDATE" '[.[] | select(.name==$name and .format=="OpenAI" and (.skus|length)>0)] | sort_by(.version) | reverse | .[0]')"
             if [ "$ROW" != "null" ] && [ -n "$ROW" ]; then
               MODEL_NAME="$CANDIDATE"
