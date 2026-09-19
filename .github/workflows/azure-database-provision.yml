@@ -1,0 +1,200 @@
+name: Azure Database Step 1 - Provision and Initialize
+
+on:
+  workflow_dispatch:
+
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      RESOURCE_GROUP: BestNikahBredge-Production
+      FUNCTION_APP: bestnikahbredge-prod-fn
+      DB_SERVER: bestnikahbredge-prod-db
+      DB_NAME: nikah_prod
+      DB_ADMIN: nikahadmin
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login via OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: adminbestnikahbredge.onmicrosoft.com
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          environment: azurecloud
+
+      - name: Prepare database credentials and runner IP
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUNNER_IP="$(curl -fsS https://api.ipify.org)"
+          echo "RUNNER_IP=$RUNNER_IP" >> "$GITHUB_ENV"
+          EXISTING_PASSWORD="$(az functionapp config appsettings list \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "[?name=='AZURE_DB_ADMIN_PASSWORD'].value | [0]" \
+            -o tsv)"
+          if [ -n "$EXISTING_PASSWORD" ]; then
+            DB_PASSWORD="$EXISTING_PASSWORD"
+          else
+            DB_PASSWORD="$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9@#%+=_' | head -c 32)"
+            if [ "${#DB_PASSWORD}" -lt 20 ]; then
+              echo "Could not generate a sufficiently strong database password."
+              exit 1
+            fi
+          fi
+          echo "::add-mask::$DB_PASSWORD"
+          echo "DB_PASSWORD=$DB_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Create PostgreSQL Flexible Server if missing
+        shell: bash
+        run: |
+          # Preserve the existing Function App. Check PostgreSQL capability
+          # for this subscription before choosing a database region.
+          DB_LOCATION=""
+          if az postgres flexible-server show --resource-group "$RESOURCE_GROUP" --name "$DB_SERVER" >/dev/null 2>&1; then
+            echo "PostgreSQL server already exists; preserving it."
+          else
+            for LOCATION in westus3 centralus eastus2 westus2 northeurope westeurope uksouth francecentral swedencentral canadacentral; do
+              echo "Checking PostgreSQL capability for subscription in $LOCATION"
+              RESTRICTED="$(az rest --method get \
+                --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/providers/Microsoft.DBforPostgreSQL/locations/$LOCATION/capabilities?api-version=2024-08-01" \
+                --query "value[0].restricted" -o tsv 2>/dev/null || true)"
+              if [ "$RESTRICTED" = "Disabled" ]; then
+                DB_LOCATION="$LOCATION"
+                echo "PostgreSQL location allowed for this subscription: $DB_LOCATION"
+                break
+              fi
+              echo "PostgreSQL location restricted: $LOCATION"
+            done
+            if [ -z "$DB_LOCATION" ]; then
+              echo "No PostgreSQL Flexible Server location is currently allowed for this subscription."
+              exit 1
+            fi
+
+            az postgres flexible-server create \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$DB_SERVER" \
+              --location "$DB_LOCATION" \
+              --admin-user "$DB_ADMIN" \
+              --admin-password "$DB_PASSWORD" \
+              --sku-name Standard_B1ms \
+              --tier Burstable \
+              --storage-size 32 \
+              --storage-auto-grow Enabled \
+              --version 16 \
+              --public-access "$RUNNER_IP" \
+              --backup-retention 7 \
+              --tags "Environment=Production" "Component=Database"
+          fi
+
+      - name: Allow Function App outbound IPs
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUTBOUND_IPS="$(az functionapp show \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query outboundIpAddresses -o tsv)"
+          IFS=',' read -ra IPS <<< "$OUTBOUND_IPS"
+          for IP in "${IPS[@]}"; do
+            [ -z "$IP" ] && continue
+            az postgres flexible-server firewall-rule create \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$DB_SERVER" \
+              --rule-name "function-${IP//./-}" \
+              --start-ip-address "$IP" \
+              --end-ip-address "$IP" \
+              --only-show-errors
+          done
+
+      - name: Allow this GitHub runner for initialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          az postgres flexible-server firewall-rule create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$DB_SERVER" \
+            --rule-name github-runner-init \
+            --start-ip-address "$RUNNER_IP" \
+            --end-ip-address "$RUNNER_IP" \
+            --only-show-errors
+
+      - name: Create application database
+        shell: bash
+        run: |
+          set -euo pipefail
+          if az postgres flexible-server db show \
+            --resource-group "$RESOURCE_GROUP" \
+            --server-name "$DB_SERVER" \
+            --database-name "$DB_NAME" >/dev/null 2>&1; then
+            echo "Database already exists; preserving it."
+          else
+            az postgres flexible-server db create \
+              --resource-group "$RESOURCE_GROUP" \
+              --server-name "$DB_SERVER" \
+              --database-name "$DB_NAME"
+          fi
+
+      - name: Apply production schema
+        shell: bash
+        env:
+          PGPASSWORD: ${{ env.DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            if psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require" \
+              --file azure-backend/database/schema.sql; then
+              echo "DATABASE SCHEMA: PASS"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "DATABASE SCHEMA: FAIL"
+          exit 1
+
+      - name: Persist database connection settings on Function App
+        shell: bash
+        run: |
+          set -euo pipefail
+          az functionapp config appsettings set \
+            --name "$FUNCTION_APP" \
+            --resource-group "$RESOURCE_GROUP" \
+            --settings \
+              AZURE_DB_HOST="$DB_SERVER.postgres.database.azure.com" \
+              AZURE_DB_NAME="$DB_NAME" \
+              AZURE_DB_USER="$DB_ADMIN" \
+              AZURE_DB_ADMIN_PASSWORD="$DB_PASSWORD" \
+              AZURE_DB_SSLMODE=require \
+            --only-show-errors
+
+      - name: Verify database objects
+        shell: bash
+        env:
+          PGPASSWORD: ${{ env.DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require" \
+            -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports');")"
+          if [ "$COUNT" = "10" ]; then
+            echo "DATABASE VERIFICATION: PASS (10 core tables)"
+          else
+            echo "DATABASE VERIFICATION: FAIL (found $COUNT/10 core tables)"
+            exit 1
+          fi
+
+      - name: Remove temporary GitHub runner firewall rule
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${RUNNER_IP:-}" ]; then
+            az postgres flexible-server firewall-rule delete \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$DB_SERVER" \
+              --rule-name github-runner-init \
+              --yes \
+              --only-show-errors || true
+          fi
