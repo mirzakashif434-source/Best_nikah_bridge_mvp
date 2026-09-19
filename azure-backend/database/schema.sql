@@ -151,3 +151,7 @@ CREATE TABLE IF NOT EXISTS privacy_settings (
   show_photo_to_matches BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS moderation_provider TEXT;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS moderation_result JSONB;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_photos_moderation_status ON photos (moderation_status, created_at);
