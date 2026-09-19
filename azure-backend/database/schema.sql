@@ -128,3 +128,8 @@ CREATE INDEX IF NOT EXISTS idx_interests_receiver_status ON interests (receiver_
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages (conversation_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_verifications_user_status ON verifications (user_id, status);
 CREATE INDEX IF NOT EXISTS idx_safety_reports_status ON safety_reports (status);
+
+ALTER TABLE verifications ADD COLUMN IF NOT EXISTS document_blob_key TEXT;
+ALTER TABLE verifications ADD COLUMN IF NOT EXISTS document_content_type TEXT;
+ALTER TABLE verifications ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_verifications_pending_type ON verifications (status, verification_type);
