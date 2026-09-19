@@ -34,3 +34,4 @@ require("./safety");
 require("./blocks");
 require("./privacy");
 require("./account");
+require("./moderation");
