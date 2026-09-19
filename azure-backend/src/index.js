@@ -33,3 +33,4 @@ require("./photos");
 require("./safety");
 require("./blocks");
 require("./privacy");
+require("./account");
