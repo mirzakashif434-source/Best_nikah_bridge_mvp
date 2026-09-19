@@ -24,9 +24,12 @@ jobs:
       - name: Install Azure backend dependencies
         working-directory: azure-backend
         run: npm install --omit=dev
-      - name: Validate backend entrypoint
+      - name: Validate all Azure backend modules
         working-directory: azure-backend
-        run: node --check src/index.js
+        run: |
+          set -euo pipefail
+          for file in src/*.js; do node --check "$file"; done
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
       - name: Azure login via OIDC
         uses: azure/login@v3
         with:
