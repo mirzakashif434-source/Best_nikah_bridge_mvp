@@ -117,7 +117,7 @@ jobs:
           set -euo pipefail
           az postgres flexible-server firewall-rule create \
             --resource-group "$RESOURCE_GROUP" \
-            --name "$DB_SERVER" \
+            --server-name "$DB_SERVER" \
             --rule-name github-runner-init \
             --start-ip-address "$RUNNER_IP" \
             --end-ip-address "$RUNNER_IP" \
@@ -193,7 +193,7 @@ jobs:
           if [ -n "${RUNNER_IP:-}" ]; then
             az postgres flexible-server firewall-rule delete \
               --resource-group "$RESOURCE_GROUP" \
-              --name "$DB_SERVER" \
+              --server-name "$DB_SERVER" \
               --rule-name github-runner-init \
               --yes \
               --only-show-errors || true
