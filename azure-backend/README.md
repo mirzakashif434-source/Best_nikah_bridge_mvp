@@ -41,3 +41,4 @@ The existing project remains the source of truth until an explicit, tested cutov
 - Step 9.2 — Real authenticated match-detail API with reciprocal compatibility checks, compatibility score, and Why We Matched reasons: LOCKED after successful Azure deployment run #53 (commit 658d91d1a4f06ad6defb552af23ae70ae2a059f0).
 
 Locked steps are not to be rebuilt or replaced; future work must be additive and build on them.
+- Step 10.1 — Real Azure AI Nikah Assistant with authenticated AI chat, Azure OpenAI resource/model provisioning, managed-identity access, Function App deployment, and live health verification: LOCKED after successful Azure deployment run #61 (commit 4e03bb233d13d32418b20ca0a91e7e541057ce55).
