@@ -144,3 +144,10 @@ CREATE TABLE IF NOT EXISTS blocked_users (
 
 CREATE INDEX IF NOT EXISTS idx_blocked_users_blocker ON blocked_users (blocker_user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_blocked_users_blocked ON blocked_users (blocked_user_id, created_at);
+CREATE TABLE IF NOT EXISTS privacy_settings (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  profile_discoverable BOOLEAN NOT NULL DEFAULT TRUE,
+  show_city BOOLEAN NOT NULL DEFAULT TRUE,
+  show_photo_to_matches BOOLEAN NOT NULL DEFAULT TRUE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
