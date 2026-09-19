@@ -31,3 +31,4 @@ require("./family");
 require("./verification");
 require("./photos");
 require("./safety");
+require("./blocks");
