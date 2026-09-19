@@ -53,6 +53,20 @@ jobs:
           az storage container create --name profile-photos --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
           az storage container create --name verification-documents --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
 
+      - name: Configure Firebase Admin authentication for the existing Function App
+        shell: bash
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          set -euo pipefail
+          az functionapp config appsettings set \
+            --name "$AZURE_FUNCTIONAPP_NAME" \
+            --resource-group "BestNikahBredge-Production" \
+            --settings \
+              FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
+              FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SERVICE_ACCOUNT" \
+            --only-show-errors
       - name: Deploy to the existing Azure Function App
         uses: Azure/functions-action@v1
         with:
