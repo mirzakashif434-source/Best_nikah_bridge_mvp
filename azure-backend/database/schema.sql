@@ -133,3 +133,14 @@ ALTER TABLE verifications ADD COLUMN IF NOT EXISTS document_blob_key TEXT;
 ALTER TABLE verifications ADD COLUMN IF NOT EXISTS document_content_type TEXT;
 ALTER TABLE verifications ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_verifications_pending_type ON verifications (status, verification_type);
+CREATE TABLE IF NOT EXISTS blocked_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  blocker_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  blocked_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (blocker_user_id, blocked_user_id),
+  CHECK (blocker_user_id <> blocked_user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocker ON blocked_users (blocker_user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocked ON blocked_users (blocked_user_id, created_at);
