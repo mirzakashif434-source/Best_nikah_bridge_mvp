@@ -1,5 +1,9 @@
 name: Azure Functions Additive Backend Deploy
 
+concurrency:
+  group: azure-functions-additive-backend
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
   push:
