@@ -4,6 +4,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  firebase_uid TEXT UNIQUE,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT,
   phone_e164 TEXT UNIQUE,
@@ -115,6 +116,8 @@ CREATE TABLE IF NOT EXISTS safety_reports (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   resolved_at TIMESTAMPTZ
 );
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS firebase_uid TEXT UNIQUE;
 
 CREATE INDEX IF NOT EXISTS idx_profiles_visible_gender ON profiles (is_visible, gender);
 CREATE INDEX IF NOT EXISTS idx_interests_receiver_status ON interests (receiver_user_id, status);
