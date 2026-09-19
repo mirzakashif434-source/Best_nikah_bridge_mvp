@@ -1,0 +1,93 @@
+const { app } = require("@azure/functions");
+const { DefaultAzureCredential } = require("@azure/identity");
+const { requireAuth } = require("./auth");
+
+const credential = new DefaultAzureCredential();
+const MAX_MESSAGE = 4000;
+const MAX_MESSAGES = 20;
+
+function clean(v){
+  return typeof v === "string" ? v.trim().slice(0, MAX_MESSAGE) : "";
+}
+
+app.http("aiNikahAssistant", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "ai/nikah-assistant",
+  handler: requireAuth(async (request, context, user) => {
+    try {
+      const endpoint = (process.env.AZURE_AI_ENDPOINT || "").trim().replace(/\/$/, "");
+      const model = (process.env.AZURE_AI_MODEL || "").trim();
+      if (!endpoint || !model) {
+        return { status: 503, jsonBody: { ok: false, error: "AI_SERVICE_NOT_CONFIGURED" } };
+      }
+
+      const body = await request.json();
+      const input = Array.isArray(body?.messages) ? body.messages : [];
+      if (!input.length || input.length > MAX_MESSAGES) {
+        return { status: 400, jsonBody: { ok: false, error: "MESSAGES_INVALID" } };
+      }
+
+      const messages = input.map((m) => ({
+        role: m?.role === "assistant" ? "assistant" : "user",
+        content: clean(m?.content)
+      })).filter((m) => m.content);
+
+      if (!messages.length) {
+        return { status: 400, jsonBody: { ok: false, error: "MESSAGE_CONTENT_REQUIRED" } };
+      }
+
+      const token = await credential.getToken("https://cognitiveservices.azure.com/.default");
+      if (!token?.token) throw new Error("AZURE_AI_TOKEN_UNAVAILABLE");
+
+      const response = await fetch(endpoint + "/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token.token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are the Nikah Assistant for a serious Muslim matrimonial service. " +
+                "Give respectful, practical, non-dating guidance about marriage preparation, " +
+                "family or wali involvement, communication, profile safety, compatibility, " +
+                "and general nikah planning. Do not make decisions for the user, do not claim " +
+                "to be a scholar, lawyer, doctor, or imam, and advise the user to consult a " +
+                "qualified local professional for religious, legal, medical, or safety matters. " +
+                "Never ask for passwords, identity documents, payment card details, or other secrets."
+            },
+            ...messages
+          ],
+          temperature: 0.2,
+          max_tokens: 700
+        })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        context.error("AZURE_AI_REQUEST_FAILED", response.status, data?.error || data);
+        return { status: 502, jsonBody: { ok: false, error: "AI_SERVICE_FAILED" } };
+      }
+
+      const answer = data?.choices?.[0]?.message?.content;
+      if (typeof answer !== "string" || !answer.trim()) {
+        return { status: 502, jsonBody: { ok: false, error: "AI_EMPTY_RESPONSE" } };
+      }
+
+      return {
+        status: 200,
+        jsonBody: {
+          ok: true,
+          assistant: { role: "assistant", content: answer.trim() }
+        }
+      };
+    } catch (error) {
+      context.error("AI_NIKAH_ASSISTANT_FAILED", error);
+      return { status: 500, jsonBody: { ok: false, error: "AI_NIKAH_ASSISTANT_FAILED" } };
+    }
+  })
+});
