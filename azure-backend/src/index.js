@@ -35,3 +35,4 @@ require("./blocks");
 require("./privacy");
 require("./account");
 require("./moderation");
+require("./accountDeletionWeb");
