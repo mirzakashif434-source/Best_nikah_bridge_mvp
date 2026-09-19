@@ -39,7 +39,7 @@ app.http("messagesList",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await ensureUser(user);
-      const id=context.triggerMetadata?.conversationId;
+      const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
       const c=await getConversationForUser(id,me.id);
       if(!c)return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};
       if(c.status!=="mutual")return {status:403,jsonBody:{ok:false,error:"CHAT_NOT_AVAILABLE"}};
@@ -56,7 +56,7 @@ app.http("messageCreate",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await ensureUser(user);
-      const id=context.triggerMetadata?.conversationId;
+      const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
       const c=await getConversationForUser(id,me.id);
       if(!c)return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};
       if(c.status!=="mutual")return {status:403,jsonBody:{ok:false,error:"CHAT_NOT_AVAILABLE"}};
@@ -76,7 +76,7 @@ app.http("messagesRead",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await ensureUser(user);
-      const id=context.triggerMetadata?.conversationId;
+      const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
       const c=await getConversationForUser(id,me.id);
       if(!c)return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};
       if(c.status!=="mutual")return {status:403,jsonBody:{ok:false,error:"CHAT_NOT_AVAILABLE"}};
