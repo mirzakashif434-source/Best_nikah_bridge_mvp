@@ -30,3 +30,4 @@ require("./chat");
 require("./family");
 require("./verification");
 require("./photos");
+require("./safety");
