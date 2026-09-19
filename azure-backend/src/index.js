@@ -36,3 +36,6 @@ require("./privacy");
 require("./account");
 require("./moderation");
 require("./accountDeletionWeb");
+
+// Firebase migration #1: additive Azure Entra External ID authentication endpoints.
+require("./azureExternalAuth");
