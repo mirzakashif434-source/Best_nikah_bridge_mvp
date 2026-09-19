@@ -35,5 +35,6 @@ The existing project remains the source of truth until an explicit, tested cutov
 - Step 9.1 — Real PostgreSQL matching API with reciprocal preferences, compatibility reasons, timeline, location and deal-breaker checks: LOCKED after successful Azure deployment run #31 (commit 63d8f95c77f0a173348a3b0372ba730035e865c6).
 - Step 4 — Real PostgreSQL Interest + Mutual Connection API (send/list/accept/decline/cancel, mutual conversation creation): LOCKED after successful Azure deployment runs #33–#34 (commits c91dcf2a3b013dcfac732b0ab484744cb3de7c85 and 40394e49d994985e63ce39cf00fbf08e22d6a58b).
 - Step 5.1 — Real PostgreSQL Mutual-Only Chat + Messages API (conversations, send/read messages, authorization): LOCKED after successful Azure deployment run #39 (commit 802cd89a32d26ac6b38a60ad3fcc63dff804bc16).
+- Step 6 — Real PostgreSQL Family/Wali API (create/list/verify/revoke): LOCKED after successful Azure deployment run #43 (commit 894f5b02380a2abdaaafce84875daafe7d9dc5d0).
 
 Locked steps are not to be rebuilt or replaced; future work must be additive and build on them.
