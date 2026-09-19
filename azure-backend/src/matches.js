@@ -39,6 +39,8 @@ app.http("matches",{
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         WHERE u.status='active' AND p.profile_completed=true AND p.is_visible=true
           AND u.id<>$1
+          AND NOT EXISTS (SELECT 1 FROM blocked_users b WHERE b.blocker_user_id=$1 AND b.blocked_user_id=u.id)
+          AND NOT EXISTS (SELECT 1 FROM blocked_users b WHERE b.blocker_user_id=u.id AND b.blocked_user_id=$1)
         LIMIT 500`,[m.id]);
 
       const matches=[];
