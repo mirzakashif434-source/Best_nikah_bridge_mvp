@@ -37,5 +37,6 @@ The existing project remains the source of truth until an explicit, tested cutov
 - Step 5.1 — Real PostgreSQL Mutual-Only Chat + Messages API (conversations, send/read messages, authorization): LOCKED after successful Azure deployment run #39 (commit 802cd89a32d26ac6b38a60ad3fcc63dff804bc16).
 - Step 6 — Real PostgreSQL Family/Wali API (create/list/verify/revoke): LOCKED after successful Azure deployment run #43 (commit 894f5b02380a2abdaaafce84875daafe7d9dc5d0).
 - Step 7.1 — Real Azure identity-verification document upload/status API using private Blob Storage + PostgreSQL: LOCKED after successful Azure deployment run #47 (commit 163f3b45c18ed6e24c802fe8c3ca41a0be3ca7ec).
+- Step 8 — Real authenticated profile-photo upload/list/visibility/delete API using private Azure Blob Storage + PostgreSQL: LOCKED after successful Azure deployment run #50 (commit 9e3de5e529b2386e722cdf6ca42ad712bf3dc1a1).
 
 Locked steps are not to be rebuilt or replaced; future work must be additive and build on them.
