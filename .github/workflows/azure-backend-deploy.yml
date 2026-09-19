@@ -75,6 +75,27 @@ jobs:
               FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
               FIREBASE_SERVICE_ACCOUNT="$FIREBASE_SERVICE_ACCOUNT" \
             --only-show-errors
+      - name: Configure Azure AI for the real Nikah Assistant
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          AI_ACCOUNT="$(az resource list --resource-group "$RESOURCE_GROUP" --resource-type Microsoft.CognitiveServices/accounts --query "[?kind=='OpenAI'].name | [0]" -o tsv)"
+          if [ -z "$AI_ACCOUNT" ]; then
+            echo "No Azure OpenAI resource found in the production resource group."
+            exit 1
+          fi
+          AI_ENDPOINT="$(az cognitiveservices account show --name "$AI_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query properties.endpoint -o tsv)"
+          AI_MODEL="$(az cognitiveservices account deployment list --name "$AI_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query "[?properties.provisioningState=='Succeeded'].name | [0]" -o tsv)"
+          if [ -z "$AI_ENDPOINT" ] || [ -z "$AI_MODEL" ]; then
+            echo "Azure OpenAI resource or model deployment is not ready."
+            exit 1
+          fi
+          PRINCIPAL_ID="$(az functionapp identity show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query principalId -o tsv)"
+          ACCOUNT_ID="$(az cognitiveservices account show --name "$AI_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query id -o tsv)"
+          az role assignment create             --assignee-object-id "$PRINCIPAL_ID"             --assignee-principal-type ServicePrincipal             --role "Cognitive Services OpenAI User"             --scope "$ACCOUNT_ID"             --only-show-errors || true
+          az functionapp config appsettings set             --name "$AZURE_FUNCTIONAPP_NAME"             --resource-group "$RESOURCE_GROUP"             --settings               AZURE_AI_ENDPOINT="$AI_ENDPOINT"               AZURE_AI_MODEL="$AI_MODEL"             --only-show-errors
+
       - name: Deploy to the existing Azure Function App
         uses: Azure/functions-action@v1
         with:
