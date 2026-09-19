@@ -9,6 +9,7 @@
     "@azure/functions": "^4.9.0",
     "@azure/identity": "^4.10.0",
     "@azure/storage-blob": "^12.28.0",
+    "firebase-admin": "^13.5.0",
     "pg": "^8.16.3"
   }
 }
