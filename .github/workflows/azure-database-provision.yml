@@ -62,7 +62,7 @@ jobs:
           else
             for LOCATION in westus3 centralus eastus2 westus2 northeurope westeurope uksouth francecentral swedencentral canadacentral; do
               echo "Checking PostgreSQL capability for subscription in $LOCATION"
-              RESTRICTED="$(az rest --method get \
+              RESTRICTED="$(az rest --method get az postgres flexible-server firewall-rule delete --resource-group "$RESOURCE_GROUP" --server-name "$DB_SERVER" --name github-runner-init --yes --only-show-errors || true
                 --url "https://management.azure.com/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/providers/Microsoft.DBforPostgreSQL/locations/$LOCATION/capabilities?api-version=2024-08-01" \
                 --query "value[0].restricted" -o tsv 2>/dev/null || true)"
               if [ "$RESTRICTED" = "Disabled" ]; then
@@ -116,7 +116,7 @@ jobs:
           if az postgres flexible-server db show             --resource-group "$RESOURCE_GROUP"             --server-name "$DB_SERVER"             --database-name "$DB_NAME" >/dev/null 2>&1; then
             echo "Database already exists; preserving it."
           else
-            az postgres flexible-server db create               --resource-group "$RESOURCE_GROUP"               --server-name "$DB_SERVER"               --database-name "$DB_NAME"
+            az postgres flexible-server db create --resource-group "$RESOURCE_GROUP" --server-name "$DB_SERVER" --name "$DB_NAME"
           fi
 
       - name: Apply production schema
