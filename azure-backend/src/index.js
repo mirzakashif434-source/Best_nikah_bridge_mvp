@@ -22,3 +22,4 @@ require("./storageHealth");
 // Additive authenticated API foundation. Existing endpoints remain unchanged.
 require("./authHealth");
 require("./profile");
+require("./matches");
