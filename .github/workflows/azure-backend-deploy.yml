@@ -31,7 +31,7 @@ jobs:
         uses: azure/login@v3
         with:
           client-id: 391167a0-0777-4f6e-be91-c7902181523b
-          tenant-id: 28a64d83-b14e-42da-8af1-3332bc8b08ab1
+          tenant-id: adminbestnikahbredge.onmicrosoft.com
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           audience: api://AzureADTokenExchange
           environment: azurecloud
