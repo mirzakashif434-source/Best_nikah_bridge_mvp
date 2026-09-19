@@ -16,7 +16,7 @@ async function ensureUser(user){
 
 async function getConversationForUser(conversationId,userId){
   const r=await query(
-    "SELECT id,user_a_id,user_b_id,status,created_at FROM conversations WHERE id=$1 AND (user_a_id=$2 OR user_b_id=$2)",
+    "SELECT c.id,c.user_a_id,c.user_b_id,c.status,c.created_at FROM conversations c WHERE c.id=$1 AND (c.user_a_id=$2 OR c.user_b_id=$2) AND NOT EXISTS (SELECT 1 FROM blocked_users b WHERE (b.blocker_user_id=$2 AND b.blocked_user_id=CASE WHEN c.user_a_id=$2 THEN c.user_b_id ELSE c.user_a_id END) OR (b.blocked_user_id=$2 AND b.blocker_user_id=CASE WHEN c.user_a_id=$2 THEN c.user_b_id ELSE c.user_a_id END))",
     [conversationId,userId]);
   return r.rows[0];
 }
