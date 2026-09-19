@@ -26,3 +26,4 @@ require("./matches");
 require("./interests");
 require("./chat");
 require("./family");
+require("./verification");
