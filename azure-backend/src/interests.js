@@ -29,6 +29,8 @@ app.http("interestCreate",{
       if(!receiverUid||receiverUid===user.uid) return {status:400,jsonBody:{ok:false,error:"INVALID_RECEIVER"}};
       const receiver=await query("SELECT id,status FROM users WHERE firebase_uid=$1",[receiverUid]);
       if(!receiver.rows[0]||receiver.rows[0].status!=="active") return {status:404,jsonBody:{ok:false,error:"RECEIVER_NOT_FOUND"}};
+      const blocked=await query("SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",[me.id,receiver.rows[0].id]);
+      if(blocked.rows[0]) return {status:403,jsonBody:{ok:false,error:"USER_BLOCKED"}};
       const r=await query(
         `INSERT INTO interests(sender_user_id,receiver_user_id,status)
          VALUES($1,$2,'pending')
@@ -55,7 +57,12 @@ app.http("interestList",{
          FROM interests i
          JOIN users u ON u.id=CASE WHEN i.sender_user_id=$1 THEN i.receiver_user_id ELSE i.sender_user_id END
          LEFT JOIN profiles p ON p.user_id=u.id
-         WHERE i.sender_user_id=$1 OR i.receiver_user_id=$1
+         WHERE (i.sender_user_id=$1 OR i.receiver_user_id=$1)
+           AND NOT EXISTS (
+             SELECT 1 FROM blocked_users b
+             WHERE (b.blocker_user_id=$1 AND b.blocked_user_id=CASE WHEN i.sender_user_id=$1 THEN i.receiver_user_id ELSE i.sender_user_id END)
+                OR (b.blocked_user_id=$1 AND b.blocker_user_id=CASE WHEN i.sender_user_id=$1 THEN i.receiver_user_id ELSE i.sender_user_id END)
+           )
          ORDER BY i.created_at DESC LIMIT 200`,[me.id]
       );
       return {status:200,jsonBody:{ok:true,interests:r.rows}};
@@ -81,6 +88,8 @@ app.http("interestRespond",{
       );
       if(!current.rows[0]){await client.query("ROLLBACK");return {status:404,jsonBody:{ok:false,error:"INTEREST_NOT_FOUND"}};}
       const i=current.rows[0];
+      const blocked=await client.query("SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",[me.id,i.sender_user_id===me.id?i.receiver_user_id:i.sender_user_id]);
+      if(blocked.rows[0]){await client.query("ROLLBACK");return {status:403,jsonBody:{ok:false,error:"USER_BLOCKED"}};}
       if(status==="cancelled"){
         if(i.sender_user_id!==me.id){await client.query("ROLLBACK");return {status:403,jsonBody:{ok:false,error:"ONLY_SENDER_CAN_CANCEL"}};}
       }else if(i.receiver_user_id!==me.id){
