@@ -2,6 +2,11 @@ name: Azure Database Step 1 - Provision and Initialize
 
 on:
   workflow_dispatch:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'azure-backend/database/**'
+      - '.github/workflows/azure-database-provision.yml'
 
 jobs:
   database:
@@ -21,8 +26,9 @@ jobs:
       - name: Azure login via OIDC
         uses: azure/login@v3
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-id: 391167a0-0777-4f6e-be91-c7902181523b
           tenant-id: adminbestnikahbredge.onmicrosoft.com
+          audience: api://AzureADTokenExchange
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           environment: azurecloud
 
