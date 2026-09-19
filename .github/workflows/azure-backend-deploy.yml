@@ -35,6 +35,24 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           environment: azurecloud
 
+      - name: Configure Azure Blob Storage for the existing Function App
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          ACCOUNT_NAME="$(az storage account list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)"
+          if [ -z "$ACCOUNT_NAME" ]; then
+            echo "No storage account found in production resource group."
+            exit 1
+          fi
+          ACCOUNT_URL="https://${ACCOUNT_NAME}.blob.core.windows.net"
+          PRINCIPAL_ID="$(az functionapp identity show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query principalId -o tsv)"
+          ACCOUNT_SCOPE="$(az storage account show --name "$ACCOUNT_NAME" --resource-group "$RESOURCE_GROUP" --query id -o tsv)"
+          az role assignment create             --assignee-object-id "$PRINCIPAL_ID"             --assignee-principal-type ServicePrincipal             --role "Storage Blob Data Contributor"             --scope "$ACCOUNT_SCOPE"             --only-show-errors || true
+          az functionapp config appsettings set             --name "$AZURE_FUNCTIONAPP_NAME"             --resource-group "$RESOURCE_GROUP"             --settings               AZURE_STORAGE_ACCOUNT_URL="$ACCOUNT_URL"               AZURE_PROFILE_PHOTOS_CONTAINER=profile-photos               AZURE_VERIFICATION_DOCUMENTS_CONTAINER=verification-documents             --only-show-errors
+          az storage container create --name profile-photos --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
+          az storage container create --name verification-documents --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
+
       - name: Deploy to the existing Azure Function App
         uses: Azure/functions-action@v1
         with:
