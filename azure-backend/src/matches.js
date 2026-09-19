@@ -33,7 +33,7 @@ app.http("matches",{
 
       const m=me.rows[0];
       const candidates=await query(`
-        SELECT u.id,p.*,pp.min_age,pp.max_age,pp.countries,pp.cities,
+        SELECT u.id,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
