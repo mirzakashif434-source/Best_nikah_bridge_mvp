@@ -3,10 +3,11 @@ const crypto = require("crypto");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
 const { getProfilePhotosContainer } = require("./storage");
+const { analyzeImage, shouldReject } = require("./contentSafety");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 const ALLOWED=new Set(["image/jpeg","image/png","image/webp"]);
-const MAX=8*1024*1024;
+const MAX=4*1024*1024;
 
 async function ensureUser(user){
   const email=text(user.email,320).toLowerCase();
@@ -34,12 +35,16 @@ app.http("photoUpload",{
       if(!ALLOWED.has(type)) return {status:400,jsonBody:{ok:false,error:"UNSUPPORTED_IMAGE_TYPE"}};
       const bytes=Buffer.from(await file.arrayBuffer());
       if(bytes.length===0||bytes.length>MAX) return {status:400,jsonBody:{ok:false,error:"PHOTO_SIZE_INVALID"}};
+      const moderation=await analyzeImage(bytes);
+      const rejected=shouldReject(moderation);
+      const moderationStatus=rejected?"rejected":"approved";
       const key=me.id+"/"+crypto.randomUUID()+"."+ext(type);
       const blob=getProfilePhotosContainer().getBlockBlobClient(key);
+      if(rejected) return {status:422,jsonBody:{ok:false,error:"PHOTO_REJECTED_BY_SAFETY",moderationStatus}};
       await blob.uploadData(bytes,{blobHTTPHeaders:{blobContentType:type,blobCacheControl:"no-store"}});
       const r=await query(
-        "INSERT INTO photos(user_id,blob_key,visibility,moderation_status) VALUES($1,$2,$3,'pending') RETURNING id,visibility,moderation_status,created_at",
-        [me.id,key,visibility]);
+        "INSERT INTO photos(user_id,blob_key,visibility,moderation_status,moderation_provider,moderation_result,moderated_at) VALUES($1,$2,$3,$4,$5,$6::jsonb,now()) RETURNING id,visibility,moderation_status,created_at",
+        [me.id,key,visibility,moderationStatus,"azure-ai-content-safety",JSON.stringify(moderation)]);
       return {status:201,jsonBody:{ok:true,photo:r.rows[0]}};
     }catch(e){context.error("PHOTO_UPLOAD_FAILED",e);return {status:500,jsonBody:{ok:false,error:"PHOTO_UPLOAD_FAILED"}};}
   })
