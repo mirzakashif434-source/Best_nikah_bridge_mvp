@@ -4,8 +4,8 @@ const { requireAuth } = require("./auth");
 
 function norm(v){return typeof v==="string"?v.toLowerCase().replace(/[\\/,_-]+/g," ").trim():"";}
 function overlap(a,b){
-  const aa=norm(a).split(/\\s+/).filter(x=>x.length>3);
-  const bb=norm(b).split(/\\s+/).filter(x=>x.length>3);
+  const aa=norm(a).split(/\s+/).filter(x=>x.length>3);
+  const bb=norm(b).split(/\s+/).filter(x=>x.length>3);
   return aa.some(x=>bb.includes(x));
 }
 function compatible(looking,gender){
@@ -15,7 +15,7 @@ function compatible(looking,gender){
 function dealConflict(deal,prefs){
   const d=norm(deal);
   if(!d||!prefs)return false;
-  return d.split(/\\s+/).filter(x=>x.length>4).some(x=>norm(prefs).includes(x));
+  return d.split(/\s+/).filter(x=>x.length>4).some(x=>norm(prefs).includes(x));
 }
 
 app.http("matches",{
@@ -23,7 +23,7 @@ app.http("matches",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await query(`
-        SELECT u.id,p.*,pp.min_age,pp.max_age,pp.countries,pp.cities,
+        SELECT u.id,p.*,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
@@ -48,7 +48,7 @@ app.http("matches",{
         const ageOk=Number(c.age||0)>=myMin&&Number(c.age||0)<=myMax;
         const reciprocalAge=Number(m.age||0)>=theirMin&&Number(m.age||0)<=theirMax;
         if(!ageOk||!reciprocalAge)continue;
-        if(!compatible(m.looking_for||"",c.gender)||!compatible(c.looking_for||"",m.gender))continue;
+        if(!compatible(m.preferred_gender||"",c.gender)||!compatible(c.preferred_gender||"",m.gender))continue;
 
         let score=40;
         const reasons=["reciprocal age and gender preferences"];
