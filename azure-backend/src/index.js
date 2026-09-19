@@ -14,3 +14,6 @@ app.http("health", {
     }
   })
 });
+
+// Additive PostgreSQL readiness endpoint. Existing health endpoint remains unchanged.
+require("./databaseHealth");
