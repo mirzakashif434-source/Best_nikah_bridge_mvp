@@ -24,3 +24,4 @@ require("./authHealth");
 require("./profile");
 require("./matches");
 require("./interests");
+require("./chat");
