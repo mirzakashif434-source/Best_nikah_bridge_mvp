@@ -38,5 +38,6 @@ The existing project remains the source of truth until an explicit, tested cutov
 - Step 6 — Real PostgreSQL Family/Wali API (create/list/verify/revoke): LOCKED after successful Azure deployment run #43 (commit 894f5b02380a2abdaaafce84875daafe7d9dc5d0).
 - Step 7.1 — Real Azure identity-verification document upload/status API using private Blob Storage + PostgreSQL: LOCKED after successful Azure deployment run #47 (commit 163f3b45c18ed6e24c802fe8c3ca41a0be3ca7ec).
 - Step 8 — Real authenticated profile-photo upload/list/visibility/delete API using private Azure Blob Storage + PostgreSQL: LOCKED after successful Azure deployment run #50 (commit 9e3de5e529b2386e722cdf6ca42ad712bf3dc1a1).
+- Step 9.2 — Real authenticated match-detail API with reciprocal compatibility checks, compatibility score, and Why We Matched reasons: LOCKED after successful Azure deployment run #53 (commit 658d91d1a4f06ad6defb552af23ae70ae2a059f0).
 
 Locked steps are not to be rebuilt or replaced; future work must be additive and build on them.
