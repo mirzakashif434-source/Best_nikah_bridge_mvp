@@ -24,7 +24,7 @@ app.http("matches",{
     try{
       const me=await query(`
         SELECT u.id,p.*,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
-               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences
+               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
@@ -38,6 +38,7 @@ app.http("matches",{
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
+        LEFT JOIN privacy_settings ps ON ps.user_id=u.id
         WHERE u.status='active' AND p.profile_completed=true AND p.is_visible=true
           AND COALESCE(ps.profile_discoverable,true)=true
           AND u.id<>$1
@@ -66,7 +67,7 @@ app.http("matches",{
         score=Math.min(100,score);
         matches.push({
           userId:c.firebase_uid||null,displayName:c.display_name,age:c.age,gender:c.gender,
-          country:c.country,city:c.city,marriageIntention:c.marriage_intention,
+          country:c.country,city:COALESCE(c.show_city,true)?c.city:null,marriageIntention:c.marriage_intention,
           marriageTimeline:c.preferred_marriage_timeline,readinessScore:c.readiness_score,
           compatibilityScore:score,whyWeMatched:reasons
         });
