@@ -125,6 +125,22 @@ jobs:
             az cognitiveservices account deployment create --name "$AI_ACCOUNT" --resource-group "$RESOURCE_GROUP" --deployment-name "$DEPLOYMENT_NAME" --model-name "$MODEL_NAME" --model-version "$MODEL_VERSION" --model-format "$MODEL_FORMAT" --sku-name "$MODEL_SKU" --sku-capacity 1 --only-show-errors
           fi
 
+      - name: Provision and configure real Azure AI Content Safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          LOCATION="eastus"
+          SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+          SAFETY_ACCOUNT="bestnikahbredgesafety${SUBSCRIPTION_ID:0:8}"
+          if ! az cognitiveservices account show --name "$SAFETY_ACCOUNT" --resource-group "$RESOURCE_GROUP" --only-show-errors >/dev/null 2>&1; then
+            az cognitiveservices account create --name "$SAFETY_ACCOUNT" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" --kind ContentSafety --sku S0 --yes --only-show-errors
+          fi
+          SAFETY_ENDPOINT="$(az cognitiveservices account show --name "$SAFETY_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query properties.endpoint -o tsv)"
+          PRINCIPAL_ID="$(az functionapp identity show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query principalId -o tsv)"
+          SAFETY_ID="$(az cognitiveservices account show --name "$SAFETY_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query id -o tsv)"
+          az role assignment create --assignee-object-id "$PRINCIPAL_ID" --assignee-principal-type ServicePrincipal --role "Cognitive Services User" --scope "$SAFETY_ID" --only-show-errors || true
+          az functionapp config appsettings set --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --settings AZURE_CONTENT_SAFETY_ENDPOINT="$SAFETY_ENDPOINT" --only-show-errors
       - name: Configure Azure AI for the real Nikah Assistant
         shell: bash
         run: |
