@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS partner_preferences (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   min_age SMALLINT,
   max_age SMALLINT,
+  preferred_gender TEXT CHECK (preferred_gender IN ('male','female','any')),
   countries TEXT[] NOT NULL DEFAULT '{}',
   cities TEXT[] NOT NULL DEFAULT '{}',
   preferred_marriage_timeline TEXT,
@@ -118,6 +119,9 @@ CREATE TABLE IF NOT EXISTS safety_reports (
 );
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS firebase_uid TEXT UNIQUE;
+ALTER TABLE partner_preferences ADD COLUMN IF NOT EXISTS preferred_gender TEXT;
+ALTER TABLE partner_preferences DROP CONSTRAINT IF EXISTS partner_preferences_preferred_gender_check;
+ALTER TABLE partner_preferences ADD CONSTRAINT partner_preferences_preferred_gender_check CHECK (preferred_gender IN ('male','female','any'));
 
 CREATE INDEX IF NOT EXISTS idx_profiles_visible_gender ON profiles (is_visible, gender);
 CREATE INDEX IF NOT EXISTS idx_interests_receiver_status ON interests (receiver_user_id, status);
