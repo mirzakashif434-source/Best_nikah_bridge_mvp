@@ -23,6 +23,7 @@ require("./storageHealth");
 require("./authHealth");
 require("./profile");
 require("./matches");
+require("./matchDetail");
 require("./interests");
 require("./chat");
 require("./family");
