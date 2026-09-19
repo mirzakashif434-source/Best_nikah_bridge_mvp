@@ -155,3 +155,9 @@ ALTER TABLE photos ADD COLUMN IF NOT EXISTS moderation_provider TEXT;
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS moderation_result JSONB;
 ALTER TABLE photos ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_photos_moderation_status ON photos (moderation_status, created_at);
+
+
+-- Step 18 / Firebase migration #1: additive Azure External ID identity mapping.
+-- Existing Firebase identities remain intact until a tested production cutover.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_subject TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject ON users (azure_subject) WHERE azure_subject IS NOT NULL;
