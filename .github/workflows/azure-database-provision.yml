@@ -163,11 +163,11 @@ jobs:
           PGPASSWORD: ${{ env.DB_PASSWORD }}
         run: |
           set -euo pipefail
-          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"             -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports','blocked_users');")"
-          if [ "$COUNT" = "11" ]; then
-            echo "DATABASE VERIFICATION: PASS (11 core tables)"
+          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"             -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports','blocked_users','privacy_settings');")"
+          if [ "$COUNT" = "12" ]; then
+            echo "DATABASE VERIFICATION: PASS (12 core tables)"
           else
-            echo "DATABASE VERIFICATION: FAIL (found $COUNT/11 core tables)"
+            echo "DATABASE VERIFICATION: FAIL (found $COUNT/12 core tables)"
             exit 1
           fi
 
@@ -176,5 +176,5 @@ jobs:
         shell: bash
         run: |
           if [ -n "${RUNNER_IP:-}" ]; then
-            az postgres flexible-server firewall-rule delete               --resource-group "$RESOURCE_GROUP"               --name "$DB_SERVER"               --rule-name github-runner-init               --yes               --only-show-errors ||az postgres flexible-server firewall-rule delete --resource-group "$RESOURCE_GROUP" --server-name "$DB_SERVER" --name github-runner-init --yes --only-show-errors || true
+            az postgres flexible-server firewall-rule delete --resource-group "$RESOURCE_GROUP" --server-name "$DB_SERVER" --name github-runner-init --yes --only-show-errors || true
           fi
