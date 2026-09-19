@@ -1,0 +1,93 @@
+const { app } = require("@azure/functions");
+const { getPool, query } = require("./db");
+const { requireAuth } = require("./auth");
+
+const text = (v, max) => typeof v === "string" ? v.trim().slice(0, max) : "";
+
+async function ensureUser(user) {
+  const email = text(user.email, 320).toLowerCase();
+  if (!email) throw new Error("AUTH_EMAIL_REQUIRED");
+  const r = await query(
+    `INSERT INTO users (firebase_uid, email, email_verified_at)
+     VALUES ($1,$2,CASE WHEN $3 THEN now() ELSE NULL END)
+     ON CONFLICT (firebase_uid) DO UPDATE SET
+       email=EXCLUDED.email,
+       email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),
+       updated_at=now()
+     RETURNING id,email,status`,
+    [user.uid,email,Boolean(user.email_verified)]
+  );
+  return r.rows[0];
+}
+
+app.http("profileGet", {
+  methods:["GET"], authLevel:"anonymous", route:"profile",
+  handler: requireAuth(async (request, context, user) => {
+    try {
+      const u=await ensureUser(user);
+      if(u.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      const r=await query(
+        `SELECT u.id,u.email,u.status,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.bio,
+                p.marriage_intention,p.readiness_score,p.profile_completed,p.is_visible,
+                pp.min_age,pp.max_age,pp.countries,pp.cities,pp.preferred_marriage_timeline,
+                pp.deal_breakers,pp.preferences
+         FROM users u LEFT JOIN profiles p ON p.user_id=u.id
+         LEFT JOIN partner_preferences pp ON pp.user_id=u.id WHERE u.id=$1`,[u.id]);
+      return {status:200,jsonBody:{ok:true,profile:r.rows[0]||null}};
+    } catch(e) {
+      context.error("PROFILE_READ_FAILED",e);
+      return {status:500,jsonBody:{ok:false,error:"PROFILE_READ_FAILED"}};
+    }
+  })
+});
+
+app.http("profilePut", {
+  methods:["PUT"], authLevel:"anonymous", route:"profile",
+  handler: requireAuth(async (request, context, user) => {
+    const pool=getPool(); const client=await pool.connect();
+    try {
+      const u=await ensureUser(user);
+      if(u.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      const b=await request.json();
+      const displayName=text(b.displayName,120);
+      const dob=text(b.dateOfBirth,10);
+      const gender=text(b.gender,20).toLowerCase();
+      if(displayName.length<2) return {status:400,jsonBody:{ok:false,error:"DISPLAY_NAME_REQUIRED"}};
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return {status:400,jsonBody:{ok:false,error:"DATE_OF_BIRTH_REQUIRED"}};
+      const age=Math.floor((Date.now()-new Date(dob+"T00:00:00Z").getTime())/31557600000);
+      if(age<18||age>100||Number.isNaN(age)) return {status:400,jsonBody:{ok:false,error:"AGE_MUST_BE_18_TO_100"}};
+      if(!["male","female"].includes(gender)) return {status:400,jsonBody:{ok:false,error:"GENDER_INVALID"}};
+      const min=b.minAge==null?null:Number(b.minAge), max=b.maxAge==null?null:Number(b.maxAge);
+      if((min!=null&&(!Number.isInteger(min)||min<18||min>100))||(max!=null&&(!Number.isInteger(max)||max<18||max>100))||(min!=null&&max!=null&&min>max))
+        return {status:400,jsonBody:{ok:false,error:"PARTNER_AGE_RANGE_INVALID"}};
+      const countries=Array.isArray(b.countries)?b.countries.map(x=>text(x,120)).filter(Boolean).slice(0,50):[];
+      const cities=Array.isArray(b.cities)?b.cities.map(x=>text(x,120)).filter(Boolean).slice(0,50):[];
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO profiles(user_id,display_name,date_of_birth,gender,country,city,bio,marriage_intention,readiness_score,profile_completed,is_visible)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT(user_id) DO UPDATE SET display_name=EXCLUDED.display_name,date_of_birth=EXCLUDED.date_of_birth,
+         gender=EXCLUDED.gender,country=EXCLUDED.country,city=EXCLUDED.city,bio=EXCLUDED.bio,
+         marriage_intention=EXCLUDED.marriage_intention,readiness_score=EXCLUDED.readiness_score,
+         profile_completed=EXCLUDED.profile_completed,is_visible=EXCLUDED.is_visible,updated_at=now()`,
+        [u.id,displayName,dob,gender,text(b.country,120)||null,text(b.city,120)||null,text(b.bio,5000)||null,
+         text(b.marriageIntention,120)||null,b.readinessScore==null?null:Math.max(0,Math.min(100,Number(b.readinessScore))),
+         Boolean(b.profileCompleted),Boolean(b.isVisible??true)]);
+      await client.query(
+        `INSERT INTO partner_preferences(user_id,min_age,max_age,countries,cities,preferred_marriage_timeline,deal_breakers,preferences)
+         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb)
+         ON CONFLICT(user_id) DO UPDATE SET min_age=EXCLUDED.min_age,max_age=EXCLUDED.max_age,
+         countries=EXCLUDED.countries,cities=EXCLUDED.cities,preferred_marriage_timeline=EXCLUDED.preferred_marriage_timeline,
+         deal_breakers=EXCLUDED.deal_breakers,preferences=EXCLUDED.preferences,updated_at=now()`,
+        [u.id,min,max,countries,cities,text(b.preferredMarriageTimeline,120)||null,
+         JSON.stringify(b.dealBreakers&&typeof b.dealBreakers==="object"?b.dealBreakers:{}),
+         JSON.stringify(b.preferences&&typeof b.preferences==="object"?b.preferences:{})]);
+      await client.query("COMMIT");
+      return {status:200,jsonBody:{ok:true,profileSaved:true}};
+    } catch(e) {
+      await client.query("ROLLBACK").catch(()=>{});
+      context.error("PROFILE_WRITE_FAILED",e);
+      return {status:500,jsonBody:{ok:false,error:"PROFILE_WRITE_FAILED"}};
+    } finally { client.release(); }
+  })
+});
