@@ -147,11 +147,11 @@ jobs:
           PGPASSWORD: ${{ env.DB_PASSWORD }}
         run: |
           set -euo pipefail
-          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"             -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports');")"
-          if [ "$COUNT" = "10" ]; then
-            echo "DATABASE VERIFICATION: PASS (10 core tables)"
+          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"             -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports','blocked_users');")"
+          if [ "$COUNT" = "11" ]; then
+            echo "DATABASE VERIFICATION: PASS (11 core tables)"
           else
-            echo "DATABASE VERIFICATION: FAIL (found $COUNT/10 core tables)"
+            echo "DATABASE VERIFICATION: FAIL (found $COUNT/11 core tables)"
             exit 1
           fi
 
