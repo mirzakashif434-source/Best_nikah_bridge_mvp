@@ -107,7 +107,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          az postgres flexible-server firewall-rule create             --resource-group "$RESOURCE_GROUP"             --name "$DB_SERVER"             --rule-name github-runner-init             --start-ip-address "$RUNNER_IP"             --end-ip-address "$RUNNER_IP"             --only-show-errors
+          az postgres flexible-server firewall-rule create             --resource-group "$RESOURCE_GROUP"             --server-name "$DB_SERVER"             --name github-runner-init             --start-ip-address "$RUNNER_IP"             --end-ip-address "$RUNNER_IP"             --only-show-errors
 
       - name: Create application database
         shell: bash
