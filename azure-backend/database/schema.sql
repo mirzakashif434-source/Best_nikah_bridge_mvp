@@ -190,3 +190,36 @@ CREATE TABLE IF NOT EXISTS daily_reward_claims (
 
 CREATE INDEX IF NOT EXISTS idx_rewarded_ad_transactions_user
   ON rewarded_ad_transactions (user_id, verified_at DESC);
+
+
+-- Step 2: production Premium plan catalog.
+-- Product IDs/base-plan IDs are configured from GitHub/Azure secrets and must match Play Console.
+CREATE TABLE IF NOT EXISTS premium_plans (
+  plan_key TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  billing_period TEXT NOT NULL CHECK (billing_period IN ('monthly','yearly')),
+  features JSONB NOT NULL DEFAULT '{}'::jsonb,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  sort_order SMALLINT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO premium_plans (plan_key, display_name, billing_period, features, active, sort_order)
+VALUES
+  ('premium_monthly', 'Premium Monthly', 'monthly',
+   '{"advanced_matching":true,"why_we_matched":true,"enhanced_privacy":true,"priority_support":true}'::jsonb,
+   TRUE, 10),
+  ('premium_yearly', 'Premium Yearly', 'yearly',
+   '{"advanced_matching":true,"why_we_matched":true,"enhanced_privacy":true,"priority_support":true}'::jsonb,
+   TRUE, 20)
+ON CONFLICT (plan_key) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  billing_period = EXCLUDED.billing_period,
+  features = EXCLUDED.features,
+  active = EXCLUDED.active,
+  sort_order = EXCLUDED.sort_order,
+  updated_at = now();
+
+CREATE INDEX IF NOT EXISTS idx_premium_plans_active_sort
+  ON premium_plans (active, sort_order);
