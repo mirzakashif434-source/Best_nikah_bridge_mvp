@@ -19,6 +19,11 @@ import com.google.android.ump.UserMessagingPlatform;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.functions.FirebaseFunctions;
 import java.util.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import org.json.JSONObject;
 
 /** Real rewarded-ad entry point. Credits are granted only by verified AdMob SSV callback. */
 public class RewardedMessageActivity extends Activity {
@@ -29,6 +34,7 @@ public class RewardedMessageActivity extends Activity {
     private Button watch;
     private TextView status;
     private String productionUnit;
+    private static final String AZURE_REWARDED_CONFIG_URL = "https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net/api/admob/rewarded/config";
     private ConsentInformation consentInformation;
 
     @Override protected void onCreate(Bundle state) {
@@ -54,15 +60,50 @@ public class RewardedMessageActivity extends Activity {
     }
 
     private void loadConfig() {
-        functions.getHttpsCallable("getRewardedAdConfig").call(new HashMap<>()).addOnSuccessListener(result -> {
-            Map<?,?> data = (Map<?,?>) result.getData();
-            if (!Boolean.TRUE.equals(data.get("configured"))) { status.setText("Rewarded ads are not configured for production yet."); return; }
-            productionUnit = String.valueOf(data.get("rewardedAdUnitId"));
-            if (!productionUnit.matches("ca-app-pub-\\d{16}/\\d+")) { status.setText("Production rewarded-ad configuration is invalid."); return; }
-            requestConsentThenLoad();
-        }).addOnFailureListener(e -> status.setText("Could not load secure rewarded-ad configuration."));
+        if (auth.getCurrentUser() == null) {
+            status.setText("Please sign in first.");
+            return;
+        }
+        auth.getCurrentUser().getIdToken(false).addOnSuccessListener(tokenResult -> {
+            String bearer = tokenResult.getToken();
+            if (bearer == null || bearer.trim().isEmpty()) {
+                status.setText("Secure authentication token unavailable.");
+                return;
+            }
+            new Thread(() -> {
+                HttpURLConnection connection = null;
+                try {
+                    URL url = new URL(AZURE_REWARDED_CONFIG_URL);
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.setRequestMethod("GET");
+                    connection.setConnectTimeout(10000);
+                    connection.setReadTimeout(10000);
+                    connection.setRequestProperty("Authorization", "Bearer " + bearer);
+                    connection.setRequestProperty("Accept", "application/json");
+                    int code = connection.getResponseCode();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(
+                            code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream()));
+                    StringBuilder body = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) body.append(line);
+                    reader.close();
+                    if (code < 200 || code >= 300) throw new IllegalStateException("Azure config HTTP " + code);
+                    JSONObject data = new JSONObject(body.toString());
+                    if (!data.optBoolean("configured", false)) throw new IllegalStateException("Rewarded ads are not configured.");
+                    String unit = data.optString("rewardedAdUnitId", "");
+                    if (!unit.matches("ca-app-pub-\\\\d{16}/\\\\d+")) throw new IllegalStateException("Invalid production ad unit.");
+                    runOnUiThread(() -> {
+                        productionUnit = unit;
+                        requestConsentThenLoad();
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> status.setText("Could not load secure Azure rewarded-ad configuration."));
+                } finally {
+                    if (connection != null) connection.disconnect();
+                }
+            }).start();
+        }).addOnFailureListener(e -> status.setText("Secure authentication token unavailable."));
     }
-
     private void requestConsentThenLoad() {
         consentInformation = UserMessagingPlatform.getConsentInformation(this);
         ConsentRequestParameters params = new ConsentRequestParameters.Builder().build();
