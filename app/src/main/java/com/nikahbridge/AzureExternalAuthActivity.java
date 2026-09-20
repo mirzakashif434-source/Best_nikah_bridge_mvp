@@ -141,7 +141,7 @@ public class AzureExternalAuthActivity extends Activity {
                     status.setText(message);
                     if (code == 200) {
                         Toast.makeText(this, "Real Azure login verified.", Toast.LENGTH_LONG).show();
-                        startActivity(new Intent(this, MainActivity.class));
+                        startActivity(new Intent(this, AzureHomeActivity.class));
                         finish();
                     }
                 });
