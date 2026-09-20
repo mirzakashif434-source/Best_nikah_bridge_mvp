@@ -180,6 +180,20 @@ jobs:
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: azure-backend
+      - name: Verify live Azure External ID configuration
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
+          URL="https://${HOSTNAME}/api/auth/azure/health"
+          echo "Checking $URL"
+          HTTP_CODE="$(curl -sS -o /tmp/azure-auth.json -w "%{http_code}" "$URL" || true)"
+          cat /tmp/azure-auth.json || true
+          if [ "$HTTP_CODE" != "200" ] || ! grep -q '"configured":true' /tmp/azure-auth.json; then
+            echo "LIVE AZURE EXTERNAL ID CONFIGURATION CHECK: FAIL"
+            exit 1
+          fi
+          echo "LIVE AZURE EXTERNAL ID CONFIGURATION CHECK: PASS"
       - name: Verify live health endpoint
         run: |
           set -euo pipefail
