@@ -98,7 +98,7 @@ public class AzureHomeActivity extends Activity {
                 b.put("city",city.getText().toString().trim());
                 b.put("bio",bio.getText().toString().trim());
                 b.put("profileCompleted",true); b.put("isVisible",true);
-                AzureApiClient.patch("/profile",b.toString(),new AzureApiClient.Callback(){
+                AzureApiClient.put("/profile",b.toString(),new AzureApiClient.Callback(){
                     public void ok(int code,String body){runOnUiThread(()->toast("Real Azure profile saved."));}
                     public void err(String m){runOnUiThread(()->toast("Profile save failed: "+m));}
                 });
