@@ -49,6 +49,11 @@ async function ensureAzureUser(claims) {
     [email]
   );
   if(byEmail.rows[0]){
+    if (!Boolean(claims.email_verified)) {
+      const e=new Error("AZURE_EMAIL_VERIFICATION_REQUIRED");
+      e.statusCode=403;
+      throw e;
+    }
     const linked=await query(
       `UPDATE users SET azure_subject=$1,
         firebase_uid=COALESCE(firebase_uid,$4),
