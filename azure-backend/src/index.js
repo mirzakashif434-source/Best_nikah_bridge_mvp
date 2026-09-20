@@ -48,4 +48,7 @@ require("./premiumPlans");
 
 // Step 2: real Google Play subscription verification and paid entitlements.
 require("./premiumPurchaseVerification");
-\n\n// Firebase migration #3: additive Azure wallet ledger/API.\nrequire("./wallet");\n
+
+
+// Firebase migration #3: additive Azure wallet ledger/API.
+require("./wallet");
