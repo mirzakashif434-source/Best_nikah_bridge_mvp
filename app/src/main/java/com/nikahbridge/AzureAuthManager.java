@@ -29,14 +29,28 @@ final class AzureAuthManager {
     }
 
     private static IMultipleAccountPublicClientApplication app;
+    private static Context appContext;
     private static boolean initializing;
     private static final java.util.ArrayList<Runnable> pending = new java.util.ArrayList<>();
 
     private AzureAuthManager() {}
 
     static void acquireToken(Context context, Callback callback) {
-        initialize(context.getApplicationContext(), () -> acquireTokenSilent(callback),
+        appContext = context.getApplicationContext();
+        initialize(appContext, () -> acquireTokenSilent(callback),
                 message -> callback.err(message));
+    }
+
+    static void acquireToken(Callback callback) {
+        Context context;
+        synchronized (AzureAuthManager.class) {
+            context = appContext;
+        }
+        if (context == null) {
+            callback.err("AZURE_AUTH_NOT_INITIALIZED");
+            return;
+        }
+        acquireToken(context, callback);
     }
 
     static void initialize(Context context, Runnable ready, java.util.function.Consumer<String> error) {
