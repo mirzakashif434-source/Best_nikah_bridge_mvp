@@ -89,6 +89,19 @@ final class AzureAuthManager {
                 });
     }
 
+    static void removeCurrentAccount(Context context, java.util.function.Consumer<Boolean> callback) {
+        initialize(context.getApplicationContext(), () -> {
+            try {
+                List<IAccount> accounts = app.getAccounts();
+                if (accounts == null || accounts.isEmpty()) { callback.accept(true); return; }
+                app.removeAccount(accounts.get(0));
+                callback.accept(true);
+            } catch (Exception e) {
+                callback.accept(false);
+            }
+        }, message -> callback.accept(false));
+    }
+
     static boolean hasAccount(Context context) {
         try {
             if (app == null) return false;
