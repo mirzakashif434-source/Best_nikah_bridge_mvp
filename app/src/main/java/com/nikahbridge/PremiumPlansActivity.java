@@ -65,9 +65,9 @@ public class PremiumPlansActivity extends Activity {
         Button p60 = button("60 SAR Premium — Buy");
         Button refresh = button("Refresh Premium Status");
         Button back = button("Back");
-        p20.setOnClickListener(v -> buy("bnb_plus_20"));
-        p40.setOnClickListener(v -> buy("bnb_plus_40"));
-        p60.setOnClickListener(v -> buy("bnb_plus_60"));
+        p20.setOnClickListener(v -> buy("premium_basic_20"));
+        p40.setOnClickListener(v -> buy("premium_plus_40"));
+        p60.setOnClickListener(v -> buy("premium_vip_60"));
         refresh.setOnClickListener(v -> loadEntitlement());
         back.setOnClickListener(v -> finish());
 
@@ -98,10 +98,10 @@ public class PremiumPlansActivity extends Activity {
 
     private void queryProducts() {
         List<QueryProductDetailsParams.Product> list = new ArrayList<>();
-        for (String id : new String[]{"bnb_plus_20","bnb_plus_40","bnb_plus_60"}) {
+        for (String id : new String[]{"premium_basic_20","premium_plus_40","premium_vip_60"}) {
             list.add(QueryProductDetailsParams.Product.newBuilder()
                     .setProductId(id)
-                    .setProductType(BillingClient.ProductType.INAPP)
+                    .setProductType(BillingClient.ProductType.SUBS)
                     .build());
         }
         QueryProductDetailsParams params = QueryProductDetailsParams.newBuilder()
@@ -130,10 +130,10 @@ public class PremiumPlansActivity extends Activity {
                     .setPositiveButton("OK", null).show();
             return;
         }
-        List<ProductDetails.OneTimePurchaseOfferDetails> offers = details.getOneTimePurchaseOfferDetailsList();
+        List<ProductDetails.SubscriptionOfferDetails> offers = details.getSubscriptionOfferDetails();
         if (offers == null || offers.isEmpty()) {
             new AlertDialog.Builder(this).setTitle("Plan unavailable")
-                    .setMessage("Google Play did not return a valid one-time purchase offer for this product.")
+                    .setMessage("Google Play did not return a valid subscription offer for this product.")
                     .setPositiveButton("OK", null).show();
             return;
         }
