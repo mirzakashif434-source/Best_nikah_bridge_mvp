@@ -20,7 +20,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="msauth" android:host="com.nikahbridge" android:path="/QQLyMPjboCSVjUdgoTGW6UEg="/>
+                <data android:scheme="msauth" android:host="com.nikahbridge" android:path="/QQLyMPjboduCSVjUdgoTGW6UEg="/>
             </intent-filter>
         </activity>
     </application>
