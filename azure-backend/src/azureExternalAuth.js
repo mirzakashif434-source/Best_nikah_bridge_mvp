@@ -8,7 +8,12 @@ function required(name) {
   return v;
 }
 function externalIdConfig() {
-  return { issuer: required("AZURE_EXTERNAL_ID_ISSUER"), audience: required("AZURE_EXTERNAL_ID_AUDIENCE"), jwksUri: required("AZURE_EXTERNAL_ID_JWKS_URI") };
+  const tenantId = "c4ac0560-df59-48d4-af1b-bb0ed127ce6d";
+  const tenantSubdomain = "bestnikahbridge";
+  const audience = process.env.AZURE_EXTERNAL_ID_AUDIENCE || "4733aae0-3b89-4994-b99b-3890bf87e876";
+  const issuer = process.env.AZURE_EXTERNAL_ID_ISSUER || `https://${tenantSubdomain}.ciamlogin.com/${tenantId}/v2.0/`;
+  const jwksUri = process.env.AZURE_EXTERNAL_ID_JWKS_URI || `https://${tenantSubdomain}.ciamlogin.com/${tenantId}/discovery/v2.0/keys`;
+  return { tenantId, tenantSubdomain, issuer, audience, jwksUri };
 }
 async function verifyAzureExternalIdToken(request) {
   const authorization = request.headers.get("authorization") || "";
@@ -21,7 +26,11 @@ async function verifyAzureExternalIdToken(request) {
     const {payload}=await jwtVerify(token,jwks,{issuer:cfg.issuer,audience:cfg.audience});
     if (!payload.sub) throw new Error("Token subject missing");
     return payload;
-  } catch { const e=new Error("Invalid Azure External ID authentication token"); e.statusCode=401; throw e; }
+  } catch {
+    const e=new Error("Invalid Azure External ID authentication token");
+    e.statusCode=401;
+    throw e;
+  }
 }
 async function ensureAzureUser(claims) {
   const subject=String(claims.sub);
