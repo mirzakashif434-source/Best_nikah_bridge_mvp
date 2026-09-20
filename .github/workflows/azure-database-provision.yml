@@ -163,11 +163,11 @@ jobs:
           PGPASSWORD: ${{ env.DB_PASSWORD }}
         run: |
           set -euo pipefail
-          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"             -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports','blocked_users','privacy_settings','entitlements','rewarded_ad_transactions','daily_reward_claims','premium_plans');")"
-          if [ "$COUNT" = "16" ]; then
-            echo "DATABASE VERIFICATION: PASS (16 core tables)"
+          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"             -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports','blocked_users','privacy_settings','entitlements','rewarded_ad_transactions','daily_reward_claims','premium_plans','wallet_accounts','wallet_ledger','wallet_withdrawals');")"
+          if [ "$COUNT" = "19" ]; then
+            echo "DATABASE VERIFICATION: PASS (19 core tables)"
           else
-            echo "DATABASE VERIFICATION: FAIL (found $COUNT/16 core tables)"
+            echo "DATABASE VERIFICATION: FAIL (found $COUNT/19 core tables)"
             exit 1
           fi
 
