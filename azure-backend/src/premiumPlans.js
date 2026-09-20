@@ -4,18 +4,25 @@ const { requireAuth } = require("./auth");
 
 const PLAN_CONFIG = [
   {
-    planKey: "premium_monthly",
-    productIdEnv: "PLAY_PREMIUM_MONTHLY_PRODUCT_ID",
-    basePlanIdEnv: "PLAY_PREMIUM_MONTHLY_BASE_PLAN_ID",
+    planKey: "premium_basic_20",
+    productIdEnv: "PLAY_PREMIUM_BASIC_PRODUCT_ID",
+    basePlanIdEnv: "PLAY_PREMIUM_BASIC_BASE_PLAN_ID",
     billingPeriod: "monthly",
-    title: "Premium Monthly"
+    title: "Premium 20"
   },
   {
-    planKey: "premium_yearly",
-    productIdEnv: "PLAY_PREMIUM_YEARLY_PRODUCT_ID",
-    basePlanIdEnv: "PLAY_PREMIUM_YEARLY_BASE_PLAN_ID",
-    billingPeriod: "yearly",
-    title: "Premium Yearly"
+    planKey: "premium_plus_40",
+    productIdEnv: "PLAY_PREMIUM_PLUS_PRODUCT_ID",
+    basePlanIdEnv: "PLAY_PREMIUM_PLUS_BASE_PLAN_ID",
+    billingPeriod: "monthly",
+    title: "Premium 40"
+  },
+  {
+    planKey: "premium_vip_60",
+    productIdEnv: "PLAY_PREMIUM_VIP_PRODUCT_ID",
+    basePlanIdEnv: "PLAY_PREMIUM_VIP_BASE_PLAN_ID",
+    billingPeriod: "monthly",
+    title: "Premium 60"
   }
 ];
 
