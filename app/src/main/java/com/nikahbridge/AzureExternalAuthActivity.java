@@ -101,6 +101,7 @@ public class AzureExternalAuthActivity extends Activity {
                 .withCallback(new AuthenticationCallback() {
                     @Override public void onSuccess(IAuthenticationResult result) {
                         currentAccount = result.getAccount();
+                        AzureAuthManager.markSignedIn(this);
                         String accessToken = result.getAccessToken();
                         status.setText("Azure token received. Verifying it with the real Azure backend…");
                         verifyWithAzure(accessToken);
