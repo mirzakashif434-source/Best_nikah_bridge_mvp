@@ -101,7 +101,6 @@ public class AzureExternalAuthActivity extends Activity {
                 .withCallback(new AuthenticationCallback() {
                     @Override public void onSuccess(IAuthenticationResult result) {
                         currentAccount = result.getAccount();
-                        AzureAuthManager.markSignedIn(this);
                         String accessToken = result.getAccessToken();
                         status.setText("Azure token received. Verifying it with the real Azure backend…");
                         verifyWithAzure(accessToken);
@@ -141,6 +140,7 @@ public class AzureExternalAuthActivity extends Activity {
                 runOnUiThread(() -> {
                     status.setText(message);
                     if (code == 200) {
+                        AzureAuthManager.markSignedIn(this);
                         Toast.makeText(this, "Real Azure login verified.", Toast.LENGTH_LONG).show();
                         startActivity(new Intent(this, AzureHomeActivity.class));
                         finish();
