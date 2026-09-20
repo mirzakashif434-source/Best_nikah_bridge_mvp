@@ -33,27 +33,27 @@ async function verifyFirebaseIdToken(request) {
 }
 
 async function verifyAnyIdToken(request) {
+  let azureClaims = null;
   try {
-    const claims = await verifyAzureExternalIdToken(request);
-    const azureUser = await ensureAzureUser(claims);
+    azureClaims = await verifyAzureExternalIdToken(request);
+  } catch {
+    azureClaims = null;
+  }
+
+  if (azureClaims) {
+    const azureUser = await ensureAzureUser(azureClaims);
     return {
-      ...claims,
-      uid: azureUser.firebase_uid || `azure:${claims.sub}`,
+      ...azureClaims,
+      uid: azureUser.firebase_uid || `azure:${azureClaims.sub}`,
       email: azureUser.email,
-      email_verified: Boolean(claims.email_verified) || Boolean(azureUser.email_verified_at),
+      email_verified: Boolean(azureClaims.email_verified) || Boolean(azureUser.email_verified_at),
       auth_provider: "azure_external_id",
       azure_subject: azureUser.azure_subject
     };
-  } catch (azureError) {
-    try {
-      const firebaseUser = await verifyFirebaseIdToken(request);
-      return { ...firebaseUser, auth_provider: "firebase" };
-    } catch {
-      const e = new Error("Invalid or revoked authentication token");
-      e.statusCode = 401;
-      throw e;
-    }
   }
+
+  const firebaseUser = await verifyFirebaseIdToken(request);
+  return { ...firebaseUser, auth_provider: "firebase" };
 }
 
 function requireAuth(handler) {
