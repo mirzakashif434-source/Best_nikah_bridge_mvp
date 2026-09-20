@@ -1,4 +1,6 @@
 const admin = require("firebase-admin");
+const { verifyAzureExternalIdToken, ensureAzureUser } = require("./azureExternalAuth");
+
 let initialized = false;
 
 function getFirebaseAdmin() {
@@ -30,9 +32,33 @@ async function verifyFirebaseIdToken(request) {
   catch { const e = new Error("Invalid or revoked authentication token"); e.statusCode = 401; throw e; }
 }
 
+async function verifyAnyIdToken(request) {
+  try {
+    const claims = await verifyAzureExternalIdToken(request);
+    const azureUser = await ensureAzureUser(claims);
+    return {
+      ...claims,
+      uid: azureUser.firebase_uid || `azure:${claims.sub}`,
+      email: azureUser.email,
+      email_verified: Boolean(claims.email_verified) || Boolean(azureUser.email_verified_at),
+      auth_provider: "azure_external_id",
+      azure_subject: azureUser.azure_subject
+    };
+  } catch (azureError) {
+    try {
+      const firebaseUser = await verifyFirebaseIdToken(request);
+      return { ...firebaseUser, auth_provider: "firebase" };
+    } catch {
+      const e = new Error("Invalid or revoked authentication token");
+      e.statusCode = 401;
+      throw e;
+    }
+  }
+}
+
 function requireAuth(handler) {
   return async (request, context) => {
-    try { return await handler(request, context, await verifyFirebaseIdToken(request)); }
+    try { return await handler(request, context, await verifyAnyIdToken(request)); }
     catch (error) {
       const status = error.statusCode || 500;
       if (status >= 500) context.error("AUTHENTICATION_FAILED", error);
@@ -41,4 +67,4 @@ function requireAuth(handler) {
   };
 }
 
-module.exports = { getFirebaseAdmin, verifyFirebaseIdToken, requireAuth };
+module.exports = { getFirebaseAdmin, verifyFirebaseIdToken, verifyAnyIdToken, requireAuth };
