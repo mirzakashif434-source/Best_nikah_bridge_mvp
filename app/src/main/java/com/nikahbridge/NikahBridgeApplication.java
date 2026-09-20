@@ -21,7 +21,7 @@ import com.google.android.ump.UserMessagingPlatform;
 public class NikahBridgeApplication extends Application implements Application.ActivityLifecycleCallbacks {
     private static final int BACK_TAG=0x4E42424B, COMMUNITY_TAG=0x4E42434D, REWARD_TAG=0x4E425257, PREMIUM_TAG=0x4E425050, BLUEPRINT_TAG=0x4E424250, MEDIATOR_TAG=0x4E424D44, SUCCESS_NETWORK_TAG=0x4E42534E, FUTURE_SIM_TAG=0x4E424653;
     private ConsentInformation consentInformation; private boolean privacyConsentStarted;
-    @Override public void onCreate(){super.onCreate();registerActivityLifecycleCallbacks(this); MobileAds.initialize(this,status->{});}
+    @Override public void onCreate(){super.onCreate();registerActivityLifecycleCallbacks(this); MobileAds.initialize(this,status->{}); AzureAuthManager.initialize(this,()->{},message->android.util.Log.w("BestNikahBridge","Azure auth initialization: "+message));}
     private void initializePrivacyConsent(Activity a){if(privacyConsentStarted||a==null||a.isFinishing())return;privacyConsentStarted=true;consentInformation=UserMessagingPlatform.getConsentInformation(getApplicationContext());ConsentRequestParameters p=new ConsentRequestParameters.Builder().build();consentInformation.requestConsentInfoUpdate(a,p,()->UserMessagingPlatform.loadAndShowConsentFormIfRequired(a,e->{if(e!=null)android.util.Log.w("BestNikahBridge","UMP consent form: "+e.getMessage());}),e->android.util.Log.w("BestNikahBridge","UMP consent update: "+e.getMessage()));}
     public boolean canRequestAds(){return consentInformation!=null&&consentInformation.canRequestAds();}
     private int dp(Activity a,int v){return Math.round(v*a.getResources().getDisplayMetrics().density);}
