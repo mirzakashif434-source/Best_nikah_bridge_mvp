@@ -14,6 +14,7 @@ final class AzureApiClient {
 
   static void get(String path,Callback cb){request("GET",path,null,"application/json",cb);}
   static void post(String path,String json,Callback cb){request("POST",path,json,"application/json; charset=UTF-8",cb);}
+  static void put(String path,String json,Callback cb){request("PUT",path,json,"application/json; charset=UTF-8",cb);}
   static void patch(String path,String json,Callback cb){request("PATCH",path,json,"application/json; charset=UTF-8",cb);}
   static void delete(String path,String json,Callback cb){request("DELETE",path,json,"application/json; charset=UTF-8",cb);}
 
