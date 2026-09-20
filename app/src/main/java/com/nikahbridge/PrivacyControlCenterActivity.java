@@ -1,37 +1,13 @@
 package com.nikahbridge;
 
-import android.app.Activity;
-import android.content.Intent;
-import android.os.Bundle;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.widget.*;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FieldValue;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.SetOptions;
-import java.util.HashMap;
-import java.util.Map;
+import android.app.Activity;import android.os.Bundle;import android.graphics.Color;import android.graphics.Typeface;import android.graphics.drawable.GradientDrawable;import android.widget.*;import org.json.JSONObject;
 
-/** Production Privacy Control Center. Uses the authenticated user's real Firebase profile. */
-public class PrivacyControlCenterActivity extends Activity {
-    private FirebaseAuth auth; private FirebaseFirestore db; private LinearLayout root; private Switch discoverable; private TextView status;
-    private final int green=Color.rgb(18,103,82), dark=Color.rgb(30,45,41), gray=Color.rgb(85,100,95), red=Color.rgb(165,50,50), light=Color.rgb(247,250,249);
-    @Override public void onCreate(Bundle b){ super.onCreate(b); auth=FirebaseAuth.getInstance(); db=FirebaseFirestore.getInstance(); render(); loadRealSettings(); }
-    private TextView txt(String s,int size,boolean bold){ TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(bold?dark:gray); t.setPadding(6,8,6,10); if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD); return t; }
-    private Button btn(String s,boolean fill){ Button b=new Button(this); b.setText(s); b.setAllCaps(false); b.setTextSize(16); b.setTextColor(fill?Color.WHITE:green); GradientDrawable g=new GradientDrawable(); g.setColor(fill?green:Color.WHITE); g.setCornerRadius(18); if(!fill)g.setStroke(2,green); b.setBackground(g); root.addView(b,new LinearLayout.LayoutParams(-1,62)); return b; }
-    private void render(){
-        ScrollView sc=new ScrollView(this); root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(20,22,20,30); root.setBackgroundColor(light); sc.addView(root); setContentView(sc);
-        root.addView(txt("Privacy Control Center",27,true)); root.addView(txt("Control how your real Nikah profile is discoverable. These settings change your Firebase profile; nothing is simulated.",15,false));
-        discoverable=new Switch(this); discoverable.setText("Show my profile in new matches"); discoverable.setTextSize(17); discoverable.setTextColor(dark); discoverable.setPadding(6,12,6,12); root.addView(discoverable,new LinearLayout.LayoutParams(-1,70));
-        root.addView(txt("When disabled, your profile is removed from the discoverable match pool. Existing mutual connections are not automatically deleted by this setting.",14,false));
-        Button save=btn("Save Privacy Settings",true); save.setOnClickListener(v->saveRealSettings());
-        Button blocked=btn("Blocked Members",false); blocked.setOnClickListener(v->startActivity(new Intent(this,BlockedMembersActivity.class)));
-        Button delete=btn("Delete My Account & Data",false); delete.setTextColor(red); GradientDrawable danger=new GradientDrawable(); danger.setColor(Color.WHITE); danger.setCornerRadius(18); danger.setStroke(2,red); delete.setBackground(danger); delete.setOnClickListener(v->startActivity(new Intent(this,AccountDeletionActivity.class)));
-        Button refresh=btn("Refresh Real Settings",false); refresh.setOnClickListener(v->loadRealSettings());
-        Button back=btn("Back",false); back.setOnClickListener(v->finish()); status=txt("Status: waiting",15,false); root.addView(status);
-    }
-    private void loadRealSettings(){ if(auth.getCurrentUser()==null){status.setText("Status: sign in required");return;} status.setText("Status: loading real privacy settings…"); db.collection("users").document(auth.getCurrentUser().getUid()).get().addOnSuccessListener(d->{ if(!d.exists()){status.setText("Status: real profile not found");return;} discoverable.setChecked(Boolean.TRUE.equals(d.getBoolean("discoverable"))); status.setText("Status: real privacy settings loaded"); }).addOnFailureListener(e->status.setText("Status: could not load privacy settings")); }
-    private void saveRealSettings(){ if(auth.getCurrentUser()==null){status.setText("Status: sign in required");return;} boolean visible=discoverable.isChecked(); status.setText("Status: saving securely…"); Map<String,Object> update=new HashMap<>(); update.put("discoverable",visible); update.put("privacyUpdatedAt",FieldValue.serverTimestamp()); db.collection("users").document(auth.getCurrentUser().getUid()).set(update,SetOptions.merge()).addOnSuccessListener(v->status.setText("Status: privacy setting saved — profile visibility is now "+(visible?"ON":"OFF"))).addOnFailureListener(e->status.setText("Status: privacy setting was not changed")); }
+public class PrivacyControlCenterActivity extends Activity{
+ LinearLayout root;Switch discoverable,city;TextView status;final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95);
+ public void onCreate(Bundle b){super.onCreate(b);render();load();}
+ TextView txt(String s,int z,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(z);t.setTextColor(bold?dark:gray);t.setPadding(6,8,6,10);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
+ Button btn(String s,boolean fill){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextColor(fill?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(fill?green:Color.WHITE);g.setCornerRadius(18);if(!fill)g.setStroke(2,green);b.setBackground(g);root.addView(b,new LinearLayout.LayoutParams(-1,62));return b;}
+ void render(){ScrollView sc=new ScrollView(this);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(20,22,20,30);sc.addView(root);setContentView(sc);root.addView(txt("Privacy Control Center",27,true));root.addView(txt("Your real privacy settings are stored in Azure PostgreSQL.",15,false));discoverable=new Switch(this);discoverable.setText("Show my profile in matching");root.addView(discoverable);city=new Switch(this);city.setText("Show my city on my public profile");root.addView(city);Button save=btn("Save Privacy Controls",true);save.setOnClickListener(v->save());Button refresh=btn("Refresh",false);refresh.setOnClickListener(v->load());Button back=btn("Back",false);back.setOnClickListener(v->finish());status=txt("Status: loading…",15,false);root.addView(status);}
+ void load(){AzureApiClient.get("/privacy",new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->{try{JSONObject p=new JSONObject(s).getJSONObject("privacy");discoverable.setChecked(p.optBoolean("profile_discoverable",true));city.setChecked(p.optBoolean("show_city",true));status.setText("Status: Azure privacy loaded");}catch(Exception e){status.setText("Status: Azure response error");}});}public void err(String e){runOnUiThread(()->status.setText("Status: Azure privacy unavailable"));}});}
+ void save(){try{JSONObject b=new JSONObject().put("profileDiscoverable",discoverable.isChecked()).put("showCity",city.isChecked()).put("showPhotoToMatches",true);AzureApiClient.patch("/privacy",b.toString(),new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->status.setText("Status: saved in Azure"));}public void err(String e){runOnUiThread(()->status.setText("Status: Azure save failed"));}});}catch(Exception e){status.setText("Status: request error");}}
 }
