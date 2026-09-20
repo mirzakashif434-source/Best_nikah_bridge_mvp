@@ -256,3 +256,21 @@ CREATE TABLE IF NOT EXISTS premium_entitlements (
 
 CREATE INDEX IF NOT EXISTS idx_premium_entitlements_status_expiry
   ON premium_entitlements (status, expires_at);
+
+
+-- Real Play Console 20/40/60 monthly tiers.
+INSERT INTO premium_plans (plan_key, display_name, billing_period, features, active, sort_order)
+VALUES
+  ('premium_basic_20', 'Premium 20', 'monthly',
+   '{"advanced_matching":true,"why_we_matched":true}'::jsonb, TRUE, 10),
+  ('premium_plus_40', 'Premium 40', 'monthly',
+   '{"advanced_matching":true,"why_we_matched":true,"enhanced_privacy":true}'::jsonb, TRUE, 20),
+  ('premium_vip_60', 'Premium 60', 'monthly',
+   '{"advanced_matching":true,"why_we_matched":true,"enhanced_privacy":true,"priority_support":true}'::jsonb, TRUE, 30)
+ON CONFLICT (plan_key) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  billing_period = EXCLUDED.billing_period,
+  features = EXCLUDED.features,
+  active = EXCLUDED.active,
+  sort_order = EXCLUDED.sort_order,
+  updated_at = now();
