@@ -25,6 +25,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Require production AdMob rewarded ad unit
+        env:
+          ADMOB_REWARDED_AD_UNIT_ID: ${{ secrets.ADMOB_REWARDED_AD_UNIT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$ADMOB_REWARDED_AD_UNIT_ID" =~ ^ca-app-pub-[0-9]{16}/[0-9]+$ ]]; then
+            echo "ADMOB_REWARDED_AD_UNIT_ID GitHub secret is missing or invalid."
+            exit 1
+          fi
+          echo "ADMOB_REWARDED_AD_UNIT_ID: VALID"
+
       - name: Install Azure backend dependencies
         working-directory: azure-backend
         run: npm install --omit=dev
