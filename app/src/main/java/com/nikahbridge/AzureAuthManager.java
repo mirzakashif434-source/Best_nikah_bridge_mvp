@@ -93,7 +93,7 @@ final class AzureAuthManager {
         initialize(context.getApplicationContext(), () -> {
             try {
                 List<IAccount> accounts = app.getAccounts();
-                if (accounts == null || accounts.isEmpty()) { callback.accept(true); return; }
+                if (accounts == null || accounts.isEmpty()) { context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).edit().putBoolean("signed_in", false).apply(); callback.accept(true); return; }
                 app.removeAccount(accounts.get(0));
                 context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).edit().putBoolean("signed_in", false).apply();
                 callback.accept(true);
