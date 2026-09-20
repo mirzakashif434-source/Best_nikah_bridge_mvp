@@ -54,6 +54,7 @@ final class AzureAuthManager {
     }
 
     static void initialize(Context context, Runnable ready, java.util.function.Consumer<String> error) {
+        appContext = context.getApplicationContext();
         synchronized (AzureAuthManager.class) {
             if (app != null) {
                 ready.run();
