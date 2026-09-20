@@ -1,7 +1,5 @@
 package com.nikahbridge;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -22,34 +20,33 @@ final class AzureWalletApi {
     static void post(String path, String json, Callback callback) { request("POST", path, json, callback); }
 
     private static void request(String method, String path, String json, Callback callback) {
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) { callback.onError("SIGN_IN_REQUIRED"); return; }
-        user.getIdToken(false).addOnSuccessListener(result -> {
-            final String token = result.getToken();
-            if (token == null || token.isEmpty()) { callback.onError("AUTH_TOKEN_UNAVAILABLE"); return; }
-            EXECUTOR.execute(() -> {
-                HttpURLConnection c = null;
-                try {
-                    c = (HttpURLConnection)new URL(BASE_URL + path).openConnection();
-                    c.setRequestMethod(method);
-                    c.setConnectTimeout(15000);
-                    c.setReadTimeout(20000);
-                    c.setRequestProperty("Authorization", "Bearer " + token);
-                    c.setRequestProperty("Accept", "application/json");
-                    if (json != null) {
-                        c.setDoOutput(true);
-                        c.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
-                        try (OutputStream out = c.getOutputStream()) { out.write(json.getBytes(StandardCharsets.UTF_8)); }
-                    }
-                    int code = c.getResponseCode();
-                    InputStream stream = code >= 400 ? c.getErrorStream() : c.getInputStream();
-                    String body = read(stream);
-                    if (code >= 200 && code < 300) callback.onSuccess(body);
-                    else callback.onError("HTTP " + code + (body.isEmpty() ? "" : ": " + body));
-                } catch (Exception e) { callback.onError(e.getMessage() == null ? "NETWORK_ERROR" : e.getMessage()); }
-                finally { if (c != null) c.disconnect(); }
-            });
-        }).addOnFailureListener(e -> callback.onError(e.getMessage() == null ? "AUTH_TOKEN_ERROR" : e.getMessage()));
+        AzureAuthManager.acquireToken(new AzureAuthManager.Callback() {
+            @Override public void ok(String token) {
+                EXECUTOR.execute(() -> {
+                    HttpURLConnection c = null;
+                    try {
+                        c = (HttpURLConnection)new URL(BASE_URL + path).openConnection();
+                        c.setRequestMethod(method);
+                        c.setConnectTimeout(15000);
+                        c.setReadTimeout(20000);
+                        c.setRequestProperty("Authorization", "Bearer " + token);
+                        c.setRequestProperty("Accept", "application/json");
+                        if (json != null) {
+                            c.setDoOutput(true);
+                            c.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                            try (OutputStream out = c.getOutputStream()) { out.write(json.getBytes(StandardCharsets.UTF_8)); }
+                        }
+                        int code = c.getResponseCode();
+                        InputStream stream = code >= 400 ? c.getErrorStream() : c.getInputStream();
+                        String body = read(stream);
+                        if (code >= 200 && code < 300) callback.onSuccess(body);
+                        else callback.onError("HTTP " + code + (body.isEmpty() ? "" : ": " + body));
+                    } catch (Exception e) { callback.onError(e.getMessage() == null ? "NETWORK_ERROR" : e.getMessage()); }
+                    finally { if (c != null) c.disconnect(); }
+                });
+            }
+            @Override public void err(String message) { callback.onError(message); }
+        });
     }
 
     private static String read(InputStream in) throws Exception {
