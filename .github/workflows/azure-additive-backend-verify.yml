@@ -32,7 +32,7 @@ jobs:
 
       - name: Install Azure backend dependencies
         working-directory: azure-backend
-        run: npm ci
+        run: npm install
 
       - name: Validate Azure backend JavaScript
         working-directory: azure-backend
