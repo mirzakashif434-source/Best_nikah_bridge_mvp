@@ -44,3 +44,7 @@ require("./rewardedAds");
 
 // Firebase migration #2: additive production Premium plan catalog.
 require("./premiumPlans");
+
+
+// Step 2: real Google Play subscription verification and paid entitlements.
+require("./premiumPurchaseVerification");
