@@ -36,18 +36,22 @@ app.http("accountDelete", {
       await client.query("DELETE FROM users WHERE id=$1", [userId]);
       await client.query("COMMIT");
 
-      try {
-        await getFirebaseAdmin().auth().deleteUser(user.uid);
-      } catch (firebaseError) {
-        context.error("FIREBASE_ACCOUNT_DELETE_FAILED", firebaseError);
-        return {
-          status: 202,
-          jsonBody: {
-            ok: true,
-            deleted: true,
-            authCleanupPending: true
-          }
-        };
+      // Azure External ID owns Azure-authenticated accounts. Do not call Firebase Admin
+      // for those users; the database/storage deletion above is the authoritative cleanup.
+      if (user.auth_provider === "firebase") {
+        try {
+          await getFirebaseAdmin().auth().deleteUser(user.uid);
+        } catch (firebaseError) {
+          context.error("FIREBASE_ACCOUNT_DELETE_FAILED", firebaseError);
+          return {
+            status: 202,
+            jsonBody: {
+              ok: true,
+              deleted: true,
+              authCleanupPending: true
+            }
+          };
+        }
       }
 
       return { status:200, jsonBody:{ok:true,deleted:true,authCleanupPending:false} };
