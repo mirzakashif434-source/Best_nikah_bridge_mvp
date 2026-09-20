@@ -41,3 +41,6 @@ require("./accountDeletionWeb");
 require("./azureExternalAuth");
 
 require("./rewardedAds");
+
+// Firebase migration #2: additive production Premium plan catalog.
+require("./premiumPlans");
