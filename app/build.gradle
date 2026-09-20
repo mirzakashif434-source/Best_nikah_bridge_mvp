@@ -51,4 +51,6 @@ dependencies {
     implementation 'com.google.android.ump:user-messaging-platform:4.0.0'
     implementation 'com.android.billingclient:billing:9.1.0'
     implementation 'com.google.guava:guava:31.0.1-android'
+    // Additive Microsoft Entra External ID authentication; Firebase dependencies remain intact.
+    implementation 'com.microsoft.identity.client:msal:8.4.2'
 }
