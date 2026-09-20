@@ -95,6 +95,7 @@ final class AzureAuthManager {
                 List<IAccount> accounts = app.getAccounts();
                 if (accounts == null || accounts.isEmpty()) { callback.accept(true); return; }
                 app.removeAccount(accounts.get(0));
+                context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).edit().putBoolean("signed_in", false).apply();
                 callback.accept(true);
             } catch (Exception e) {
                 callback.accept(false);
@@ -102,9 +103,13 @@ final class AzureAuthManager {
         }, message -> callback.accept(false));
     }
 
+    static void markSignedIn(Context context) {
+        context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).edit().putBoolean("signed_in", true).apply();
+    }
+
     static boolean hasAccount(Context context) {
         try {
-            if (app == null) return false;
+            if (app == null) return context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).getBoolean("signed_in", false);
             List<IAccount> accounts = app.getAccounts();
             return accounts != null && !accounts.isEmpty();
         } catch (Exception ignored) {
