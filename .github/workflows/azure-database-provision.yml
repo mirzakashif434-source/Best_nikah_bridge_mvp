@@ -129,7 +129,7 @@ jobs:
             echo "Enabling public network access on the existing PostgreSQL server; no database objects are changed."
             az postgres flexible-server update --resource-group "$RESOURCE_GROUP" --name "$DB_SERVER" --public-access 0.0.0.0 --only-show-errors
           fi
-          az postgres flexible-server firewall-rule create             --resource-group "$RESOURCE_GROUP"             --server-name "$DB_SERVER"             --rule-name "github-runner-init"             --start-ip-address "$RUNNER_IP"             --end-ip-address "$RUNNER_IP"             --only-show-errors
+          az postgres flexible-server firewall-rule create             --resource-group "$RESOURCE_GROUP"             --server-name "$DB_SERVER"             --name "github-runner-init"             --start-ip-address "$RUNNER_IP"             --end-ip-address "$RUNNER_IP"             --only-show-errors
           echo "Runner firewall rule verified for $RUNNER_IP"
 
       - name: Apply production schema
