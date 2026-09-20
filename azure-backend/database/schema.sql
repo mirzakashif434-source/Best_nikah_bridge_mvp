@@ -317,3 +317,6 @@ CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_user_created
   ON wallet_withdrawals (user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_status
   ON wallet_withdrawals (status, created_at);
+
+
+-- Wallet verification checkpoint: additive only; no existing objects are removed or replaced.
