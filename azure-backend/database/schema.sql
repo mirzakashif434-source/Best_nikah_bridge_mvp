@@ -274,3 +274,46 @@ ON CONFLICT (plan_key) DO UPDATE SET
   active = EXCLUDED.active,
   sort_order = EXCLUDED.sort_order,
   updated_at = now();
+
+
+-- Firebase migration #3: additive Azure wallet ledger.
+-- No existing tables or data are removed or replaced.
+CREATE TABLE IF NOT EXISTS wallet_accounts (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  balance NUMERIC(18,2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
+  currency TEXT NOT NULL DEFAULT 'SAR' CHECK (currency IN ('SAR','USDT')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS wallet_ledger (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  entry_type TEXT NOT NULL CHECK (entry_type IN ('earning','withdrawal_hold','withdrawal_release','payout')),
+  amount NUMERIC(18,2) NOT NULL CHECK (amount > 0),
+  currency TEXT NOT NULL CHECK (currency IN ('SAR','USDT')),
+  reference_id TEXT,
+  description TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS wallet_withdrawals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  amount NUMERIC(18,2) NOT NULL CHECK (amount >= 10),
+  currency TEXT NOT NULL CHECK (currency IN ('SAR','USDT')),
+  country TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','paid','rejected','cancelled')),
+  reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMPTZ,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_ledger_user_created
+  ON wallet_ledger (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_user_created
+  ON wallet_withdrawals (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_status
+  ON wallet_withdrawals (status, created_at);
