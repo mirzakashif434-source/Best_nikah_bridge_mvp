@@ -119,6 +119,19 @@ jobs:
             az postgres flexible-server db create --resource-group "$RESOURCE_GROUP" --server-name "$DB_SERVER" --name "$DB_NAME"
           fi
 
+      - name: Verify PostgreSQL public network access and runner firewall
+        shell: bash
+        run: |
+          set -euo pipefail
+          NETWORK_ACCESS="$(az postgres flexible-server show --resource-group "$RESOURCE_GROUP" --name "$DB_SERVER" --query network.publicNetworkAccess -o tsv 2>/dev/null || true)"
+          echo "PostgreSQL public network access: $NETWORK_ACCESS"
+          if [ "$NETWORK_ACCESS" != "Enabled" ]; then
+            echo "Enabling public network access on the existing PostgreSQL server; no database objects are changed."
+            az postgres flexible-server update --resource-group "$RESOURCE_GROUP" --name "$DB_SERVER" --public-access 0.0.0.0 --only-show-errors
+          fi
+          az postgres flexible-server firewall-rule create             --resource-group "$RESOURCE_GROUP"             --name "$DB_SERVER"             --rule-name "github-runner-init"             --start-ip-address "$RUNNER_IP"             --end-ip-address "$RUNNER_IP"             --only-show-errors
+          echo "Runner firewall rule verified for $RUNNER_IP"
+
       - name: Apply production schema
         shell: bash
         env:
