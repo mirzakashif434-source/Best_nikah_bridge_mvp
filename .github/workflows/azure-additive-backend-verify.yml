@@ -38,7 +38,9 @@ jobs:
         working-directory: azure-backend
         run: |
           node --check src/index.js
+          node --check src/auth.js
           node --check src/azureExternalAuth.js
+          node --check src/account.js
           node --check src/rewardedAds.js
           node --check src/premiumPurchaseVerification.js
           node --check src/premiumPlans.js
