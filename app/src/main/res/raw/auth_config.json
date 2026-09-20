@@ -7,7 +7,7 @@
   "authorities": [
     {
       "type": "CIAM",
-      "authority_url": "https://bestnikahbridge.ciamlogin.com/"
+      "authority_url": "https://bestnikahbridge.ciamlogin.com/bestnikahbridge.onmicrosoft.com/"
     }
   ]
 }
