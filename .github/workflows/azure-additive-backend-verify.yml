@@ -1,0 +1,57 @@
+name: Azure Additive Backend + Android Verification
+
+on:
+  push:
+    branches:
+      - azure-backend-additive
+    paths:
+      - 'azure-backend/**'
+      - 'app/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - '.github/workflows/azure-additive-backend-verify.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: azure-backend/package-lock.json
+
+      - name: Install Azure backend dependencies
+        working-directory: azure-backend
+        run: npm ci
+
+      - name: Validate Azure backend JavaScript
+        working-directory: azure-backend
+        run: |
+          node --check src/index.js
+          node --check src/rewardedAds.js
+          node --check src/premiumPurchaseVerification.js
+          node --check src/premiumPlans.js
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Grant Gradle execute permission
+        run: chmod +x ./gradlew
+
+      - name: Build Android debug APK
+        run: ./gradlew assembleDebug --stacktrace
