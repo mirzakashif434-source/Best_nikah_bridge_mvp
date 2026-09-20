@@ -64,7 +64,7 @@ public class AzureHomeActivity extends Activity {
         verification.setOnClickListener(v->verification());
         safety.setOnClickListener(v->safety());
         ai.setOnClickListener(v->ai());
-        wallet.setOnClickListener(v->startActivity(new Intent(this,WalletActivity.class)));
+        wallet.setOnClickListener(v->startActivity(new Intent(this,AzureWalletActivity.class)));
         out.setOnClickListener(v->signOut());
     }
 
