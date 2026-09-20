@@ -223,3 +223,36 @@ ON CONFLICT (plan_key) DO UPDATE SET
 
 CREATE INDEX IF NOT EXISTS idx_premium_plans_active_sort
   ON premium_plans (active, sort_order);
+
+
+-- Step 2: real Google Play subscription verification and paid entitlement ledger.
+CREATE TABLE IF NOT EXISTS premium_purchase_tokens (
+  purchase_token_hash TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  product_id TEXT NOT NULL,
+  base_plan_id TEXT NOT NULL,
+  order_id TEXT,
+  subscription_state TEXT NOT NULL,
+  expiry_time TIMESTAMPTZ NOT NULL,
+  last_verified_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_premium_purchase_tokens_user
+  ON premium_purchase_tokens (user_id, expiry_time DESC);
+
+CREATE TABLE IF NOT EXISTS premium_entitlements (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  plan_key TEXT NOT NULL,
+  product_id TEXT NOT NULL,
+  base_plan_id TEXT NOT NULL,
+  purchase_token_hash TEXT NOT NULL REFERENCES premium_purchase_tokens(purchase_token_hash),
+  order_id TEXT,
+  status TEXT NOT NULL CHECK (status IN ('active','expired','revoked')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_premium_entitlements_status_expiry
+  ON premium_entitlements (status, expires_at);
