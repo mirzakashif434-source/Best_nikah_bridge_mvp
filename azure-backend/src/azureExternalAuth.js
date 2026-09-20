@@ -36,17 +36,37 @@ async function ensureAzureUser(claims) {
   const subject=String(claims.sub);
   const email=String(claims.email||claims.preferred_username||claims.emails?.[0]||"").trim().toLowerCase();
   if (!email) { const e=new Error("AUTH_EMAIL_REQUIRED"); e.statusCode=400; throw e; }
-  const result=await query(
+  // Preserve existing users during Firebase -> Azure migration.
+  // First match by Azure subject, then by verified email; only create a new row when neither exists.
+  const bySubject=await query(
+    `SELECT id,email,status,role,azure_subject FROM users WHERE azure_subject=$1 LIMIT 1`,
+    [subject]
+  );
+  if(bySubject.rows[0]) return bySubject.rows[0];
+
+  const byEmail=await query(
+    `SELECT id,email,status,role,azure_subject FROM users WHERE lower(email)=lower($1) LIMIT 1`,
+    [email]
+  );
+  if(byEmail.rows[0]){
+    const linked=await query(
+      `UPDATE users SET azure_subject=$1,
+        email_verified_at=COALESCE(email_verified_at,CASE WHEN $3 THEN now() ELSE NULL END),
+        updated_at=now()
+       WHERE id=$2
+       RETURNING id,email,status,role,azure_subject`,
+      [subject,byEmail.rows[0].id,Boolean(claims.email_verified)]
+    );
+    return linked.rows[0];
+  }
+
+  const created=await query(
     `INSERT INTO users (azure_subject,email,email_verified_at)
      VALUES ($1,$2,CASE WHEN $3 THEN now() ELSE NULL END)
-     ON CONFLICT (azure_subject) DO UPDATE SET
-       email=EXCLUDED.email,
-       email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),
-       updated_at=now()
      RETURNING id,email,status,role,azure_subject`,
     [subject,email,Boolean(claims.email_verified)]
   );
-  return result.rows[0];
+  return created.rows[0];
 }
 async function requireAzureAuth(handler) {
   return async (request,context) => {
