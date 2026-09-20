@@ -12,13 +12,13 @@ final class AzureApiClient {
   private static final ExecutorService EXEC=Executors.newCachedThreadPool();
   interface Callback{void ok(int code,String body);void err(String message);}
 
-  static void get(Context context,String path,Callback cb){request(context,"GET",path,null,"application/json",cb);}
-  static void post(Context context,String path,String json,Callback cb){request(context,"POST",path,json,"application/json; charset=UTF-8",cb);}
-  static void patch(Context context,String path,String json,Callback cb){request(context,"PATCH",path,json,"application/json; charset=UTF-8",cb);}
-  static void delete(Context context,String path,String json,Callback cb){request(context,"DELETE",path,json,"application/json; charset=UTF-8",cb);}
+  static void get(String path,Callback cb){request("GET",path,null,"application/json",cb);}
+  static void post(String path,String json,Callback cb){request("POST",path,json,"application/json; charset=UTF-8",cb);}
+  static void patch(String path,String json,Callback cb){request("PATCH",path,json,"application/json; charset=UTF-8",cb);}
+  static void delete(String path,String json,Callback cb){request("DELETE",path,json,"application/json; charset=UTF-8",cb);}
 
-  static void multipart(Context context,String path,String field,String fileName,String mime,byte[] data,String[] names,String[] values,Callback cb){
-    authToken(context,token->{EXEC.execute(()->{
+  static void multipart(String path,String field,String fileName,String mime,byte[] data,String[] names,String[] values,Callback cb){
+    authToken(token->{EXEC.execute(()->{
       HttpURLConnection c=null; String boundary="----BNB"+System.currentTimeMillis();
       try{
         c=(HttpURLConnection)new URL(BASE+path).openConnection();
@@ -41,8 +41,8 @@ final class AzureApiClient {
     });},cb);
   }
 
-  private static void request(Context context,String method,String path,String body,String contentType,Callback cb){
-    authToken(context,token->{EXEC.execute(()->{
+  private static void request(String method,String path,String body,String contentType,Callback cb){
+    authToken(token->{EXEC.execute(()->{
       HttpURLConnection c=null;
       try{
         c=(HttpURLConnection)new URL(BASE+path).openConnection();
@@ -59,8 +59,8 @@ final class AzureApiClient {
     });},cb);
   }
 
-  private static void authToken(Context context,java.util.function.Consumer<String> work,Callback cb){
-    AzureAuthManager.acquireToken(context,new AzureAuthManager.Callback(){
+  private static void authToken(java.util.function.Consumer<String> work,Callback cb){
+    AzureAuthManager.acquireToken(new AzureAuthManager.Callback(){
       @Override public void ok(String token){work.accept(token);}
       @Override public void err(String message){cb.err(message);}
     });
