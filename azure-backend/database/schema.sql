@@ -161,3 +161,32 @@ CREATE INDEX IF NOT EXISTS idx_photos_moderation_status ON photos (moderation_st
 -- Existing Firebase identities remain intact until a tested production cutover.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_subject TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject ON users (azure_subject) WHERE azure_subject IS NOT NULL;
+
+
+-- Firebase migration #1A: production Rewarded Ad / message-credit backend.
+CREATE TABLE IF NOT EXISTS entitlements (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  message_credits INTEGER NOT NULL DEFAULT 0 CHECK (message_credits >= 0),
+  paid_tier TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS rewarded_ad_transactions (
+  transaction_id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  ad_unit TEXT NOT NULL,
+  reward_amount NUMERIC NOT NULL DEFAULT 0,
+  reward_item TEXT,
+  verified_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS daily_reward_claims (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  claim_date DATE NOT NULL,
+  claim_count INTEGER NOT NULL DEFAULT 0 CHECK (claim_count BETWEEN 0 AND 2),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, claim_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_rewarded_ad_transactions_user
+  ON rewarded_ad_transactions (user_id, verified_at DESC);
