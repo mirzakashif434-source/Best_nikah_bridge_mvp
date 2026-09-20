@@ -103,8 +103,16 @@ app.http("admobRewardedSsv", {
       const adUnit = String(params.get("ad_unit") || "").trim();
       const timestamp = Number(params.get("timestamp") || 0);
 
-      if (!uid || customUid !== uid || !transactionId || !adUnit || !timestamp) {
+      if (!transactionId || !adUnit || !timestamp) {
         throw new Error("Missing required SSV fields.");
+      }
+
+      // AdMob's dashboard verification can omit user_id/custom_data. A valid
+      // signed callback without an identity is acknowledged for URL verification
+      // only; no reward is granted. Real app callbacks always include both
+      // values because RewardedMessageActivity sets them before showing the ad.
+      if (!uid || customUid !== uid) {
+        return { status: 200, body: "OK" };
       }
       if (Math.abs(Date.now() - timestamp) > 24 * 60 * 60 * 1000) {
         throw new Error("Stale AdMob reward callback.");
