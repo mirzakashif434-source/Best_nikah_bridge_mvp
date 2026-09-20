@@ -91,7 +91,7 @@ public class RewardedMessageActivity extends Activity {
                     JSONObject data = new JSONObject(body.toString());
                     if (!data.optBoolean("configured", false)) throw new IllegalStateException("Rewarded ads are not configured.");
                     String unit = data.optString("rewardedAdUnitId", "");
-                    if (!unit.matches("ca-app-pub-\\\\d{16}/\\\\d+")) throw new IllegalStateException("Invalid production ad unit.");
+                    if (!unit.matches("ca-app-pub-\\d{16}/\\d+")) throw new IllegalStateException("Invalid production ad unit.");
                     runOnUiThread(() -> {
                         productionUnit = unit;
                         requestConsentThenLoad();
