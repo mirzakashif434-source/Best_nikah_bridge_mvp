@@ -49,7 +49,7 @@ jobs:
           node --check src/account.js
           node --check src/rewardedAds.js
           node --check src/premiumPurchaseVerification.js
-          node --check src/premiumPlans.js
+          node --check src/premiumPlans.js\n          node --check src/matches.js
           node --check src/wallet.js
           node --check src/aiNikahAssistant.js
           node --check src/auth.js
@@ -92,7 +92,7 @@ jobs:
           h=sys.argv[1]
           p=pathlib.Path("app/src/main/res/raw/auth_config.json")
           d=json.loads(p.read_text())
-          d["redirect_uri"]=f"msauth://com.nikahbridge/{h.replace("=", "%3D")}"
+          d["redirect_uri"]="msauth://com.nikahbridge/"+h.replace("=", "%3D")
           p.write_text(json.dumps(d, indent=2)+"\n")
           p=pathlib.Path("app/src/main/AndroidManifest.xml")
           s=p.read_text()
