@@ -51,6 +51,13 @@ jobs:
           node --check src/aiNikahAssistant.js
           node --check src/auth.js
 
+      # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
+      - name: Verify Azure AI production path
+        run: |
+          grep -q 'route: "ai/nikah-assistant"' azure-backend/src/aiNikahAssistant.js
+          grep -q 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/NikahAssistantActivity.java
+          ! grep -R "FirebaseAI\\|Firebase\.ai\\|getGenerativeModel" app/src/main/java --include='*.java' || (echo "Direct Firebase AI usage found; Azure AI must remain primary" && exit 1)
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
