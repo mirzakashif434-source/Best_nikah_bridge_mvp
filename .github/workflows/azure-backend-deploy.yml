@@ -70,6 +70,7 @@ jobs:
           az role assignment create             --assignee-object-id "$PRINCIPAL_ID"             --assignee-principal-type ServicePrincipal             --role "Storage Blob Data Contributor"             --scope "$ACCOUNT_SCOPE"             --only-show-errors || true
           az functionapp config appsettings set             --name "$AZURE_FUNCTIONAPP_NAME"             --resource-group "$RESOURCE_GROUP"             --settings               AZURE_STORAGE_ACCOUNT_URL="$ACCOUNT_URL"               AZURE_PROFILE_PHOTOS_CONTAINER=profile-photos               AZURE_VERIFICATION_DOCUMENTS_CONTAINER=verification-documents \
               ADMOB_REWARDED_AD_UNIT_ID="${{ secrets.ADMOB_REWARDED_AD_UNIT_ID }}" \
+              AZURE_AUTH_ONLY="true" \
             --only-show-errors
           az storage container create --name profile-photos --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
           az storage container create --name verification-documents --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
