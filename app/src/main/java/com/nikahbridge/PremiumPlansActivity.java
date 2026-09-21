@@ -21,7 +21,8 @@ import org.json.JSONObject;
 public class PremiumPlansActivity extends Activity {
     private LinearLayout root;
     private BillingClient billing;
-    private FirebaseFunctions functions; // Legacy Firebase path retained for rollback\n    private final Map<String, String> azurePlanBasePlans = new HashMap<>();
+    private FirebaseFunctions functions; // Legacy Firebase path retained for rollback
+    private final Map<String, String> azurePlanBasePlans = new HashMap<>();
     private final Map<String, ProductDetails> products = new HashMap<>();
     private TextView status;
 
