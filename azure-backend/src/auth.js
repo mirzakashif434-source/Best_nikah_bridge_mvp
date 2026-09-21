@@ -52,6 +52,15 @@ async function verifyAnyIdToken(request) {
     };
   }
 
+  // Azure is the production authentication authority after Step 6 cutover.
+  // Legacy Firebase verification remains in this source for rollback, but is disabled
+  // in production when AZURE_AUTH_ONLY=true.
+  if (String(process.env.AZURE_AUTH_ONLY || "").toLowerCase() === "true") {
+    const e = new Error("AZURE_AUTH_REQUIRED");
+    e.statusCode = 401;
+    throw e;
+  }
+
   const firebaseUser = await verifyFirebaseIdToken(request);
   return { ...firebaseUser, auth_provider: "firebase" };
 }
