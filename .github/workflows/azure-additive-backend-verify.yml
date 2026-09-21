@@ -111,6 +111,28 @@ jobs:
           grep -Fq 'azure_subject TEXT' azure-backend/database/schema.sql
           echo "STEP 4 LOCKED: Azure PostgreSQL parity checkpoint verified; Firebase retained only for controlled final cutover."
 
+      # Step 5: Firebase Storage -> Azure Blob Storage production path.
+      - name: Verify Step 5 Azure Blob Storage migration
+        run: |
+          set -euo pipefail
+          grep -Eq 'require\("./storage"\)' azure-backend/src/photos.js
+          grep -Fq 'getProfilePhotosContainer' azure-backend/src/photos.js
+          grep -Fq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
+          grep -Eq 'route:"photos"' azure-backend/src/photos.js
+          grep -Eq 'route:"photos/\{photoId\}/content"' azure-backend/src/photos.js
+          grep -Eq 'route:"verification/identity"' azure-backend/src/verification.js
+          grep -Fq 'AZURE_STORAGE_ACCOUNT_URL' azure-backend/src/storage.js
+          grep -Fq 'new BlobServiceClient' azure-backend/src/storage.js
+          for f in app/src/main/java/com/nikahbridge/ProfilePhotoActivity.java app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java; do
+            if grep -nE 'FirebaseStorage|StorageReference|FirebaseFirestore|FirebaseAuth|FirebaseFunctions' "$f"; then
+              echo "Legacy Firebase storage/auth client path found in $f"
+              exit 1
+            fi
+          done
+          grep -Eq 'CREATE TABLE IF NOT EXISTS photos' azure-backend/database/schema.sql
+          grep -Fq 'document_blob_key TEXT' azure-backend/database/schema.sql
+          echo "Step 5 Azure Blob Storage production path verified; Firebase Storage remains preserved for controlled final cutover."
+
       # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
       - name: Verify Azure AI production path
         run: |
