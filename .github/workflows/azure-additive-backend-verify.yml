@@ -62,6 +62,20 @@ jobs:
           grep -Fq 'CREATE TABLE IF NOT EXISTS owner_settlements' azure-backend/database/schema.sql
           echo "Step 2 Azure owner earnings/settlement ledger verified; legacy Firebase owner earnings remains preserved."
 
+      # Step 3: migrated Firebase Functions UI call-sites use Azure APIs.
+      - name: Verify Step 3 Firebase Functions to Azure migration
+        run: |
+          ! grep -nE 'FirebaseFunctions|getHttpsCallable|firebase-functions' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          ! grep -nE 'FirebaseFunctions|getHttpsCallable|firebase-functions' app/src/main/java/com/nikahbridge/RewardedMessageActivity.java
+          ! grep -nE 'FirebaseFunctions|getHttpsCallable|firebase-functions' app/src/main/java/com/nikahbridge/CommunityChatActivity.java
+          grep -Fq 'route:"premium/plans"' azure-backend/src/premiumPlans.js
+          grep -Fq 'route:"premium/entitlement"' azure-backend/src/premiumPlans.js
+          grep -Fq 'route:"premium/purchases/verify"' azure-backend/src/premiumPurchaseVerification.js
+          grep -Fq 'route:"admob/rewarded/config"' azure-backend/src/rewardedAds.js
+          grep -Fq 'route:"community/messages"' azure-backend/src/community.js
+          grep -Fq 'route:"community/reports"' azure-backend/src/community.js
+          echo "Step 3 Azure API migration verified; legacy Firebase backend remains preserved for rollback."
+
       # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
       - name: Verify Azure AI production path
         run: |
