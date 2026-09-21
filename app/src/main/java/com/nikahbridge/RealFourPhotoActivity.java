@@ -23,6 +23,7 @@ import com.google.firebase.storage.StorageReference;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -100,7 +101,9 @@ public class RealFourPhotoActivity extends Activity {
         camera.setOnClickListener(v -> takeCameraPhoto());
         Button gallery = button("2. Choose Photos 2–4 from Gallery", true);
         gallery.setOnClickListener(v -> chooseRemainingPhotos());
-        Button upload = button("3. Upload All 4 Securely", true);
+        Button uploadAzure = button("3. Upload All 4 to Azure Securely", true);
+        uploadAzure.setOnClickListener(v -> uploadAllToAzure());
+        Button upload = button("Legacy Firebase Upload (kept for rollback)", false);
         upload.setOnClickListener(v -> uploadAll());
         Button back = button("Back", false);
         back.setOnClickListener(v -> finish());
@@ -169,6 +172,51 @@ public class RealFourPhotoActivity extends Activity {
             for (int i = 0; i < galleryUris.size(); i++) previews[i + 1].setImageURI(galleryUris.get(i));
             status.setText(galleryUris.size() + " genuine gallery photo(s) selected. Select up to 3, then upload.");
         }
+    }
+
+    /** Primary production path: each photo is sent to Azure Blob through the authenticated /photos API. */
+    private void uploadAllToAzure() {
+        if (AzureAuthManager.getAccount() == null) { status.setText("Please sign in with Azure again."); return; }
+        if (cameraBitmap == null) { status.setText("Photo 1 is required and must come from the camera."); return; }
+        if (galleryUris.size() != 3) { status.setText("Please select exactly 3 gallery photos for Photos 2–4."); return; }
+        status.setText("Uploading 4 real photos to Azure securely…");
+        uploadAzureCameraThenGallery(0);
+    }
+
+    private void uploadAzureCameraThenGallery(int index) {
+        if (index == 0) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            cameraBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
+            uploadAzureBytes(out.toByteArray(), 0, () -> uploadAzureCameraThenGallery(1));
+            return;
+        }
+        if (index <= 3) {
+            try {
+                InputStream in = getContentResolver().openInputStream(galleryUris.get(index - 1));
+                if (in == null) { status.setText("Could not read gallery photo " + (index + 1) + "."); return; }
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buffer = new byte[8192]; int total = 0, read;
+                while ((read = in.read(buffer)) != -1) {
+                    total += read;
+                    if (total > MAX_BYTES) { in.close(); status.setText("Gallery photo " + (index + 1) + " is larger than 5 MB."); return; }
+                    out.write(buffer, 0, read);
+                }
+                in.close();
+                uploadAzureBytes(out.toByteArray(), index, () -> uploadAzureCameraThenGallery(index + 1));
+            } catch (Exception e) { status.setText("Gallery photo " + (index + 1) + " could not be read."); }
+            return;
+        }
+        status.setText("All 4 genuine photos are now stored in Azure.");
+        setResult(RESULT_OK);
+    }
+
+    private void uploadAzureBytes(byte[] bytes, int slot, Runnable next) {
+        if (bytes.length == 0 || bytes.length > MAX_BYTES) { status.setText("Photo " + (slot + 1) + " size is invalid."); return; }
+        AzureApiClient.multipart("/photos", "photo", "photo_" + (slot + 1) + ".jpg", "image/jpeg", bytes,
+                new String[]{"visibility"}, new String[]{"private"}, new AzureApiClient.Callback() {
+            @Override public void ok(int code, String body) { runOnUiThread(next); }
+            @Override public void err(String message) { runOnUiThread(() -> status.setText("Azure upload failed for Photo " + (slot + 1) + ": " + message)); }
+        });
     }
 
     private void uploadAll() {
