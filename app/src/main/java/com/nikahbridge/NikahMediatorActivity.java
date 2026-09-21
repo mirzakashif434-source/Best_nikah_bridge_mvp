@@ -42,7 +42,7 @@ public class NikahMediatorActivity extends Activity {
         root.addView(txt("Other person's perspective",17,true));otherSide=area("Enter the other person's words only with their permission.");root.addView(otherSide,new LinearLayout.LayoutParams(-1,dp(140)));
         consent=new CheckBox(this);consent.setText("I have permission to use the other person's information for this discussion, and I have removed unnecessary private details.");root.addView(consent);
         run=btn("Run Real AI Mediation",true);root.addView(run,new LinearLayout.LayoutParams(-1,dp(62)));run.setOnClickListener(v->mediate());
-        result=txt("The mediation result will appear here after a real Firebase AI response.",15,false);root.addView(result);
+        result=txt("The mediation result will appear here after a real Azure AI response.",15,false);root.addView(result);
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
     }
     private void mediate(){
@@ -52,12 +52,7 @@ public class NikahMediatorActivity extends Activity {
         if(!consent.isChecked()){Toast.makeText(this,"Permission is required before using the other person's information.",Toast.LENGTH_LONG).show();return;}
         run.setEnabled(false);result.setText("AI is reviewing both perspectives…");
         String prompt="You are the Best Nikah Bridge AI Nikah Mediator. Support a respectful, serious Muslim marriage discussion. Treat both perspectives fairly and never declare a winner. Return these sections: 1) Neutral summary of each perspective, 2) Shared ground, 3) Key differences or unresolved issues, 4) 5 practical questions both people should discuss, 5) A calm next-step suggestion. If the issue involves possible abuse, threats, coercion, fraud, immediate danger, or serious safety risk, clearly advise seeking appropriate human/family/professional help and prioritizing safety. Do not issue binding Islamic rulings or pretend to be a scholar, lawyer, therapist, wali, or matchmaker. Do not invent facts. Do not expose or request passwords, financial credentials, phone numbers, addresses, or unnecessary personal data. Encourage mutual consent, dignity, privacy and Wali/family involvement where appropriate.\n\nPerspective A:\n"+a+"\n\nPerspective B:\n"+b;
-        GenerativeModel ai=FirebaseAI.getInstance(GenerativeBackend.googleAI()).generativeModel("gemini-3.7-flash");
-        GenerativeModelFutures model=GenerativeModelFutures.from(ai);Content content=new Content.Builder().addText(prompt).build();ListenableFuture<GenerateContentResponse> future=model.generateContent(content);
-        Futures.addCallback(future,new FutureCallback<GenerateContentResponse>(){
-            public void onSuccess(GenerateContentResponse r){String out=r.getText();if(out==null||out.trim().isEmpty()){result.setText("No mediation response was returned. Please try again.");run.setEnabled(true);return;}result.setText(out);saveSession(a,b,out);run.setEnabled(true);}
-            public void onFailure(Throwable t){result.setText("AI mediation is temporarily unavailable. No result was saved. Please try again.");run.setEnabled(true);}
-        },mainExecutor);
+        try{ org.json.JSONObject body=new org.json.JSONObject(); body.put("prompt",prompt); AzureApiClient.post("/ai/nikah-mediator",body.toString(),new AzureApiClient.Callback(){ public void ok(int code,String s){runOnUiThread(()->{try{String out=new org.json.JSONObject(s).getJSONObject("assistant").getString("content");result.setText(out);saveSession(a,b,out);}catch(Exception e){result.setText("Azure AI returned an invalid response.");}run.setEnabled(true);});} public void err(String e){runOnUiThread(()->{result.setText("Azure AI mediation is temporarily unavailable.");run.setEnabled(true);});} }); }catch(Exception e){result.setText("Could not prepare the Azure AI request.");run.setEnabled(true);}
     }
     private void saveSession(String a,String b,String out){
         Map<String,Object> data=new HashMap<>();data.put("userUid",auth.getUid());data.put("perspectiveA",a);data.put("perspectiveB",b);data.put("result",out);data.put("createdAt",FieldValue.serverTimestamp());
