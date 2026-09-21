@@ -116,7 +116,7 @@ public class ProfilePhotoActivity extends Activity {
                         if (accepted && age >= 18 && current.equals(version)) action.run();
                         else {
                             status.setText("Please accept the current Terms & Community Guidelines first.");
-                            startActivityForResult(new Intent(this, TermsAndCommunityGuidelinesActivity.class), 7201);
+                            startActivityForResult(new Intent(ProfilePhotoActivity.this, TermsAndCommunityGuidelinesActivity.class), 7201);
                         }
                     });
                 } catch (Exception e) { runOnUiThread(() -> status.setText("Could not verify Azure content permissions.")); }
