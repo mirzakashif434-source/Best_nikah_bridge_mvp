@@ -30,6 +30,7 @@ require("./chat");
 require("./family");
 require("./verification");
 require("./photos");
+require("./community");
 require("./terms");
 require("./safety");
 require("./blocks");
