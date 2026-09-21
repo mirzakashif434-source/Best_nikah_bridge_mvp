@@ -13,20 +13,10 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.FieldValue;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.SetOptions;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageMetadata;
-import com.google.firebase.storage.StorageReference;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
-import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Additive camera-first four-photo flow.
@@ -40,9 +30,6 @@ public class RealFourPhotoActivity extends Activity {
     private static final int GALLERY_REMAINING = 8402;
     private static final int MAX_BYTES = 4 * 1024 * 1024;
 
-    private FirebaseAuth auth;
-    private FirebaseFirestore db;
-    private FirebaseStorage storage;
     private LinearLayout root;
     private TextView status;
     private final ArrayList<Uri> galleryUris = new ArrayList<>();
@@ -51,9 +38,6 @@ public class RealFourPhotoActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        auth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
-        storage = FirebaseStorage.getInstance();
         build();
     }
 
@@ -121,8 +105,8 @@ public class RealFourPhotoActivity extends Activity {
     }
 
     private void takeCameraPhoto() {
-        if (auth.getCurrentUser() == null) {
-            status.setText("Please sign in again.");
+        if (!AzureAuthManager.hasAccount(this)) {
+            status.setText("Please sign in with Azure again.");
             return;
         }
         Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -219,92 +203,4 @@ public class RealFourPhotoActivity extends Activity {
         });
     }
 
-    private void uploadAll() {
-        if (auth.getCurrentUser() == null) {
-            status.setText("Please sign in again.");
-            return;
-        }
-        if (cameraBitmap == null) {
-            status.setText("Photo 1 is required and must come from the camera.");
-            return;
-        }
-        if (galleryUris.size() != 3) {
-            status.setText("Please select exactly 3 gallery photos for Photos 2–4.");
-            return;
-        }
-        status.setText("Uploading 4 real photos securely…");
-        uploadCameraThenGallery(0);
-    }
-
-    private void uploadCameraThenGallery(int index) {
-        if (index == 0) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            cameraBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out);
-            uploadBytes(out.toByteArray(), 0, () -> uploadCameraThenGallery(1));
-            return;
-        }
-        if (index <= 3) {
-            uploadUri(galleryUris.get(index - 1), index, () -> uploadCameraThenGallery(index + 1));
-            return;
-        }
-        saveProfileUrls();
-    }
-
-    private void uploadBytes(byte[] bytes, int slot, Runnable next) {
-        if (bytes.length > MAX_BYTES) {
-            status.setText("Camera photo is larger than 5 MB. Please retake it.");
-            return;
-        }
-        String uid = auth.getCurrentUser().getUid();
-        StorageReference ref = storage.getReference().child("profilePhotos").child(uid).child("photo_" + (slot + 1) + ".jpg");
-        StorageMetadata metadata = new StorageMetadata.Builder().setContentType("image/jpeg").build();
-        ref.putBytes(bytes, metadata).continueWithTask(task -> {
-            if (!task.isSuccessful() && task.getException() != null) throw task.getException();
-            return ref.getDownloadUrl();
-        }).addOnSuccessListener(url -> { urls[slot] = url.toString(); next.run(); })
-          .addOnFailureListener(e -> status.setText("Photo " + (slot + 1) + " upload failed. No fake photo was added."));
-    }
-
-    private final String[] urls = new String[4];
-
-    private void uploadUri(Uri uri, int slot, Runnable next) {
-        try {
-            InputStream in = getContentResolver().openInputStream(uri);
-            if (in == null) { status.setText("Could not open gallery photo " + (slot + 1) + "."); return; }
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buffer = new byte[8192];
-            int total = 0, read;
-            while ((read = in.read(buffer)) != -1) {
-                total += read;
-                if (total > MAX_BYTES) { in.close(); status.setText("Gallery photo " + (slot + 1) + " is larger than 5 MB."); return; }
-                out.write(buffer, 0, read);
-            }
-            in.close();
-            StorageReference ref = storage.getReference().child("profilePhotos").child(auth.getCurrentUser().getUid()).child("photo_" + (slot + 1) + ".jpg");
-            StorageMetadata metadata = new StorageMetadata.Builder().setContentType("image/jpeg").build();
-            ref.putBytes(out.toByteArray(), metadata).continueWithTask(task -> {
-                if (!task.isSuccessful() && task.getException() != null) throw task.getException();
-                return ref.getDownloadUrl();
-            }).addOnSuccessListener(url -> { urls[slot] = url.toString(); next.run(); })
-              .addOnFailureListener(e -> status.setText("Photo " + (slot + 1) + " upload failed. No fake photo was added."));
-        } catch (Exception e) {
-            status.setText("Gallery photo " + (slot + 1) + " could not be read.");
-        }
-    }
-
-    private void saveProfileUrls() {
-        String uid = auth.getCurrentUser().getUid();
-        ArrayList<String> list = new ArrayList<>();
-        for (String url : urls) list.add(url);
-        Map<String,Object> update = new HashMap<>();
-        update.put("photoUrls", list);
-        update.put("photoUrl", urls[0]);
-        update.put("photoPresent", true);
-        update.put("photoCount", 4);
-        update.put("cameraFirstPhoto", true);
-        update.put("photoUpdatedAt", FieldValue.serverTimestamp());
-        db.collection("users").document(uid).set(update, SetOptions.merge())
-          .addOnSuccessListener(v -> { status.setText("All 4 genuine photos are saved securely."); setResult(RESULT_OK); })
-          .addOnFailureListener(e -> status.setText("Photos uploaded but profile save failed. Please retry."));
-    }
 }
