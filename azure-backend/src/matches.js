@@ -23,12 +23,12 @@ app.http("matches",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await query(`
-        SELECT u.id,p.*,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
+        SELECT u.id,u.azure_subject,u.firebase_uid,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
-        WHERE u.firebase_uid=$1 AND u.status='active'`,[user.uid]);
+        WHERE u.status='active' AND (u.azure_subject=$1 OR u.firebase_uid=$2)`,[user.azure_subject||"",user.uid]);
       if(!me.rows[0]||!me.rows[0].profile_completed||!me.rows[0].is_visible)
         return {status:409,jsonBody:{ok:false,error:"PROFILE_NOT_READY"}};
 
@@ -66,7 +66,7 @@ app.http("matches",{
            !dealConflict(JSON.stringify(c.deal_breakers),JSON.stringify(m.preferences))){score+=7;reasons.push("no detected deal-breaker conflict");}
         score=Math.min(100,score);
         matches.push({
-          userId:c.firebase_uid||null,displayName:c.display_name,age:c.age,gender:c.gender,
+          userId:c.azure_subject||c.firebase_uid||null,displayName:c.display_name,age:c.age,gender:c.gender,
           country:c.country,city:c.show_city===false?null:c.city,marriageIntention:c.marriage_intention,
           marriageTimeline:c.preferred_marriage_timeline,readinessScore:c.readiness_score,
           compatibilityScore:score,whyWeMatched:reasons
