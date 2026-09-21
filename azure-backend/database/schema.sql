@@ -560,3 +560,47 @@ CREATE TABLE IF NOT EXISTS admin_records (
   updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+
+-- Step 8: Azure PostgreSQL data-migration integrity ledger.
+-- This is additive only. It records controlled Firestore -> Azure migration state
+-- without deleting or overwriting the original Firebase data.
+CREATE TABLE IF NOT EXISTS firestore_migration_audit (
+  collection_name TEXT PRIMARY KEY,
+  target_table TEXT NOT NULL,
+  migration_status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (migration_status IN ('pending','validated','migrated','verified','blocked')),
+  source_record_count BIGINT,
+  target_record_count BIGINT,
+  source_last_exported_at TIMESTAMPTZ,
+  target_last_verified_at TIMESTAMPTZ,
+  last_error TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+INSERT INTO firestore_migration_audit(collection_name,target_table)
+VALUES
+  ('users','users'),
+  ('profiles','profiles'),
+  ('partner_preferences','partner_preferences'),
+  ('interests','interests'),
+  ('conversations','conversations'),
+  ('messages','messages'),
+  ('family_links','family_links'),
+  ('verifications','verifications'),
+  ('photos','photos'),
+  ('safety_reports','safety_reports'),
+  ('blocked_users','blocked_users'),
+  ('privacy_settings','privacy_settings'),
+  ('community_messages','community_messages'),
+  ('community_reports','community_reports'),
+  ('help_line_tickets','help_line_tickets'),
+  ('owner_earnings','owner_earnings')
+ON CONFLICT (collection_name) DO NOTHING;
+
+CREATE INDEX IF NOT EXISTS idx_firestore_migration_audit_status
+  ON firestore_migration_audit(migration_status,updated_at DESC);
+
+-- Azure identity/data consistency constraints.
+CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON users(firebase_uid);
+CREATE INDEX IF NOT EXISTS idx_users_azure_subject ON users(azure_subject);
