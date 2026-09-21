@@ -108,7 +108,7 @@ public class OwnerEarningsActivity extends Activity {
                 m.put("destination", destination.getText().toString().trim());
                 m.put("label", label.getText().toString().trim());
                 functions.getHttpsCallable("saveOwnerSettlementProfile").call(m)
-                    .addOnSuccessListener(x -> { load(); new AlertDialog.Builder(this).setTitle("Saved").setMessage(String.valueOf(x.getData())).setPositiveButton("OK",null).show(); })
+                    .addOnSuccessListener(x -> { legacyLoad(); new AlertDialog.Builder(this).setTitle("Saved").setMessage(String.valueOf(x.getData())).setPositiveButton("OK",null).show(); })
                     .addOnFailureListener(x -> new AlertDialog.Builder(this).setTitle("Not saved").setMessage(x.getMessage()).setPositiveButton("OK",null).show());
             }).setNegativeButton("Cancel", null).show();
     }
@@ -118,9 +118,8 @@ public class OwnerEarningsActivity extends Activity {
             .addOnSuccessListener(r -> new AlertDialog.Builder(this).setTitle("Owner Sales & Settlements").setMessage(String.valueOf(r.getData())).setPositiveButton("Close",null).show())
             .addOnFailureListener(e -> new AlertDialog.Builder(this).setTitle("History unavailable").setMessage(e.getMessage()).setPositiveButton("Close",null).show());
     }
-}
 
-    // Azure is the production owner dashboard path. Firebase implementation remains below for rollback safety.
+// Azure is the production owner dashboard path. Firebase implementation remains below for rollback safety.
     private void loadAzure() {
         if (!AzureAuthManager.hasAccount(this)) {
             summary.setText("Please sign in with Azure as an admin.");
@@ -194,4 +193,4 @@ public class OwnerEarningsActivity extends Activity {
                 }
             }).setNegativeButton("Cancel", null).show();
     }
-
+}
