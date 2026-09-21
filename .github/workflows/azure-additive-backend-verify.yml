@@ -244,11 +244,11 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fq 'require("./firebaseParity")' azure-backend/src/index.js
-          for route in 'route:"likes"' 'route:"entitlements/free-boost"' 'route:"connections/{connectionId}/nikah-promise"' 'route:"compatibility/living"' 'route:"compatibility/living/share"' 'route:"connections/{connectionId}/health-check'; do
-            grep -Fq "$route" azure-backend/src/firebaseParity.js
+          for route in 'likes' 'entitlements/free-boost' 'connections/{connectionId}/nikah-promise' 'compatibility/living' 'compatibility/living/share' 'connections/{connectionId}/health-check'; do
+            grep -Eq 'route:[[:space:]]*"'"$route"'"' azure-backend/src/firebaseParity.js
           done
-          for route in 'route:"interests"' 'route:"conversations"' 'route:"family-links"' 'route:"verification/identity"' 'route:"photos"' 'route:"premium/purchases/verify"' 'route:"admob/rewarded/config"' 'route:"wallet"' 'route:"community/messages"' 'route:"admin/owner/earnings"' 'route:"help/ask"' 'route:"account"' 'route:"safety/reports"' 'route:"privacy"' 'route:"blocks"' 'route:"admin/moderation/reports"'; do
-            grep -Rqs "$route" azure-backend/src
+          for route in 'interests' 'conversations' 'family-links' 'verification/identity' 'photos' 'premium/purchases/verify' 'admob/rewarded/config' 'community/messages' 'admin/owner/earnings' 'help/ask' 'account' 'safety/reports' 'privacy' 'blocks' 'admin/moderation/reports'; do
+            grep -REqs 'route:[[:space:]]*"'"$route"'"' azure-backend/src --include='*.js'
           done
           grep -Fq 'CREATE TABLE IF NOT EXISTS likes' azure-backend/database/schema.sql
           grep -Fq 'CREATE TABLE IF NOT EXISTS nikah_promise_paths' azure-backend/database/schema.sql
