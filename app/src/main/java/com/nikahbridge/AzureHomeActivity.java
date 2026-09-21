@@ -56,6 +56,7 @@ public class AzureHomeActivity extends Activity {
         Button safety=button("Safety Reports",false);
         Button ai=button("Azure AI Nikah Assistant",false);
         Button wallet=button("Azure Wallet",false);
+        Button delete=button("Permanently Delete Account",false);
         Button out=button("Sign out of Azure",false);
 
         profile.setOnClickListener(v->profile());
@@ -67,6 +68,7 @@ public class AzureHomeActivity extends Activity {
         safety.setOnClickListener(v->safety());
         ai.setOnClickListener(v->ai());
         wallet.setOnClickListener(v->startActivity(new Intent(this,AzureWalletActivity.class)));
+        delete.setOnClickListener(v->deleteAccount());
         out.setOnClickListener(v->signOut());
     }
 
@@ -264,6 +266,26 @@ public class AzureHomeActivity extends Activity {
             });
         }catch(Exception e){answer.setText("Please enter a clear question.");}});
         back.setOnClickListener(v->home());
+    }
+
+    private void deleteAccount(){
+        new AlertDialog.Builder(this)
+            .setTitle("Delete Azure account data permanently?")
+            .setMessage("This permanently removes your app profile, photos, verification documents and related records from Azure storage/database. Your Azure External ID sign-in identity is not deleted by this app endpoint.")
+            .setPositiveButton("Delete", (d,w)->{
+                AzureApiClient.delete("/account",null,new AzureApiClient.Callback(){
+                    public void ok(int code,String body){
+                        runOnUiThread(()->{
+                            AzureAuthManager.removeCurrentAccount(AzureHomeActivity.this,ok->{
+                                Toast.makeText(AzureHomeActivity.this,"Azure account data deleted.",Toast.LENGTH_LONG).show();
+                                startActivity(new Intent(AzureHomeActivity.this,WelcomeActivity.class));
+                                finish();
+                            });
+                        });
+                    }
+                    public void err(String m){runOnUiThread(()->toast("Account deletion failed: "+m));}
+                });
+            }).setNegativeButton("Cancel",null).show();
     }
 
     private void signOut(){
