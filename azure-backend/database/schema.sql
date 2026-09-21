@@ -604,3 +604,66 @@ CREATE INDEX IF NOT EXISTS idx_firestore_migration_audit_status
 -- Azure identity/data consistency constraints.
 CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON users(firebase_uid);
 CREATE INDEX IF NOT EXISTS idx_users_azure_subject ON users(azure_subject);
+
+
+-- Step 9: Firebase Function parity tables for remaining application flows.
+CREATE TABLE IF NOT EXISTS likes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day DATE NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (from_user_id,to_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_likes_from_day ON likes(from_user_id,day);
+
+CREATE TABLE IF NOT EXISTS daily_likes (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  day DATE NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id,day)
+);
+
+CREATE TABLE IF NOT EXISTS nikah_promise_paths (
+  connection_id UUID PRIMARY KEY,
+  stage TEXT NOT NULL,
+  target_date TEXT,
+  notes TEXT,
+  updated_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS living_compatibility (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  country TEXT, city TEXT, marriage_timeline TEXT, family_involvement TEXT,
+  children_expectation TEXT, career_plan TEXT, living_plan TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS living_change_alerts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  to_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  field TEXT NOT NULL, value TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'unread',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS connection_health_checks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  connection_id UUID NOT NULL,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  communication TEXT, family_progress TEXT, unresolved_differences TEXT,
+  timeline_aligned TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(connection_id,user_id)
+);
+
+CREATE TABLE IF NOT EXISTS free_boost_claims (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  claimed_at TIMESTAMPTZ NOT NULL
+);
