@@ -87,8 +87,6 @@ public class RealFourPhotoActivity extends Activity {
         gallery.setOnClickListener(v -> chooseRemainingPhotos());
         Button uploadAzure = button("3. Upload All 4 to Azure Securely", true);
         uploadAzure.setOnClickListener(v -> uploadAllToAzure());
-        Button upload = button("Legacy Firebase Upload (kept for rollback)", false);
-        upload.setOnClickListener(v -> uploadAll());
         Button back = button("Back", false);
         back.setOnClickListener(v -> finish());
     }
