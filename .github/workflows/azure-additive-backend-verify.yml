@@ -256,6 +256,20 @@ jobs:
           grep -Fq 'CREATE TABLE IF NOT EXISTS connection_health_checks' azure-backend/database/schema.sql
           echo "STEP 9 VERIFIED: Firebase callable-function coverage is represented by Azure HTTP routes and PostgreSQL-backed parity handlers. Firebase source remains preserved for final cutover."
 
+      # STEP 9 LOCKED CHECKPOINT: Azure parity routes for remaining Firebase Functions are verified.
+      - name: Lock Step 9 Azure Functions parity checkpoint
+        run: |
+          set -euo pipefail
+          grep -Fq 'require("./firebaseParity")' azure-backend/src/index.js
+          grep -Eq 'route:[[:space:]]*"likes"' azure-backend/src/firebaseParity.js
+          grep -Eq 'route:[[:space:]]*"entitlements/free-boost"' azure-backend/src/firebaseParity.js
+          grep -Eq 'route:[[:space:]]*"connections/{connectionId}/nikah-promise"' azure-backend/src/firebaseParity.js
+          grep -Eq 'route:[[:space:]]*"compatibility/living"' azure-backend/src/firebaseParity.js
+          grep -Eq 'route:[[:space:]]*"connections/{connectionId}/health-check"' azure-backend/src/firebaseParity.js
+          grep -Fq 'CREATE TABLE IF NOT EXISTS likes' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS nikah_promise_paths' azure-backend/database/schema.sql
+          echo "STEP 9 LOCKED: Azure Functions parity checkpoint verified; Firebase Functions remain preserved for final cutover."
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
