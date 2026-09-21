@@ -43,16 +43,8 @@ jobs:
       - name: Validate Azure backend JavaScript
         working-directory: azure-backend
         run: |
-          node --check src/index.js
-          node --check src/auth.js
-          node --check src/azureExternalAuth.js
-          node --check src/account.js
-          node --check src/rewardedAds.js
-          node --check src/premiumPurchaseVerification.js
-          node --check src/premiumPlans.js\n          node --check src/matches.js
-          node --check src/wallet.js
-          node --check src/aiNikahAssistant.js
-          node --check src/auth.js
+          test -d src
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
 
       # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
       - name: Verify Azure AI production path
