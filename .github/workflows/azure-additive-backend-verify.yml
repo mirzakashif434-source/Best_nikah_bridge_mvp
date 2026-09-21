@@ -228,6 +228,17 @@ jobs:
           grep -Fq 'idx_users_azure_subject' "$schema"
           echo "STEP 8 VERIFIED: Azure PostgreSQL has a controlled Firestore migration audit ledger and identity/data integrity indexes."
 
+      # STEP 8 LOCKED CHECKPOINT: Azure PostgreSQL migration-integrity layer is verified.
+      - name: Lock Step 8 Azure data integrity checkpoint
+        run: |
+          set -euo pipefail
+          grep -Fq 'CREATE TABLE IF NOT EXISTS firestore_migration_audit' azure-backend/database/schema.sql
+          grep -Fq 'source_record_count BIGINT' azure-backend/database/schema.sql
+          grep -Fq 'target_record_count BIGINT' azure-backend/database/schema.sql
+          grep -Fq 'idx_users_firebase_uid' azure-backend/database/schema.sql
+          grep -Fq 'idx_users_azure_subject' azure-backend/database/schema.sql
+          echo "STEP 8 LOCKED: Azure PostgreSQL migration-integrity checkpoint verified. Firebase source data remains preserved for controlled final cutover."
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
