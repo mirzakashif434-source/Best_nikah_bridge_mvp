@@ -90,8 +90,13 @@ function extractLineItem(purchase, productId) {
   return (purchase.lineItems || []).find(item => item.productId === productId && item.expiryTime);
 }
 
-async function currentUser(firebaseUid) {
-  const result = await query("SELECT id, status FROM users WHERE firebase_uid = $1 LIMIT 1", [firebaseUid]);
+async function currentUser(authUser) {
+  const identityColumn = authUser.auth_provider === "azure_external_id" ? "azure_subject" : "firebase_uid";
+  const identityValue = authUser.auth_provider === "azure_external_id" ? authUser.azure_subject : authUser.uid;
+  const result = await query(
+    `SELECT id, status FROM users WHERE ${identityColumn} = $1 LIMIT 1`,
+    [identityValue]
+  );
   const user = result.rows[0];
   if (!user || user.status !== "active") {
     const e = new Error("Active user account required.");
@@ -107,7 +112,7 @@ app.http("verifyPremiumPurchase", {
   route: "premium/purchases/verify",
   handler: requireAuth(async (request, context, firebaseUser) => {
     try {
-      const user = await currentUser(firebaseUser.uid);
+      const user = await currentUser(firebaseUser);
       const body = await request.json();
       const productId = String(body?.productId || "").trim();
       const purchaseToken = String(body?.purchaseToken || "").trim();
