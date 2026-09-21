@@ -36,7 +36,7 @@ public class AzureExternalAuthActivity extends Activity {
     private static final String API_BASE =
             "https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net";
     private static final String API_SCOPE =
-            "api://4733aae0-3b89-4994-b99b-3890bf87e876/access_as_user";
+            "api://4733ae40-3b89-4994-b99b-3890bf87e876/access_as_user";
 
     private IMultipleAccountPublicClientApplication msal;
     private TextView status;
