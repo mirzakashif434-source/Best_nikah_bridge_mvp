@@ -46,6 +46,22 @@ jobs:
           test -d src
           find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
 
+      # Step 2: Azure owner earnings is the production ledger/dashboard path.
+      - name: Verify Step 2 Azure owner earnings path
+        run: |
+          grep -Fq 'require("./ownerEarnings")' azure-backend/src/index.js
+          grep -Fq 'route:"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Fq 'route:"admin/owner/settlement-profile"' azure-backend/src/ownerEarnings.js
+          grep -Fq 'route:"admin/owner/provider-settlement"' azure-backend/src/ownerEarnings.js
+          grep -Fq 'route:"admin/owner/settlements"' azure-backend/src/ownerEarnings.js
+          grep -Fq 'route:"admin/owner/settlements/{id}/paid"' azure-backend/src/ownerEarnings.js
+          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_earnings' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_earnings_summary' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_settlement_profile' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_provider_settlements' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_settlements' azure-backend/database/schema.sql
+          echo "Step 2 Azure owner earnings/settlement ledger verified; legacy Firebase owner earnings remains preserved."
+
       # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
       - name: Verify Azure AI production path
         run: |
