@@ -176,7 +176,7 @@ public class RealFourPhotoActivity extends Activity {
 
     /** Primary production path: each photo is sent to Azure Blob through the authenticated /photos API. */
     private void uploadAllToAzure() {
-        if (AzureAuthManager.getAccount() == null) { status.setText("Please sign in with Azure again."); return; }
+        if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure again."); return; }
         if (cameraBitmap == null) { status.setText("Photo 1 is required and must come from the camera."); return; }
         if (galleryUris.size() != 3) { status.setText("Please select exactly 3 gallery photos for Photos 2–4."); return; }
         status.setText("Uploading 4 real photos to Azure securely…");
