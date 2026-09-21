@@ -1,3 +1,4 @@
+# Build trigger: Azure External ID scope fix 4edfc5e7
 name: Azure Additive Backend + Android Verification
 
 on:
