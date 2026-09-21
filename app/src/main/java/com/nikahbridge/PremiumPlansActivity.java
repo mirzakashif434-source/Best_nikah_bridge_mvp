@@ -13,7 +13,6 @@ import com.android.billingclient.api.PendingPurchasesParams;
 import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.QueryProductDetailsParams;
-import com.google.firebase.functions.FirebaseFunctions;
 import java.util.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -21,7 +20,6 @@ import org.json.JSONObject;
 public class PremiumPlansActivity extends Activity {
     private LinearLayout root;
     private BillingClient billing;
-    private FirebaseFunctions functions; // Legacy Firebase path retained for rollback
     private final Map<String, String> azurePlanBasePlans = new HashMap<>();
     private final Map<String, ProductDetails> products = new HashMap<>();
     private TextView status;
@@ -47,7 +45,6 @@ public class PremiumPlansActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        functions = FirebaseFunctions.getInstance();
         ScrollView scroll = new ScrollView(this);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -221,27 +218,6 @@ public class PremiumPlansActivity extends Activity {
         }
     }
 
-    private void verifyOnServer(String productId, String purchaseToken) {
-        status.setText("Purchase received. Verifying securely with Google Play…");
-        Map<String,Object> data = new HashMap<>();
-        data.put("productId", productId);
-        data.put("purchaseToken", purchaseToken);
-        functions.getHttpsCallable("verifyPremiumPurchase").call(data)
-                .addOnSuccessListener(result -> {
-                    status.setText("Purchase verified. Premium access and message credits have been activated.");
-                    loadEntitlement();
-                })
-                .addOnFailureListener(error -> status.setText("Purchase verification failed. No premium access is granted until Google Play verification succeeds."));
-    }
-
-    private void loadEntitlement() {
-        functions.getHttpsCallable("getPremiumEntitlement").call(new HashMap<>())
-                .addOnSuccessListener(result -> {
-                    Object data = result.getData();
-                    status.setText("Current premium status: " + String.valueOf(data));
-                })
-                .addOnFailureListener(error -> status.setText("Premium status unavailable: " + error.getMessage()));
-    }
 
     @Override protected void onDestroy() {
         if (billing != null) billing.endConnection();
