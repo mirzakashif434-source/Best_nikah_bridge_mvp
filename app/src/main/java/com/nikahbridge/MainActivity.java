@@ -51,11 +51,26 @@ public class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
-        auth=FirebaseAuth.getInstance();
-        db=FirebaseFirestore.getInstance();
-        functions=FirebaseFunctions.getInstance();
         aiExecutor=Executors.newSingleThreadExecutor();
-        route();
+
+        // Azure External ID is now the primary production entry path.
+        // The existing Firebase implementation below is intentionally retained
+        // for migration safety/rollback and is not deleted or replaced.
+        AzureAuthManager.initialize(this,
+                () -> runOnUiThread(() -> {
+                    if (AzureAuthManager.hasAccount(this)) {
+                        startActivity(new android.content.Intent(this, AzureHomeActivity.class));
+                        finish();
+                    } else {
+                        startActivity(new android.content.Intent(this, AzureExternalAuthActivity.class));
+                        finish();
+                    }
+                }),
+                message -> runOnUiThread(() -> {
+                    Toast.makeText(this, "Azure authentication setup failed. Please try again.", Toast.LENGTH_LONG).show();
+                    startActivity(new android.content.Intent(this, AzureExternalAuthActivity.class));
+                    finish();
+                }));
     }
 
     @Override protected void onDestroy(){
