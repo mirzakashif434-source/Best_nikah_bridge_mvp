@@ -1,0 +1,26 @@
+name: Step 10 Lock - Azure Blob Storage
+
+on:
+  push:
+    branches: [azure-backend-additive]
+  workflow_dispatch:
+
+jobs:
+  lock:
+    name: Lock Step 10 Azure Blob Storage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Step 10 remains Azure-connected
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Eq 'new[[:space:]]+BlobServiceClient\(accountUrl,[[:space:]]*new[[:space:]]+DefaultAzureCredential\(\)\)' azure-backend/src/storage.js
+          grep -Eq 'AZURE_STORAGE_ACCOUNT_URL' azure-backend/src/storage.js
+          grep -Eq 'getProfilePhotosContainer' azure-backend/src/photos.js
+          grep -Eq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
+          grep -Eq 'AzureApiClient\.multipart\("/photos"' app/src/main/java/com/nikahbridge/ProfilePhotoActivity.java
+          grep -Eq 'AzureApiClient\.multipart\("/photos"' app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java
+          echo "STEP 10 LOCKED: Azure Blob profile/verification storage path is preserved and Android photo uploads remain connected through the authenticated Azure API."
