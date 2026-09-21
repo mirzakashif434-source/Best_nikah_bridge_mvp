@@ -180,6 +180,29 @@ app.http("verifyPremiumPurchase", {
           [user.id, allowed.planKey]
         );
 
+        // Step 2: record the verified Google Play sale in the Azure owner ledger.
+        const planValueSarMinor = { premium_basic_20: 2000, premium_plus_40: 4000, premium_vip_60: 6000 }[allowed.planKey] || 0;
+        if (planValueSarMinor > 0) {
+          const sale = await query(
+            `INSERT INTO owner_earnings
+               (purchase_token_hash, purchase_id, user_id, product_id, order_id, status, plan_value_sar_minor, verified_at)
+             VALUES ($1,$2,$3,$4,$5,'verified_sale',$6,now())
+             ON CONFLICT (purchase_token_hash) DO NOTHING
+             RETURNING id`,
+            [purchaseTokenHash, purchaseTokenHash, user.id, productId, orderId || null, planValueSarMinor]
+          );
+          if (sale.rows.length) {
+            await query(
+              `UPDATE owner_earnings_summary
+                 SET verified_sales_count = verified_sales_count + 1,
+                     verified_plan_value_sar_minor = verified_plan_value_sar_minor + $1,
+                     updated_at = now()
+               WHERE id = true`,
+              [planValueSarMinor]
+            );
+          }
+        }
+
         await query("COMMIT");
       } catch (e) {
         await query("ROLLBACK");
