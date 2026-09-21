@@ -36,7 +36,7 @@ import java.util.Map;
  */
 public class ProfilePhotoActivity extends Activity {
     private static final int PICK_IMAGE = 7101;
-    private static final long MAX_BYTES = 5L * 1024L * 1024L;
+    private static final long MAX_BYTES = 4L * 1024L * 1024L;
 
     private ImageView preview;
     private TextView status;
@@ -76,7 +76,7 @@ public class ProfilePhotoActivity extends Activity {
         root.addView(choose, new LinearLayout.LayoutParams(-1, dp(62)));
 
         Button upload = new Button(this);
-        upload.setText("Upload Securely");
+        upload.setText("Upload to Azure Securely");
         upload.setTextColor(Color.rgb(18,103,82));
         root.addView(upload, new LinearLayout.LayoutParams(-1, dp(62)));
 
@@ -98,29 +98,31 @@ public class ProfilePhotoActivity extends Activity {
         root.addView(back, new LinearLayout.LayoutParams(-1, dp(62)));
 
         choose.setOnClickListener(v -> requireTermsBeforePhotoAction(this::pickImage));
-        upload.setOnClickListener(v -> requireTermsBeforePhotoAction(this::uploadImage));
+        upload.setOnClickListener(v -> requireTermsBeforePhotoAction(this::uploadImageAzure));
         back.setOnClickListener(v -> finish());
     }
 
     private void requireTermsBeforePhotoAction(Runnable action) {
-        FirebaseAuth auth = FirebaseAuth.getInstance();
-        if (auth.getCurrentUser() == null) { status.setText("Please sign in again."); return; }
-        String uid = auth.getCurrentUser().getUid();
-        FirebaseFirestore.getInstance().collection("users").document(uid).get()
-                .addOnSuccessListener(doc -> {
-                    if (isAdultAndTermsAccepted(doc)) action.run();
-                    else {
-                        status.setText("Please accept the Terms & Community Guidelines before uploading user content.");
-                        startActivityForResult(new Intent(this, TermsAndCommunityGuidelinesActivity.class), 7201);
-                    }
-                })
-                .addOnFailureListener(e -> status.setText("Could not verify content permissions. Please try again."));
-    }
-
-    private boolean isAdultAndTermsAccepted(DocumentSnapshot doc) {
-        Object ageObj = doc.get("age");
-        long age = ageObj instanceof Number ? ((Number)ageObj).longValue() : 0;
-        return age >= 18 && Boolean.TRUE.equals(doc.getBoolean("termsAccepted"));
+        if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure again."); return; }
+        AzureApiClient.get("/terms/status", new AzureApiClient.Callback() {
+            @Override public void ok(int code, String body) {
+                try {
+                    org.json.JSONObject o = new org.json.JSONObject(body);
+                    boolean accepted = o.optBoolean("termsAccepted", false);
+                    int age = o.optInt("age", 0);
+                    String current = o.optString("currentTermsVersion", "");
+                    String version = o.optString("termsVersion", "");
+                    runOnUiThread(() -> {
+                        if (accepted && age >= 18 && current.equals(version)) action.run();
+                        else {
+                            status.setText("Please accept the current Terms & Community Guidelines first.");
+                            startActivityForResult(new Intent(this, TermsAndCommunityGuidelinesActivity.class), 7201);
+                        }
+                    });
+                } catch (Exception e) { runOnUiThread(() -> status.setText("Could not verify Azure content permissions.")); }
+            }
+            @Override public void err(String message) { runOnUiThread(() -> status.setText("Azure terms check failed: " + message)); }
+        });
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
@@ -131,7 +133,7 @@ public class ProfilePhotoActivity extends Activity {
         long size = getSize(selected);
         if (size > MAX_BYTES) {
             selected = null;
-            status.setText("Photo is larger than 5 MB. Choose a smaller image.");
+            status.setText("Photo is larger than 4 MB. Choose a smaller image.");
             return;
         }
         try { getContentResolver().takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) {}
@@ -153,6 +155,33 @@ public class ProfilePhotoActivity extends Activity {
             if (c != null && c.moveToFirst()) return c.getLong(0);
         } catch (Exception ignored) {} finally { if (c != null) c.close(); }
         return 0L;
+    }
+
+    /** Primary production path: authenticated Azure API -> AI moderation -> Blob + PostgreSQL. */
+    private void uploadImageAzure() {
+        if (selected == null) { status.setText("Choose a real photo first."); return; }
+        if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure again."); return; }
+        try {
+            java.io.InputStream in = getContentResolver().openInputStream(selected);
+            if (in == null) { status.setText("Could not read the selected photo."); return; }
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[8192]; int total = 0, read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > MAX_BYTES) { in.close(); status.setText("Photo is larger than 4 MB."); return; }
+                out.write(buffer, 0, read);
+            }
+            in.close();
+            String mime = getContentResolver().getType(selected);
+            if (mime == null || !(mime.equals("image/jpeg") || mime.equals("image/png") || mime.equals("image/webp"))) mime = "image/jpeg";
+            final String finalMime = mime;
+            status.setText("Uploading real photo to Azure securely…");
+            AzureApiClient.multipart("/photos","photo","profile."+finalMime.substring(finalMime.indexOf('/')+1),finalMime,out.toByteArray(),
+                    new String[]{"visibility"},new String[]{"private"},new AzureApiClient.Callback(){
+                @Override public void ok(int code,String body){runOnUiThread(()->{status.setText("Real profile photo saved in Azure.");setResult(RESULT_OK);});}
+                @Override public void err(String message){runOnUiThread(()->status.setText("Azure photo upload failed: "+message));}
+            });
+        } catch(Exception e) { status.setText("Could not read the selected photo."); }
     }
 
     private void uploadImage() {
