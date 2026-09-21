@@ -320,3 +320,9 @@ CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_status
 
 
 -- Wallet verification checkpoint: additive only; no existing objects are removed or replaced.
+
+
+-- Firebase migration: real Azure terms acceptance state.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
