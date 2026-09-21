@@ -19,14 +19,14 @@ function requireAdMobUnit() {
   return unit;
 }
 
-async function activeFirebaseUser(firebaseUid) {
+async function activeRewardedUser(authUser) {
   const result = await query(
     `SELECT u.id, u.email, u.email_verified_at, u.status, p.profile_completed, p.is_visible
        FROM users u
        LEFT JOIN profiles p ON p.user_id = u.id
-      WHERE u.firebase_uid = $1
+      WHERE u.azure_subject = $1
       LIMIT 1`,
-    [firebaseUid]
+    [authUser.azure_subject]
   );
   const user = result.rows[0];
   if (!user || user.status !== "active" || user.profile_completed !== true || user.is_visible !== true) {
@@ -41,8 +41,9 @@ app.http("getRewardedAdConfig", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "admob/rewarded/config",
-  handler: requireAuth(async (request, context, firebaseUser) => {
-    await activeFirebaseUser(firebaseUser.uid);
+  handler: requireAuth(async (request, context, authUser) => {
+    if (authUser.auth_provider !== "azure_external_id" || !authUser.azure_subject) return { status: 401, jsonBody: { ok: false, error: "AZURE_AUTH_REQUIRED" } };
+    await activeRewardedUser(authUser);
     const unit = requireAdMobUnit();
     return {
       status: 200,
@@ -123,7 +124,7 @@ app.http("admobRewardedSsv", {
         throw new Error("Unknown rewarded ad unit.");
       }
 
-      const user = await activeFirebaseUser(uid);
+      const user = await activeRewardedUser({ azure_subject: uid });
       const rewardAmount = Number(params.get("reward_amount") || 0);
       const rewardItem = String(params.get("reward_item") || "message_credit");
 
