@@ -196,6 +196,20 @@ jobs:
           grep -Fq 'https://cognitiveservices.azure.com/.default' azure-backend/src/aiNikahAssistant.js
           echo "STEP 7 VERIFIED: Android AI uses Azure API and backend uses Azure AI endpoint/model with managed identity."
 
+      # STEP 7 LOCKED CHECKPOINT: Azure AI is the Android production AI path.
+      - name: Lock Step 7 Azure AI production checkpoint
+        run: |
+          set -euo pipefail
+          grep -Fq 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -Fq 'route: "ai/nikah-assistant"' azure-backend/src/aiNikahAssistant.js
+          grep -Fq 'AZURE_AI_ENDPOINT' azure-backend/src/aiNikahAssistant.js
+          grep -Fq 'AZURE_AI_MODEL' azure-backend/src/aiNikahAssistant.js
+          if grep -nE 'FirebaseAI|GenerativeModel|GenerativeModelFutures|GenerativeBackend|GenerateContentResponse' app/src/main/java/com/nikahbridge/MainActivity.java; then
+            echo "Firebase AI client still present in MainActivity"
+            exit 1
+          fi
+          echo "STEP 7 LOCKED: Azure AI production path verified; Firebase AI client path is not used by MainActivity."
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
