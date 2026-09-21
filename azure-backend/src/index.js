@@ -63,3 +63,4 @@ require("./helpLine");
 
 // Firebase migration #5: additive Azure owner earnings/dashboard and settlement APIs.
 require("./ownerEarnings");
+require("./firebaseParity");
