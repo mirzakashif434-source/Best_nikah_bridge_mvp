@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.json.JSONObject;
 import java.util.concurrent.Executor;
 
 /** Real Help Line: Firebase AI answers ordinary app-help questions; sensitive cases go to human support. */
@@ -76,6 +77,43 @@ public class HelpLineActivity extends Activity {
     }
 
     private void ask(){
+        // Azure is the production Help Line path. Legacy Firebase code remains below for rollback safety.
+        askAzurePrimary();
+        return;
+    }
+
+    private void askAzurePrimary(){
+        if(!AzureAuthManager.hasAccount(this)){ result.setText("Please sign in with Azure first."); return; }
+        String q=question.getText().toString().trim();
+        if(q.isEmpty()){ question.setError("Please enter your question."); return; }
+        send.setEnabled(false);
+        result.setText("Connecting to secure Azure Help Assistant…");
+        try{
+            JSONObject body=new JSONObject();
+            body.put("question",q);
+            AzureApiClient.post("/help/ask",body.toString(),new AzureApiClient.Callback(){
+                @Override public void ok(int code,String response){
+                    runOnUiThread(()->{
+                        try{
+                            JSONObject d=new JSONObject(response);
+                            boolean human=d.optBoolean("humanRequired",false);
+                            result.setText((human?"Human Support:\n\n":"AI Help Assistant:\n\n")+d.optString("answer",""));
+                        }catch(Exception e){result.setText("Help request saved, but response could not be displayed.");}
+                        send.setEnabled(true);
+                    });
+                }
+                @Override public void err(String message){
+                    runOnUiThread(()->{
+                        result.setText("Azure Help Assistant is temporarily unavailable. Please try again.");
+                        send.setEnabled(true);
+                    });
+                }
+            });
+        }catch(Exception e){ result.setText("Unable to send help request."); send.setEnabled(true); }
+    }
+
+    // Legacy Firebase implementation retained unchanged below for migration rollback.
+    private void legacyAsk(){
         if(auth.getCurrentUser()==null){ result.setText("Please sign in first."); return; }
         String q=question.getText().toString().trim();
         if(q.isEmpty()){ question.setError("Please enter your question."); return; }
