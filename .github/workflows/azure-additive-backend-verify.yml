@@ -79,6 +79,11 @@ jobs:
           grep -Eq 'route:[[:space:]]*"community/reports"' azure-backend/src/community.js
           echo "Step 3 Azure API migration verified; legacy Firebase backend remains preserved for rollback."
 
+      - name: Compile Android source before Step 3 lock
+        run: |
+          set -euo pipefail
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
       # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
       - name: Verify Azure AI production path
         run: |
