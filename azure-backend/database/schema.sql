@@ -383,3 +383,71 @@ CREATE TABLE IF NOT EXISTS help_line_tickets (
 );
 CREATE INDEX IF NOT EXISTS idx_help_line_tickets_user_created ON help_line_tickets(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_help_line_tickets_status_created ON help_line_tickets(status, created_at DESC);
+
+
+-- Step 2: real Azure owner earnings / settlement ledger.
+CREATE TABLE IF NOT EXISTS owner_earnings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  purchase_token_hash TEXT UNIQUE,
+  purchase_id TEXT,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  product_id TEXT NOT NULL,
+  order_id TEXT,
+  status TEXT NOT NULL DEFAULT 'verified_sale' CHECK (status IN ('verified_sale','refunded','revoked')),
+  plan_value_sar_minor INTEGER NOT NULL CHECK (plan_value_sar_minor > 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  verified_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_earnings_created ON owner_earnings(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS owner_earnings_summary (
+  id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  verified_sales_count INTEGER NOT NULL DEFAULT 0,
+  verified_plan_value_sar_minor BIGINT NOT NULL DEFAULT 0,
+  available_sar_minor BIGINT NOT NULL DEFAULT 0,
+  available_pkr_minor BIGINT NOT NULL DEFAULT 0,
+  available_usdt_minor BIGINT NOT NULL DEFAULT 0,
+  pending_sar_minor BIGINT NOT NULL DEFAULT 0,
+  pending_pkr_minor BIGINT NOT NULL DEFAULT 0,
+  pending_usdt_minor BIGINT NOT NULL DEFAULT 0,
+  settled_sar_minor BIGINT NOT NULL DEFAULT 0,
+  settled_pkr_minor BIGINT NOT NULL DEFAULT 0,
+  settled_usdt_minor BIGINT NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+INSERT INTO owner_earnings_summary(id) VALUES(TRUE) ON CONFLICT(id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS owner_settlement_profile (
+  id BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  country TEXT NOT NULL DEFAULT '',
+  currency TEXT NOT NULL DEFAULT '',
+  destination TEXT NOT NULL DEFAULT '',
+  label TEXT NOT NULL DEFAULT '',
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS owner_provider_settlements (
+  provider_reference TEXT PRIMARY KEY,
+  currency TEXT NOT NULL CHECK (currency IN ('SAR','PKR','USDT')),
+  amount_minor BIGINT NOT NULL CHECK (amount_minor > 0),
+  provider TEXT NOT NULL,
+  recorded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS owner_settlements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  currency TEXT NOT NULL CHECK (currency IN ('SAR','PKR','USDT')),
+  amount_minor BIGINT NOT NULL CHECK (amount_minor > 0),
+  country TEXT NOT NULL,
+  destination TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending_provider' CHECK (status IN ('pending_provider','paid','cancelled')),
+  requested_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  provider_reference TEXT,
+  paid_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_settlements_status_created ON owner_settlements(status,created_at DESC);
