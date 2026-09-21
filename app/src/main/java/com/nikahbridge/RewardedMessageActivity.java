@@ -34,6 +34,7 @@ public class RewardedMessageActivity extends Activity {
     private Button watch;
     private TextView status;
     private String productionUnit;
+    private String azureSubject;
     private static final String AZURE_REWARDED_CONFIG_URL = "https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net/api/admob/rewarded/config";
     private ConsentInformation consentInformation;
 
@@ -42,7 +43,7 @@ public class RewardedMessageActivity extends Activity {
         auth = FirebaseAuth.getInstance();
         functions = FirebaseFunctions.getInstance();
         base();
-        if (auth.getCurrentUser() == null) { status.setText("Please sign in first."); watch.setEnabled(false); return; }
+        if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure."); watch.setEnabled(false); return; }
         status.setText("Preparing a real rewarded ad…");
         loadConfig();
     }
@@ -60,50 +61,28 @@ public class RewardedMessageActivity extends Activity {
     }
 
     private void loadConfig() {
-        if (auth.getCurrentUser() == null) {
-            status.setText("Please sign in first.");
-            return;
-        }
-        auth.getCurrentUser().getIdToken(false).addOnSuccessListener(tokenResult -> {
-            String bearer = tokenResult.getToken();
-            if (bearer == null || bearer.trim().isEmpty()) {
-                status.setText("Secure authentication token unavailable.");
-                return;
-            }
-            new Thread(() -> {
-                HttpURLConnection connection = null;
+        if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure."); return; }
+        AzureApiClient.get("/admob/rewarded/config", new AzureApiClient.Callback() {
+            @Override public void ok(int code, String body) {
                 try {
-                    URL url = new URL(AZURE_REWARDED_CONFIG_URL);
-                    connection = (HttpURLConnection) url.openConnection();
-                    connection.setRequestMethod("GET");
-                    connection.setConnectTimeout(10000);
-                    connection.setReadTimeout(10000);
-                    connection.setRequestProperty("Authorization", "Bearer " + bearer);
-                    connection.setRequestProperty("Accept", "application/json");
-                    int code = connection.getResponseCode();
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(
-                            code >= 200 && code < 300 ? connection.getInputStream() : connection.getErrorStream()));
-                    StringBuilder body = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) body.append(line);
-                    reader.close();
-                    if (code < 200 || code >= 300) throw new IllegalStateException("Azure config HTTP " + code);
-                    JSONObject data = new JSONObject(body.toString());
+                    JSONObject data = new JSONObject(body);
                     if (!data.optBoolean("configured", false)) throw new IllegalStateException("Rewarded ads are not configured.");
                     String unit = data.optString("rewardedAdUnitId", "");
-                    if (!unit.matches("ca-app-pub-\\d{16}/\\d+")) throw new IllegalStateException("Invalid production ad unit.");
+                    String subject = data.optString("azureSubject", "");
+                    if (!unit.matches("ca-app-pub-\\d{16}/\\d+") || subject.trim().isEmpty()) throw new IllegalStateException("Invalid Azure rewarded configuration.");
                     runOnUiThread(() -> {
                         productionUnit = unit;
+                        azureSubject = subject;
                         requestConsentThenLoad();
                     });
                 } catch (Exception e) {
                     runOnUiThread(() -> status.setText("Could not load secure Azure rewarded-ad configuration."));
-                } finally {
-                    if (connection != null) connection.disconnect();
                 }
-            }).start();
-        }).addOnFailureListener(e -> status.setText("Secure authentication token unavailable."));
+            }
+            @Override public void err(String message) { runOnUiThread(() -> status.setText("Azure rewarded configuration unavailable.")); }
+        });
     }
+
     private void requestConsentThenLoad() {
         consentInformation = UserMessagingPlatform.getConsentInformation(this);
         ConsentRequestParameters params = new ConsentRequestParameters.Builder().build();
@@ -131,7 +110,7 @@ public class RewardedMessageActivity extends Activity {
         RewardedAd.load(this, productionUnit, new AdRequest.Builder().build(), new RewardedAdLoadCallback() {
             @Override public void onAdLoaded(RewardedAd ad) {
                 rewardedAd = ad;
-                String uid = auth.getUid();
+                String uid = azureSubject;
                 rewardedAd.setServerSideVerificationOptions(new ServerSideVerificationOptions.Builder()
                         .setUserId(uid)
                         .setCustomData(uid)
