@@ -451,3 +451,112 @@ CREATE TABLE IF NOT EXISTS owner_settlements (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_owner_settlements_status_created ON owner_settlements(status,created_at DESC);
+
+
+-- Step 4: Firestore -> Azure PostgreSQL parity layer (additive only).
+-- These tables mirror remaining production Firestore collections before cutover.
+CREATE TABLE IF NOT EXISTS user_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  setting_key TEXT NOT NULL,
+  setting_value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, setting_key)
+);
+
+CREATE TABLE IF NOT EXISTS wali_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  wali_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  wali_name TEXT,
+  wali_email TEXT,
+  wali_phone_e164 TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','active','revoked')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_wali_connections_user_status ON wali_connections(user_id,status);
+
+CREATE TABLE IF NOT EXISTS family_bridges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','closed','revoked')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS family_bridge_participants (
+  bridge_id UUID NOT NULL REFERENCES family_bridges(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('member','wali','chaperone')),
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (bridge_id,user_id)
+);
+
+CREATE TABLE IF NOT EXISTS family_bridge_questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  bridge_id UUID NOT NULL REFERENCES family_bridges(id) ON DELETE CASCADE,
+  author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  answer TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  answered_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_family_bridge_questions_bridge_created ON family_bridge_questions(bridge_id,created_at);
+
+CREATE TABLE IF NOT EXISTS deletion_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','completed','rejected')),
+  reason TEXT,
+  requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  completed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_deletion_requests_user_status ON deletion_requests(user_id,status);
+
+CREATE TABLE IF NOT EXISTS moderation_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  entity_type TEXT NOT NULL,
+  entity_id UUID,
+  reported_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  reason TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','reviewing','resolved','dismissed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_moderation_queue_status_created ON moderation_queue(status,created_at);
+
+CREATE TABLE IF NOT EXISTS risk_signals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  signal_type TEXT NOT NULL,
+  score NUMERIC(8,3),
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_risk_signals_user_created ON risk_signals(user_id,created_at DESC);
+
+CREATE TABLE IF NOT EXISTS play_purchases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  product_id TEXT NOT NULL,
+  purchase_token_hash TEXT NOT NULL UNIQUE,
+  order_id TEXT,
+  state TEXT NOT NULL,
+  purchased_at TIMESTAMPTZ,
+  verified_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public_config (
+  config_key TEXT PRIMARY KEY,
+  config_value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS admin_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  record_key TEXT NOT NULL UNIQUE,
+  record_value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
