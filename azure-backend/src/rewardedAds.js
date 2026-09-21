@@ -52,6 +52,7 @@ app.http("getRewardedAdConfig", {
         configured: true,
         rewardedAdUnitId: unit,
         rewardedAdUnitNumericId: numericAdUnit(unit),
+        azureSubject: String(authUser.azure_subject),
         dailyRewardLimit: 2,
         rewardMessageCredits: 1
       }
