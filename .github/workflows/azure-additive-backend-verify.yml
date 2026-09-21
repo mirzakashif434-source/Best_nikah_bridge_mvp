@@ -133,6 +133,21 @@ jobs:
           grep -Fq 'document_blob_key TEXT' azure-backend/database/schema.sql
           echo "Step 5 Azure Blob Storage production path verified; Firebase Storage remains preserved for controlled final cutover."
 
+      # Step 6: Azure External ID is the production authentication authority.
+      - name: Verify Step 6 Azure External ID authentication cutover
+        run: |
+          set -euo pipefail
+          grep -Fq 'AZURE_AUTH_ONLY || "true"' azure-backend/src/auth.js
+          grep -Fq 'verifyAzureExternalIdToken' azure-backend/src/auth.js
+          grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
+          grep -Fq 'azure_subject' azure-backend/src/azureExternalAuth.js
+          grep -Fq 'firebase_uid' azure-backend/src/azureExternalAuth.js
+          grep -Fq 'Azure External ID is now the primary production entry path.' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -Fq 'API_SCOPE' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'access_as_user' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'route:"auth/azure/me"' azure-backend/src/azureExternalAuth.js
+          echo "STEP 6 VERIFIED: Azure External ID is the default production auth authority; Firebase auth code remains preserved for controlled rollback."
+
       # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
       - name: Verify Azure AI production path
         run: |
