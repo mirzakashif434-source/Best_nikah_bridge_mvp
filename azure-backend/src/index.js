@@ -25,6 +25,7 @@ require("./profile");
 require("./matches");
 require("./matchDetail");
 require("./aiNikahAssistant");
+require("./aiCompatibility");
 require("./interests");
 require("./chat");
 require("./family");
