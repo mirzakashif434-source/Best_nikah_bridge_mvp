@@ -176,11 +176,11 @@ jobs:
           PGPASSWORD: ${{ env.DB_PASSWORD }}
         run: |
           set -euo pipefail
-          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"             -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports','blocked_users','privacy_settings','entitlements','rewarded_ad_transactions','daily_reward_claims','premium_plans','wallet_accounts','wallet_ledger','wallet_withdrawals','help_line_tickets');")"
-          if [ "$COUNT" = "20" ]; then
-            echo "DATABASE VERIFICATION: PASS (20 core tables)"
+          COUNT="$(psql "host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"             -Atc "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('users','profiles','partner_preferences','interests','conversations','messages','family_links','verifications','photos','safety_reports','blocked_users','privacy_settings','entitlements','rewarded_ad_transactions','daily_reward_claims','premium_plans','wallet_accounts','wallet_ledger','wallet_withdrawals','help_line_tickets','owner_earnings','owner_earnings_summary','owner_settlement_profile','owner_provider_settlements','owner_settlements');")"
+          if [ "$COUNT" = "25" ]; then
+            echo "DATABASE VERIFICATION: PASS (25 core tables)"
           else
-            echo "DATABASE VERIFICATION: FAIL (found $COUNT/19 core tables)"
+            echo "DATABASE VERIFICATION: FAIL (found $COUNT/25 core tables)"
             exit 1
           fi
 
