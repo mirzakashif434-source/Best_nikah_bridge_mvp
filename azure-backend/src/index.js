@@ -54,3 +54,7 @@ require("./premiumPurchaseVerification");
 
 // Firebase migration #3: additive Azure wallet ledger/API.
 require("./wallet");
+
+
+// Firebase migration #4: additive Azure Help Line AI/admin APIs.
+require("./helpLine");
