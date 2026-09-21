@@ -91,6 +91,26 @@ jobs:
           grep -Fq 'azure_subject TEXT' "$schema"
           echo "Step 4 Azure PostgreSQL parity schema verified. Firebase schema/config remains preserved for controlled cutover."
 
+      # STEP 4 LOCKED CHECKPOINT: Firestore parity schema is verified against Azure PostgreSQL.
+      # Existing Firebase data/config is intentionally preserved until final tested cutover.
+      - name: Lock Step 4 Azure PostgreSQL parity checkpoint
+        run: |
+          set -euo pipefail
+          grep -Eq 'CREATE TABLE IF NOT EXISTS users' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS profiles' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS interests' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS conversations' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS messages' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS family_bridges' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS verifications' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS privacy_settings' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS deletion_requests' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS moderation_queue' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS risk_signals' azure-backend/database/schema.sql
+          grep -Eq 'CREATE TABLE IF NOT EXISTS public_config' azure-backend/database/schema.sql
+          grep -Fq 'azure_subject TEXT' azure-backend/database/schema.sql
+          echo "STEP 4 LOCKED: Azure PostgreSQL parity checkpoint verified; Firebase retained only for controlled final cutover."
+
       # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
       - name: Verify Azure AI production path
         run: |
