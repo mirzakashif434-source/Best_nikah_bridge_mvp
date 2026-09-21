@@ -11,6 +11,13 @@ const MAX_BYTES=8*1024*1024;
 async function ensureUser(user){
   const email=text(user.email,320).toLowerCase();
   if(!user.uid||!email) throw new Error("AUTH_IDENTITY_REQUIRED");
+  const azureSubject = typeof user.azure_subject === "string" && user.azure_subject.trim() ? user.azure_subject.trim() : null;
+  if (azureSubject) {
+    const existing = await query("SELECT id,status FROM users WHERE azure_subject=$1 OR firebase_uid=$2 LIMIT 1",[azureSubject,user.uid]);
+    if (existing.rows[0]) return existing.rows[0];
+    const created = await query("INSERT INTO users(firebase_uid,azure_subject,email,email_verified_at) VALUES($1,$2,$3,CASE WHEN $4 THEN now() ELSE NULL END) RETURNING id,status",[user.uid,azureSubject,email,Boolean(user.email_verified)]);
+    return created.rows[0];
+  }
   const r=await query("INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",[user.uid,email,Boolean(user.email_verified)]);
   return r.rows[0];
 }
