@@ -45,7 +45,9 @@ public class AzureHomeActivity extends Activity {
 
     private void home(){
         base(); title("Best Nikah Bridge");
-        TextView authStatus=text("Verifying real Azure token with the production API…",15,false); root.addView(authStatus);\n        AzureApiClient.get("/auth/azure/me",new AzureApiClient.Callback(){ public void ok(int code,String body){runOnUiThread(()->authStatus.setText("Azure token verified by production API."));} public void err(String m){runOnUiThread(()->authStatus.setText("Azure token verification failed: "+m));} });\n        root.addView(text("Azure External ID • Azure API • PostgreSQL • Azure Storage\nReal Azure session — no demo data.",16,false));
+        TextView authStatus=text("Verifying real Azure token with the production API…",15,false); root.addView(authStatus);
+        AzureApiClient.get("/auth/azure/me",new AzureApiClient.Callback(){ public void ok(int code,String body){runOnUiThread(()->authStatus.setText("Azure token verified by production API."));} public void err(String m){runOnUiThread(()->authStatus.setText("Azure token verification failed: "+m));} });
+        root.addView(text("Azure External ID • Azure API • PostgreSQL • Azure Storage\nReal Azure session — no demo data.",16,false));
 
         Button profile=button("My Real Azure Profile",true);
         Button matches=button("Real Compatibility Matches",true);
