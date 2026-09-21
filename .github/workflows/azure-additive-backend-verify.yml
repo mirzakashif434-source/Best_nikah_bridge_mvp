@@ -210,6 +210,24 @@ jobs:
           fi
           echo "STEP 7 LOCKED: Azure AI production path verified; Firebase AI client path is not used by MainActivity."
 
+      # Step 8: Firestore -> Azure PostgreSQL data consistency and migration audit.
+      - name: Verify Step 8 Azure data migration integrity layer
+        run: |
+          set -euo pipefail
+          schema="azure-backend/database/schema.sql"
+          grep -Fq 'CREATE TABLE IF NOT EXISTS firestore_migration_audit' "$schema"
+          grep -Fq "('users','users')" "$schema"
+          grep -Fq "('profiles','profiles')" "$schema"
+          grep -Fq "('messages','messages')" "$schema"
+          grep -Fq "('photos','photos')" "$schema"
+          grep -Fq "('owner_earnings','owner_earnings')" "$schema"
+          grep -Fq 'source_record_count BIGINT' "$schema"
+          grep -Fq 'target_record_count BIGINT' "$schema"
+          grep -Fq 'migration_status TEXT' "$schema"
+          grep -Fq 'idx_users_firebase_uid' "$schema"
+          grep -Fq 'idx_users_azure_subject' "$schema"
+          echo "STEP 8 VERIFIED: Azure PostgreSQL has a controlled Firestore migration audit ledger and identity/data integrity indexes."
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
