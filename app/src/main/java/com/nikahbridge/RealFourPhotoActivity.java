@@ -38,7 +38,7 @@ import java.util.Map;
 public class RealFourPhotoActivity extends Activity {
     private static final int CAMERA_FIRST = 8401;
     private static final int GALLERY_REMAINING = 8402;
-    private static final int MAX_BYTES = 5 * 1024 * 1024;
+    private static final int MAX_BYTES = 4 * 1024 * 1024;
 
     private FirebaseAuth auth;
     private FirebaseFirestore db;
@@ -198,7 +198,7 @@ public class RealFourPhotoActivity extends Activity {
                 byte[] buffer = new byte[8192]; int total = 0, read;
                 while ((read = in.read(buffer)) != -1) {
                     total += read;
-                    if (total > MAX_BYTES) { in.close(); status.setText("Gallery photo " + (index + 1) + " is larger than 5 MB."); return; }
+                    if (total > MAX_BYTES) { in.close(); status.setText("Gallery photo " + (index + 1) + " is larger than 4 MB."); return; }
                     out.write(buffer, 0, read);
                 }
                 in.close();
