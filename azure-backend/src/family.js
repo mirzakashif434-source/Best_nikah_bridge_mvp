@@ -6,7 +6,20 @@ const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 
 async function ensureUser(user){
   const email=text(user.email,320).toLowerCase();
-  if(!user.uid||!email) throw new Error("AUTH_IDENTITY_REQUIRED");
+  if(!email) throw new Error("AUTH_IDENTITY_REQUIRED");
+
+  // Azure External ID is the primary identity for Azure users.
+  // Firebase UID remains available only for legacy users during the migration.
+  if(user.auth_provider==="azure_external_id" && user.azure_subject){
+    const azure=await query(
+      "SELECT id,status,email FROM users WHERE azure_subject=$1 LIMIT 1",
+      [String(user.azure_subject)]
+    );
+    if(!azure.rows[0]) throw new Error("AZURE_USER_NOT_FOUND");
+    return azure.rows[0];
+  }
+
+  if(!user.uid) throw new Error("AUTH_IDENTITY_REQUIRED");
   const r=await query(
     "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status,email",
     [user.uid,email,Boolean(user.email_verified)]
