@@ -8,6 +8,7 @@ import android.widget.*;
 import com.google.firebase.functions.FirebaseFunctions;
 import java.util.HashMap;
 import java.util.Map;
+import org.json.JSONObject;
 
 public class OwnerEarningsActivity extends Activity {
     private LinearLayout root;
@@ -57,15 +58,15 @@ public class OwnerEarningsActivity extends Activity {
         Button destinations = button("Set Settlement Destination");
         Button history = button("Sales & Settlement History");
         Button back = button("Back");
-        refresh.setOnClickListener(v -> load());
-        destinations.setOnClickListener(v -> destinationDialog());
-        history.setOnClickListener(v -> history());
+        refresh.setOnClickListener(v -> loadAzure());
+        destinations.setOnClickListener(v -> azureDestinationDialog());
+        history.setOnClickListener(v -> loadAzure());
         back.setOnClickListener(v -> finish());
-        load();
+        loadAzure();
     }
 
     private String value(Map<?,?> m, String key){ Object v=m.get(key); return v==null?"0":String.valueOf(v); }
-    private void load() {
+    private void legacyLoad() {
         functions.getHttpsCallable("getOwnerEarningsDashboard").call(new HashMap<>())
             .addOnSuccessListener(r -> {
                 Object raw=r.getData();
@@ -90,7 +91,7 @@ public class OwnerEarningsActivity extends Activity {
             .addOnFailureListener(e -> summary.setText("Owner earnings dashboard unavailable: " + e.getMessage()));
     }
 
-    private void destinationDialog() {
+    private void legacyDestinationDialog() {
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
         EditText country = new EditText(this); country.setHint("Country");
@@ -112,9 +113,85 @@ public class OwnerEarningsActivity extends Activity {
             }).setNegativeButton("Cancel", null).show();
     }
 
-    private void history() {
+    private void legacyHistory() {
         functions.getHttpsCallable("listOwnerEarnings").call(new HashMap<>())
             .addOnSuccessListener(r -> new AlertDialog.Builder(this).setTitle("Owner Sales & Settlements").setMessage(String.valueOf(r.getData())).setPositiveButton("Close",null).show())
             .addOnFailureListener(e -> new AlertDialog.Builder(this).setTitle("History unavailable").setMessage(e.getMessage()).setPositiveButton("Close",null).show());
     }
 }
+
+    // Azure is the production owner dashboard path. Firebase implementation remains below for rollback safety.
+    private void loadAzure() {
+        if (!AzureAuthManager.hasAccount(this)) {
+            summary.setText("Please sign in with Azure as an admin.");
+            return;
+        }
+        summary.setText("Loading secure Azure owner earnings…");
+        AzureApiClient.get("/admin/owner/earnings", new AzureApiClient.Callback() {
+            @Override public void ok(int code, String body) {
+                runOnUiThread(() -> summary.setText(formatAzureDashboard(body)));
+            }
+            @Override public void err(String message) {
+                runOnUiThread(() -> summary.setText("Azure owner dashboard unavailable: " + message));
+            }
+        });
+    }
+
+    private String formatAzureDashboard(String body) {
+        try {
+            JSONObject d = new JSONObject(body);
+            StringBuilder s = new StringBuilder();
+            s.append("AZURE OWNER EARNINGS DASHBOARD\n\n");
+            s.append("Current month: ").append(d.optString("currentMonth")).append("\n");
+            s.append("This month upgrades: ").append(d.optInt("currentMonthUpgrades")).append("\n");
+            s.append("This month verified value: ").append(d.optDouble("currentMonthPlanValueSar")).append(" SAR\n\n");
+            s.append("Total verified upgrades: ").append(d.optInt("totalVerifiedUpgrades")).append("\n");
+            s.append("Total verified plan value: ").append(d.optDouble("totalVerifiedPlanValueSar")).append(" SAR\n");
+            s.append("Available SAR: ").append(d.optDouble("availableSar")).append("\n");
+            s.append("Pending SAR: ").append(d.optDouble("pendingSar")).append("\n");
+            s.append("Settled SAR: ").append(d.optDouble("settledSar")).append("\n\n");
+            s.append("Verified sales are recorded from real Google Play purchase verification.\n");
+            s.append("Actual merchant settlement remains controlled by Google Play.");
+            return s.toString();
+        } catch (Exception e) {
+            return "Azure owner dashboard response could not be displayed.";
+        }
+    }
+
+    private void azureDestinationDialog() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        EditText country = new EditText(this); country.setHint("Country");
+        EditText currency = new EditText(this); currency.setHint("Currency: SAR / PKR / USDT");
+        EditText destination = new EditText(this); destination.setHint("Bank account/IBAN or USDT wallet address");
+        EditText label = new EditText(this); label.setHint("Label");
+        box.addView(country, new LinearLayout.LayoutParams(-1,dp(56)));
+        box.addView(currency, new LinearLayout.LayoutParams(-1,dp(56)));
+        box.addView(destination, new LinearLayout.LayoutParams(-1,dp(56)));
+        box.addView(label, new LinearLayout.LayoutParams(-1,dp(56)));
+        new AlertDialog.Builder(this).setTitle("Azure Owner Settlement Destination").setView(box)
+            .setMessage("Only configure a real account or provider-approved settlement route.")
+            .setPositiveButton("Save", (d,w) -> {
+                try {
+                    JSONObject body = new JSONObject();
+                    body.put("country", country.getText().toString().trim());
+                    body.put("currency", currency.getText().toString().trim());
+                    body.put("destination", destination.getText().toString().trim());
+                    body.put("label", label.getText().toString().trim());
+                    AzureApiClient.post("/admin/owner/settlement-profile", body.toString(), new AzureApiClient.Callback() {
+                        @Override public void ok(int code, String response) {
+                            runOnUiThread(() -> {
+                                loadAzure();
+                                new AlertDialog.Builder(OwnerEarningsActivity.this).setTitle("Saved in Azure").setMessage("Settlement profile saved securely.").setPositiveButton("OK",null).show();
+                            });
+                        }
+                        @Override public void err(String message) {
+                            runOnUiThread(() -> new AlertDialog.Builder(OwnerEarningsActivity.this).setTitle("Not saved").setMessage(message).setPositiveButton("OK",null).show());
+                        }
+                    });
+                } catch (Exception e) {
+                    new AlertDialog.Builder(this).setTitle("Not saved").setMessage("Invalid settlement data.").setPositiveButton("OK",null).show();
+                }
+            }).setNegativeButton("Cancel", null).show();
+    }
+
