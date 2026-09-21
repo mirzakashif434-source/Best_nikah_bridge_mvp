@@ -88,13 +88,9 @@ public class AzureExternalAuthActivity extends Activity {
     }
 
     private void acquireTokenInteractive() {
-        List<String> scopes = Arrays.asList(
-                API_SCOPE,
-                "openid",
-                "profile",
-                "email",
-                "offline_access"
-        );
+        // Request only the real delegated API scope. MSAL handles the OIDC sign-in
+        // scopes, and delegated consent already provides offline access.
+        List<String> scopes = Collections.singletonList(API_SCOPE);
         AcquireTokenParameters parameters = new AcquireTokenParameters.Builder()
                 .startAuthorizationFromActivity(this)
                 .withScopes(scopes)
