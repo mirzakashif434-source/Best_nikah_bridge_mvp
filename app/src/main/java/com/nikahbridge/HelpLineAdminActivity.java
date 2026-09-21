@@ -21,7 +21,7 @@ public class HelpLineAdminActivity extends Activity {
         ScrollView scroll=new ScrollView(this); root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(20,24,20,30); scroll.addView(root); setContentView(scroll);
         text("Best Nikah Bridge — Help Line Inbox",true);
         text("Admin only. Human-support requests have a 24-hour response target.",false);
-        if (FirebaseAuth.getInstance().getCurrentUser()==null) { text("Sign in as admin to view tickets.",false); return; }
+        if (!AzureAuthManager.hasAccount(this)) { text("Sign in with Azure as admin to view tickets.",false); return; }
         Button refresh=button("Refresh Help Requests"); Button back=button("Back");
         refresh.setOnClickListener(v->load()); back.setOnClickListener(v->finish()); load();
     }
