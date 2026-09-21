@@ -19,8 +19,6 @@ import android.os.Handler;
 import android.os.Looper;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.Query;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
