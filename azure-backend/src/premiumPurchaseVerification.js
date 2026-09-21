@@ -222,8 +222,8 @@ app.http("premiumEntitlement", {
   methods: ["GET"],
   authLevel: "anonymous",
   route: "premium/entitlement",
-  handler: requireAuth(async (request, context, firebaseUser) => {
-    const user = await currentUser(firebaseUser.uid);
+  handler: requireAuth(async (request, context, authUser) => {
+    const user = await currentUser(authUser);
     const result = await query(
       "SELECT plan_key, product_id, base_plan_id, status, expires_at FROM premium_entitlements WHERE user_id = $1 LIMIT 1",
       [user.id]
