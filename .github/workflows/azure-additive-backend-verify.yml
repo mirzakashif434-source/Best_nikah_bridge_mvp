@@ -89,7 +89,7 @@ jobs:
           h=sys.argv[1]
           p=pathlib.Path("app/src/main/res/raw/auth_config.json")
           d=json.loads(p.read_text())
-          d["redirect_uri"]=f"msauth://com.nikahbridge/{h}"
+          d["redirect_uri"]=f"msauth://com.nikahbridge/{h.replace("=", "%3D")}"
           p.write_text(json.dumps(d, indent=2)+"\n")
           p=pathlib.Path("app/src/main/AndroidManifest.xml")
           s=p.read_text()
