@@ -271,23 +271,37 @@ jobs:
           echo "STEP 9 LOCKED: Azure Functions parity checkpoint verified; Firebase Functions remain preserved for final cutover."
 
       # Step 10: Firebase Storage -> Azure Blob production storage verification.
+      # Additive verification only: existing application files and Firebase source remain preserved.
       - name: Verify Step 10 Azure Blob storage cutover path
         run: |
           set -euo pipefail
-          grep -Fq 'new BlobServiceClient(accountUrl, new DefaultAzureCredential())' azure-backend/src/storage.js
-          grep -Fq 'getProfilePhotosContainer' azure-backend/src/photos.js
-          grep -Fq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
-          grep -Fq 'azure-ai-content-safety' azure-backend/src/photos.js
-          grep -Fq 'azure-private-storage' azure-backend/src/verification.js
-          grep -Fq 'Azure Blob Storage through the authenticated Azure API' app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java
+
+          echo "Checking Azure Blob SDK and managed identity wiring..."
+          grep -Eq 'new[[:space:]]+BlobServiceClient\(accountUrl,[[:space:]]*new[[:space:]]+DefaultAzureCredential\(\)\)' azure-backend/src/storage.js
+          grep -Eq 'AZURE_STORAGE_ACCOUNT_URL' azure-backend/src/storage.js
+
+          echo "Checking profile-photo and verification containers..."
+          grep -Eq 'getProfilePhotosContainer' azure-backend/src/storage.js
+          grep -Eq 'getVerificationDocumentsContainer' azure-backend/src/storage.js
+          grep -Eq 'getProfilePhotosContainer' azure-backend/src/photos.js
+          grep -Eq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
+
+          echo "Checking Azure moderation/storage metadata..."
+          grep -Eq 'azure-ai-content-safety' azure-backend/src/photos.js
+          grep -Eq 'azure-private-storage' azure-backend/src/verification.js
+          grep -Eq 'document_blob_key' azure-backend/database/schema.sql
+          grep -Eq 'ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_subject' azure-backend/database/schema.sql
+
+          echo "Checking Android photo flows for forbidden direct Firebase storage/client calls..."
           for f in app/src/main/java/com/nikahbridge/ProfilePhotoActivity.java app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java; do
             if grep -nE 'FirebaseStorage|StorageReference|FirebaseFirestore|FirebaseFunctions' "$f"; then
-              echo "Legacy Firebase storage client path found in $f"
+              echo "Legacy Firebase client path found in $f"
               exit 1
             fi
+            grep -Eq 'AzureApiClient\.multipart\("/photos"' "$f"
           done
-          grep -Fq 'ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_subject' azure-backend/database/schema.sql
-          echo "STEP 10 VERIFIED: Android photo flows use Azure API; Azure backend stores profile/verification files in Azure Blob with PostgreSQL metadata."
+
+          echo "STEP 10 VERIFIED: Android photo flows use the authenticated Azure API; backend uses Azure Blob containers and PostgreSQL metadata. Existing Firebase source is preserved for controlled rollback."
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
