@@ -63,6 +63,31 @@ app.http("photoList",{
   })
 });
 
+
+app.http("photoContent",{
+  methods:["GET"],authLevel:"anonymous",route:"photos/{photoId}/content",
+  handler:requireAuth(async(request,context,user)=>{
+    try{
+      const me=await ensureUser(user);
+      const id=request.params?.photoId||context.triggerMetadata?.photoId;
+      const r=await query(
+        "SELECT id,blob_key,visibility,moderation_status FROM photos WHERE id=$1 AND user_id=$2",
+        [id,me.id]);
+      if(!r.rows[0]) return {status:404,jsonBody:{ok:false,error:"PHOTO_NOT_FOUND"}};
+      if(r.rows[0].moderation_status!=="approved") return {status:403,jsonBody:{ok:false,error:"PHOTO_NOT_AVAILABLE"}};
+      const blob=getProfilePhotosContainer().getBlockBlobClient(r.rows[0].blob_key);
+      const exists=await blob.exists();
+      if(!exists) return {status:404,jsonBody:{ok:false,error:"PHOTO_BLOB_NOT_FOUND"}};
+      const downloaded=await blob.downloadToBuffer();
+      const props=await blob.getProperties();
+      return {status:200,headers:{"Content-Type":props.contentType||"application/octet-stream","Cache-Control":"private, no-store"},body:downloaded};
+    }catch(e){
+      context.error("PHOTO_CONTENT_FAILED",e);
+      return {status:500,jsonBody:{ok:false,error:"PHOTO_CONTENT_FAILED"}};
+    }
+  })
+});
+
 app.http("photoVisibility",{
   methods:["PATCH"],authLevel:"anonymous",route:"photos/{photoId}",
   handler:requireAuth(async(request,context,user)=>{
