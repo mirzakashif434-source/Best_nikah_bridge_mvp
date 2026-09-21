@@ -72,7 +72,7 @@ jobs:
             fi
           done
           grep -Eq 'route:[[:space:]]*"premium/plans"' azure-backend/src/premiumPlans.js
-          grep -Eq 'route:[[:space:]]*"premium/entitlement"' azure-backend/src/premiumPlans.js
+          grep -Eq 'route:[[:space:]]*"premium/entitlement"' azure-backend/src/premiumPurchaseVerification.js
           grep -Eq 'route:[[:space:]]*"premium/purchases/verify"' azure-backend/src/premiumPurchaseVerification.js
           grep -Eq 'route:[[:space:]]*"admob/rewarded/config"' azure-backend/src/rewardedAds.js
           grep -Eq 'route:[[:space:]]*"community/messages"' azure-backend/src/community.js
