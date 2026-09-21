@@ -49,6 +49,7 @@ jobs:
           node --check src/premiumPlans.js
           node --check src/wallet.js
           node --check src/aiNikahAssistant.js
+          node --check src/auth.js
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
