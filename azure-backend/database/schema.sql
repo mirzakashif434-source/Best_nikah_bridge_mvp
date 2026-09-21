@@ -363,3 +363,23 @@ CREATE TABLE IF NOT EXISTS community_rate_limits (
   window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   message_count INTEGER NOT NULL DEFAULT 0 CHECK (message_count >= 0)
 );
+
+
+-- Step 7 / Firebase migration #1: Azure Help Line tickets.
+CREATE TABLE IF NOT EXISTS help_line_tickets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  ai_answer TEXT,
+  ai_answered BOOLEAN NOT NULL DEFAULT FALSE,
+  human_required BOOLEAN NOT NULL DEFAULT FALSE,
+  status TEXT NOT NULL DEFAULT 'awaiting_human' CHECK (status IN ('ai_answered','awaiting_human','human_replied','closed')),
+  human_reply TEXT,
+  human_replied_at TIMESTAMPTZ,
+  replied_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  human_reply_target_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_help_line_tickets_user_created ON help_line_tickets(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_help_line_tickets_status_created ON help_line_tickets(status, created_at DESC);
