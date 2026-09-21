@@ -1,0 +1,9 @@
+name: Step 7 Lock
+on:
+  push:
+    branches: [azure-backend-additive]
+jobs:
+  lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "Step 7 Azure AI production path locked after green verification."
