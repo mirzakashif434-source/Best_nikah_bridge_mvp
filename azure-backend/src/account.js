@@ -19,10 +19,15 @@ app.http("accountDelete", {
     const pool = getPool();
     const client = await pool.connect();
     try {
-      const userResult = await client.query(
-        "SELECT id,status FROM users WHERE firebase_uid=$1 LIMIT 1",
-        [user.uid]
-      );
+      const userResult = user.auth_provider === "azure_external_id" && user.azure_subject
+        ? await client.query(
+            "SELECT id,status FROM users WHERE azure_subject=$1 LIMIT 1",
+            [String(user.azure_subject)]
+          )
+        : await client.query(
+            "SELECT id,status FROM users WHERE firebase_uid=$1 LIMIT 1",
+            [user.uid]
+          );
       if (!userResult.rows[0]) return { status: 404, jsonBody: { ok:false, error:"ACCOUNT_NOT_FOUND" } };
       const userId = userResult.rows[0].id;
 
@@ -36,8 +41,10 @@ app.http("accountDelete", {
       await client.query("DELETE FROM users WHERE id=$1", [userId]);
       await client.query("COMMIT");
 
-      // Azure External ID owns Azure-authenticated accounts. Do not call Firebase Admin
-      // for those users; the database/storage deletion above is the authoritative cleanup.
+      // Azure External ID accounts use Azure subject identity for app-data deletion.
+      // Firebase Admin is retained only for legacy Firebase-authenticated accounts.
+      // The Azure identity itself is intentionally not deleted here because this
+      // backend does not hold Microsoft Graph directory-deletion credentials.
       if (user.auth_provider === "firebase") {
         try {
           await getFirebaseAdmin().auth().deleteUser(user.uid);
