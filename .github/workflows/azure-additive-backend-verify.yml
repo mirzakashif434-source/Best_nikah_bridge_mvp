@@ -70,12 +70,47 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x ./gradlew
 
-      - name: Build Android debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Prepare stable Azure Android redirect URI from production signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+          HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
+          REDIRECT="msauth://com.nikahbridge/${HASH}"
+          echo "Stable Azure Android redirect URI: ${REDIRECT}"
+          python3 - "$HASH" <<'PY'
+          import json, pathlib, re, sys
+          h=sys.argv[1]
+          p=pathlib.Path("app/src/main/res/raw/auth_config.json")
+          d=json.loads(p.read_text())
+          d["redirect_uri"]=f"msauth://com.nikahbridge/{h}"
+          p.write_text(json.dumps(d, indent=2)+"\n")
+          p=pathlib.Path("app/src/main/AndroidManifest.xml")
+          s=p.read_text()
+          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(" )'.replace('" )','"'), rf'\g<1>{h}\g<2>', s)
+          p.write_text(s)
+          PY
 
-      - name: Upload Android debug APK
+      - name: Build stable Azure release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew clean assembleRelease --stacktrace
+          test -s app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload stable Azure release APK
         uses: actions/upload-artifact@v6
         with:
-          name: android-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: android-azure-release-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
