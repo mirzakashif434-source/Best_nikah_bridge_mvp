@@ -1,14 +1,8 @@
-name: Firebase Production Deploy
+name: Firebase Legacy Deploy (Migration Hold)
 
+# Firebase Functions are preserved for rollback/migration safety.
+# Production deployment is now Azure-primary. This workflow is manual-only until final Firebase retirement.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'functions/**'
-      - 'firestore.rules'
-      - 'firestore.indexes.json'
-      - 'firebase.json'
   workflow_dispatch:
 
 jobs:
