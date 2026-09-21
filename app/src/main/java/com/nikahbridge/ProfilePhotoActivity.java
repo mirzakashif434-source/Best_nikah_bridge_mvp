@@ -13,21 +13,12 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.graphics.Color;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldValue;
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.storage.FirebaseStorage;
-import com.google.firebase.storage.StorageMetadata;
-import com.google.firebase.storage.StorageReference;
 
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Real user profile-photo flow.
- * Photos are selected from the device, uploaded to Firebase Storage, and the
- * resulting URL is stored on the authenticated user's Firestore profile.
+ * Photos are selected from the device and uploaded through the authenticated
+ * Azure API to Azure Blob Storage with PostgreSQL metadata.
  * No bundled/sample/fake profile photos are used.
  *
  * The original single-photo flow remains available. The new four-photo flow
@@ -184,31 +175,4 @@ public class ProfilePhotoActivity extends Activity {
         } catch(Exception e) { status.setText("Could not read the selected photo."); }
     }
 
-    private void uploadImage() {
-        if (selected == null) { status.setText("Choose a real photo first."); return; }
-        if (FirebaseAuth.getInstance().getCurrentUser() == null) { status.setText("Please sign in again."); return; }
-
-        String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        StorageReference ref = FirebaseStorage.getInstance().getReference()
-                .child("profilePhotos").child(uid).child("profile.jpg");
-        StorageMetadata metadata = new StorageMetadata.Builder().setContentType("image/jpeg").build();
-
-        status.setText("Uploading securely…");
-        ref.putFile(selected, metadata)
-                .continueWithTask(task -> {
-                    if (!task.isSuccessful() && task.getException() != null) throw task.getException();
-                    return ref.getDownloadUrl();
-                })
-                .addOnSuccessListener(url -> {
-                    Map<String,Object> update = new HashMap<>();
-                    update.put("photoUrl", url.toString());
-                    update.put("photoUpdatedAt", FieldValue.serverTimestamp());
-                    update.put("photoPresent", true);
-                    FirebaseFirestore.getInstance().collection("users").document(uid)
-                            .set(update, com.google.firebase.firestore.SetOptions.merge())
-                            .addOnSuccessListener(v -> { status.setText("Real profile photo saved securely."); setResult(RESULT_OK); })
-                            .addOnFailureListener(e -> status.setText("Photo uploaded, but profile update failed. Please retry."));
-                })
-                .addOnFailureListener(e -> status.setText("Photo upload failed. Check your connection and try again."));
-    }
 }
