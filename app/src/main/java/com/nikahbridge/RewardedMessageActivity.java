@@ -16,8 +16,6 @@ import com.google.android.gms.ads.rewarded.ServerSideVerificationOptions;
 import com.google.android.ump.ConsentInformation;
 import com.google.android.ump.ConsentRequestParameters;
 import com.google.android.ump.UserMessagingPlatform;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.functions.FirebaseFunctions;
 import java.util.*;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -27,8 +25,6 @@ import org.json.JSONObject;
 
 /** Real rewarded-ad entry point. Credits are granted only by verified AdMob SSV callback. */
 public class RewardedMessageActivity extends Activity {
-    private FirebaseAuth auth;
-    private FirebaseFunctions functions;
     private RewardedAd rewardedAd;
     private LinearLayout root;
     private Button watch;
@@ -40,8 +36,6 @@ public class RewardedMessageActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        auth = FirebaseAuth.getInstance();
-        functions = FirebaseFunctions.getInstance();
         base();
         if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure."); watch.setEnabled(false); return; }
         status.setText("Preparing a real rewarded ad…");
