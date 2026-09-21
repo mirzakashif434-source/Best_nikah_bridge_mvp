@@ -15,11 +15,13 @@ import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.QueryProductDetailsParams;
 import com.google.firebase.functions.FirebaseFunctions;
 import java.util.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class PremiumPlansActivity extends Activity {
     private LinearLayout root;
     private BillingClient billing;
-    private FirebaseFunctions functions;
+    private FirebaseFunctions functions; // Legacy Firebase path retained for rollback\n    private final Map<String, String> azurePlanBasePlans = new HashMap<>();
     private final Map<String, ProductDetails> products = new HashMap<>();
     private TextView status;
 
@@ -68,12 +70,13 @@ public class PremiumPlansActivity extends Activity {
         p20.setOnClickListener(v -> buy("premium_basic_20"));
         p40.setOnClickListener(v -> buy("premium_plus_40"));
         p60.setOnClickListener(v -> buy("premium_vip_60"));
-        refresh.setOnClickListener(v -> loadEntitlement());
+        refresh.setOnClickListener(v -> { loadAzurePlans(); loadAzureEntitlement(); });
         back.setOnClickListener(v -> finish());
 
         status.setText("Connecting to Google Play…");
         connectBilling();
-        loadEntitlement();
+        loadAzurePlans();
+        loadAzureEntitlement();
     }
 
     private void connectBilling() {
@@ -122,6 +125,57 @@ public class PremiumPlansActivity extends Activity {
         });
     }
 
+    /** Primary production server path: Azure External ID -> Azure Functions -> PostgreSQL. */
+    private void loadAzurePlans() {
+        if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure."); return; }
+        AzureApiClient.get("/premium/plans", new AzureApiClient.Callback() {
+            @Override public void ok(int code, String body) {
+                try {
+                    JSONArray plans = new JSONObject(body).getJSONArray("plans");
+                    azurePlanBasePlans.clear();
+                    for (int i=0;i<plans.length();i++) {
+                        JSONObject p=plans.getJSONObject(i);
+                        azurePlanBasePlans.put(p.getString("productId"), p.optString("basePlanId",""));
+                    }
+                    runOnUiThread(() -> status.setText("Premium catalog verified by Azure. Google Play supplies the live price."));
+                } catch(Exception e) { runOnUiThread(() -> status.setText("Azure premium catalog response is invalid.")); }
+            }
+            @Override public void err(String message) { runOnUiThread(() -> status.setText("Azure premium catalog unavailable: "+message)); }
+        });
+    }
+
+    private void loadAzureEntitlement() {
+        if (!AzureAuthManager.hasAccount(this)) return;
+        AzureApiClient.get("/premium/entitlement", new AzureApiClient.Callback() {
+            @Override public void ok(int code,String body) {
+                try {
+                    JSONObject o=new JSONObject(body);
+                    boolean active=o.optBoolean("active",false);
+                    JSONObject e=o.optJSONObject("entitlement");
+                    String plan=e==null?"":e.optString("plan_key","");
+                    String expires=e==null?"":e.optString("expires_at","");
+                    runOnUiThread(() -> status.setText(active
+                        ? "Azure Premium active: "+plan+" • expires "+expires
+                        : "Azure Premium: not active"));
+                } catch(Exception e) { runOnUiThread(() -> status.setText("Azure premium status is invalid.")); }
+            }
+            @Override public void err(String message) { runOnUiThread(() -> status.setText("Azure premium status unavailable: "+message)); }
+        });
+    }
+
+    private void verifyOnAzure(String productId, String purchaseToken) {
+        status.setText("Purchase received. Azure is verifying it with Google Play…");
+        try {
+            JSONObject data=new JSONObject();
+            data.put("productId",productId);
+            data.put("purchaseToken",purchaseToken);
+            AzureApiClient.post("/premium/purchases/verify",data.toString(),new AzureApiClient.Callback(){
+                @Override public void ok(int code,String body){runOnUiThread(()->{status.setText("Google Play purchase verified by Azure. Premium activated.");loadAzureEntitlement();});}
+                @Override public void err(String message){runOnUiThread(()->status.setText("Azure purchase verification failed. Premium is not granted: "+message));}
+            });
+        } catch(Exception e) { status.setText("Could not send purchase to Azure."); }
+    }
+
     private void buy(String productId) {
         ProductDetails details = products.get(productId);
         if (details == null) {
@@ -162,7 +216,7 @@ public class PremiumPlansActivity extends Activity {
         }
         for (Purchase purchase : purchases) {
             if (purchase.getPurchaseState() != Purchase.PurchaseState.PURCHASED) continue;
-            for (String productId : purchase.getProducts()) verifyOnServer(productId, purchase.getPurchaseToken());
+            for (String productId : purchase.getProducts()) verifyOnAzure(productId, purchase.getPurchaseToken());
         }
     }
 
