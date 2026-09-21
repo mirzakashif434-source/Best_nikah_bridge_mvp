@@ -50,6 +50,7 @@ public class AzureHomeActivity extends Activity {
         Button profile=button("My Real Azure Profile",true);
         Button matches=button("Real Compatibility Matches",true);
         Button interests=button("Mutual Interests",true);
+        Button family=button("Family / Wali Connect",true);
         Button privacy=button("Privacy Controls",true);
         Button verification=button("Verification Status",false);
         Button safety=button("Safety Reports",false);
@@ -60,6 +61,7 @@ public class AzureHomeActivity extends Activity {
         profile.setOnClickListener(v->profile());
         matches.setOnClickListener(v->matches());
         interests.setOnClickListener(v->interests());
+        family.setOnClickListener(v->familyWali());
         privacy.setOnClickListener(v->privacy());
         verification.setOnClickListener(v->verification());
         safety.setOnClickListener(v->safety());
@@ -148,6 +150,46 @@ public class AzureHomeActivity extends Activity {
             });
         }catch(Exception e){toast("Invalid recipient.");}});
         Button back=button("Back",false);back.setOnClickListener(v->home());
+    }
+
+    private void familyWali(){
+        base(); title("Family / Wali Connect");
+        TextView out=text("Loading your real Family/Wali links from Azure PostgreSQL…",15,false);root.addView(out);
+        loadFamilyLinks(out);
+
+        sectionTitle("Create / Update Wali Connection");
+        EditText name=input("Wali full name");
+        EditText email=input("Wali email (optional)");
+        EditText phone=input("Wali phone E.164 (optional)");
+        Button create=button("Connect Real Wali",true);
+        create.setOnClickListener(v->{try{
+            JSONObject b=new JSONObject();b.put("waliName",name.getText().toString().trim());b.put("waliEmail",email.getText().toString().trim());b.put("waliPhoneE164",phone.getText().toString().trim());
+            AzureApiClient.post("/family-links",b.toString(),new AzureApiClient.Callback(){
+                public void ok(int code,String body){runOnUiThread(()->{toast("Real Wali connection request saved in Azure.");loadFamilyLinks(out);});}
+                public void err(String m){runOnUiThread(()->toast("Wali connection failed: "+m));}
+            });
+        }catch(Exception e){toast("Wali information is invalid.");}});
+
+        sectionTitle("Wali Verification");
+        EditText linkId=input("Family link ID");
+        Button verify=button("Verify This Wali Account",false);
+        verify.setOnClickListener(v->{String id=linkId.getText().toString().trim();if(id.isEmpty()){linkId.setError("Family link ID required");return;}
+            AzureApiClient.post("/family-links/"+id+"/verify","{}",new AzureApiClient.Callback(){
+                public void ok(int code,String body){runOnUiThread(()->{toast("Wali identity verified in Azure.");loadFamilyLinks(out);});}
+                public void err(String m){runOnUiThread(()->toast("Wali verification failed: "+m));}
+            });
+        });
+
+        Button back=button("Back",false);back.setOnClickListener(v->home());
+    }
+
+    private void sectionTitle(String v){root.addView(text(v,19,true));}
+
+    private void loadFamilyLinks(TextView out){
+        AzureApiClient.get("/family-links",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->out.setText("Azure Family/Wali data:\n"+body));}
+            public void err(String m){runOnUiThread(()->out.setText("Family/Wali unavailable: "+m));}
+        });
     }
 
     private void privacy(){
