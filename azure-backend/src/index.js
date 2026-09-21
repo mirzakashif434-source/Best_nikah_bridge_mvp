@@ -58,3 +58,7 @@ require("./wallet");
 
 // Firebase migration #4: additive Azure Help Line AI/admin APIs.
 require("./helpLine");
+
+
+// Firebase migration #5: additive Azure owner earnings/dashboard and settlement APIs.
+require("./ownerEarnings");
