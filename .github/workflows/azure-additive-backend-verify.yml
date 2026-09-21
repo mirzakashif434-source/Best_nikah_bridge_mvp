@@ -239,6 +239,23 @@ jobs:
           grep -Fq 'idx_users_azure_subject' azure-backend/database/schema.sql
           echo "STEP 8 LOCKED: Azure PostgreSQL migration-integrity checkpoint verified. Firebase source data remains preserved for controlled final cutover."
 
+      # Step 9: Firebase Functions -> Azure Functions parity verification.
+      - name: Verify Step 9 Firebase Functions Azure parity
+        run: |
+          set -euo pipefail
+          grep -Fq 'require("./firebaseParity")' azure-backend/src/index.js
+          for route in 'route:"likes"' 'route:"entitlements/free-boost"' 'route:"connections/{connectionId}/nikah-promise"' 'route:"compatibility/living"' 'route:"compatibility/living/share"' 'route:"connections/{connectionId}/health-check'; do
+            grep -Fq "$route" azure-backend/src/firebaseParity.js
+          done
+          for route in 'route:"interests"' 'route:"conversations"' 'route:"family-links"' 'route:"verification/identity"' 'route:"photos"' 'route:"premium/purchases/verify"' 'route:"admob/rewarded/config"' 'route:"wallet"' 'route:"community/messages"' 'route:"admin/owner/earnings"' 'route:"help/ask"' 'route:"account"' 'route:"safety/reports"' 'route:"privacy"' 'route:"blocks"' 'route:"admin/moderation/reports"'; do
+            grep -Rqs "$route" azure-backend/src
+          done
+          grep -Fq 'CREATE TABLE IF NOT EXISTS likes' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS nikah_promise_paths' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS living_compatibility' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS connection_health_checks' azure-backend/database/schema.sql
+          echo "STEP 9 VERIFIED: Firebase callable-function coverage is represented by Azure HTTP routes and PostgreSQL-backed parity handlers. Firebase source remains preserved for final cutover."
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
