@@ -79,6 +79,18 @@ jobs:
           grep -Eq 'route:[[:space:]]*"community/reports"' azure-backend/src/community.js
           echo "Step 3 Azure API migration verified; legacy Firebase backend remains preserved for rollback."
 
+      # Step 4: Firestore collection parity against Azure PostgreSQL.
+      - name: Verify Step 4 Firestore to Azure PostgreSQL parity schema
+        run: |
+          set -euo pipefail
+          schema="azure-backend/database/schema.sql"
+          for table in users profiles partner_preferences interests conversations messages family_links verifications photos safety_reports blocked_users privacy_settings entitlements rewarded_ad_transactions daily_reward_claims premium_plans premium_purchase_tokens premium_entitlements wallet_accounts wallet_ledger wallet_withdrawals community_messages community_mutes community_reports community_rate_limits help_line_tickets owner_earnings owner_earnings_summary owner_settlement_profile owner_provider_settlements owner_settlements user_settings wali_connections family_bridges family_bridge_participants family_bridge_questions deletion_requests moderation_queue risk_signals play_purchases public_config admin_records; do
+            grep -Eq "CREATE TABLE IF NOT EXISTS $table" "$schema"
+          done
+          grep -Fq 'firebase_uid TEXT UNIQUE' "$schema"
+          grep -Fq 'azure_subject TEXT' "$schema"
+          echo "Step 4 Azure PostgreSQL parity schema verified. Firebase schema/config remains preserved for controlled cutover."
+
       # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
       - name: Verify Azure AI production path
         run: |
