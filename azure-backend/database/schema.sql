@@ -326,3 +326,40 @@ CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_status
 ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
+
+-- Step 2: real Azure Global Community Chat migration (additive; Firebase retained for rollback).
+CREATE TABLE IF NOT EXISTS community_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  author_name TEXT NOT NULL,
+  country TEXT,
+  body TEXT NOT NULL CHECK (char_length(body) BETWEEN 1 AND 500),
+  moderation_status TEXT NOT NULL DEFAULT 'visible' CHECK (moderation_status IN ('visible','removed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_community_messages_created ON community_messages(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS community_mutes (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  muted_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, muted_user_id),
+  CHECK (user_id <> muted_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS community_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  reported_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message_id UUID NOT NULL REFERENCES community_messages(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','reviewing','resolved','dismissed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_community_reports_status ON community_reports(status,created_at);
+CREATE TABLE IF NOT EXISTS community_rate_limits (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  window_started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  message_count INTEGER NOT NULL DEFAULT 0 CHECK (message_count >= 0)
+);
