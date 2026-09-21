@@ -52,10 +52,11 @@ async function verifyAnyIdToken(request) {
     };
   }
 
-  // Azure is the production authentication authority after Step 6 cutover.
-  // Legacy Firebase verification remains in this source for rollback, but is disabled
-  // in production when AZURE_AUTH_ONLY=true.
-  if (String(process.env.AZURE_AUTH_ONLY || "").toLowerCase() === "true") {
+  // Azure External ID is the production authentication authority after Step 6.
+  // Firebase verification code remains preserved for controlled rollback only.
+  // Production defaults to Azure-only; Firebase fallback requires an explicit
+  // AZURE_AUTH_ONLY=false setting during a controlled rollback window.
+  if (String(process.env.AZURE_AUTH_ONLY || "true").toLowerCase() !== "false") {
     const e = new Error("AZURE_AUTH_REQUIRED");
     e.statusCode = 401;
     throw e;
