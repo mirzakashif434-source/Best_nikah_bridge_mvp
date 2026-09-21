@@ -19,13 +19,6 @@ import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.functions.FirebaseFunctions;
-import com.google.firebase.ai.FirebaseAI;
-import com.google.firebase.ai.GenerativeModel;
-import com.google.firebase.ai.java.GenerativeModelFutures;
-import com.google.firebase.ai.type.Content;
-import com.google.firebase.ai.type.GenerativeBackend;
-import com.google.firebase.ai.type.GenerateContentResponse;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,8 +26,8 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * Best Nikah Bridge - production Android entry point.
@@ -46,13 +39,10 @@ public class MainActivity extends Activity {
     private FirebaseFirestore db;
     private FirebaseFunctions functions;
     private LinearLayout root;
-    private ExecutorService aiExecutor;
     private final int green=Color.rgb(18,103,82), dark=Color.rgb(30,45,41), gray=Color.rgb(95,108,103), red=Color.rgb(165,50,50), light=Color.rgb(247,250,249);
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
-        aiExecutor=Executors.newSingleThreadExecutor();
-
         // Azure External ID is now the primary production entry path.
         // The existing Firebase implementation below is intentionally retained
         // for migration safety/rollback and is not deleted or replaced.
@@ -74,7 +64,6 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onDestroy(){
-        if(aiExecutor!=null) aiExecutor.shutdownNow();
         super.onDestroy();
     }
 
@@ -247,26 +236,31 @@ public class MainActivity extends Activity {
     }
 
     private void help(){
-        base();title("AI Nikah Assistant");root.addView(text("Real Gemini-powered guidance through Firebase AI Logic. It helps with respectful compatibility questions, family conversations, boundaries, safety and marriage planning. It does not issue religious rulings or decide who you should marry.",15,false));
+        base();title("AI Nikah Assistant");root.addView(text("Real Azure AI guidance for respectful compatibility questions, family conversations, boundaries, safety and marriage planning. It does not issue religious rulings or decide who you should marry.",15,false));
         EditText q=input("Ask your Nikah question...");Button ask=button("Ask AI Nikah Assistant",true),quick=button("Generate compatibility questions",false),back=button("Back",false);TextView answer=text("",16,false);root.addView(answer);
         ask.setOnClickListener(v->{String prompt=q.getText().toString().trim();if(prompt.length()<4){q.setError("Ask a clear question");return;}runAI(prompt,answer);});
         quick.setOnClickListener(v->runAI("Create 8 respectful, practical pre-Nikah compatibility questions covering deen, character, finances, family expectations, children, location, conflict resolution and marriage timeline. Avoid judging or issuing a religious ruling.",answer));
         back.setOnClickListener(v->home());
     }
     private void runAI(String prompt,TextView answer){
-        answer.setText("AI is preparing a response…");
-        aiExecutor.execute(()->{
-            try{
-                GenerativeModel ai=FirebaseAI.getInstance(GenerativeBackend.agentPlatform("global")).generativeModel("gemini-3.7-flash");
-                GenerativeModelFutures model=GenerativeModelFutures.from(ai);
-                Content content=new Content.Builder().addText("You are the Best Nikah Bridge assistant. Be respectful, safety-first, family-aware and concise. This is a Muslim matrimonial app, not a dating app. Do not give fatwas or pretend to be a scholar. Encourage qualified scholars for religious rulings. Never request passwords, OTPs or identity documents. User request: "+prompt).build();
-                ListenableFuture<GenerateContentResponse> future=model.generateContent(content);
-                GenerateContentResponse response=future.get();
-                String out=response.getText();
-                if(out==null||out.trim().isEmpty())throw new IllegalStateException("Empty AI response");
-                runOnUiThread(()->answer.setText(out));
-            }catch(Exception e){runOnUiThread(()->answer.setText("AI is temporarily unavailable. Safety guidance: keep communication respectful, involve family/Wali, verify important claims independently, never send money or OTPs, and consult a qualified scholar for religious rulings."));}
-        });
+        answer.setText("Azure AI is preparing a response…");
+        try{
+            JSONObject message=new JSONObject();
+            message.put("role","user");
+            message.put("content",prompt);
+            JSONObject body=new JSONObject().put("messages",new JSONArray().put(message));
+            AzureApiClient.post("/ai/nikah-assistant",body.toString(),new AzureApiClient.Callback(){
+                public void ok(int code,String response){
+                    runOnUiThread(()->{
+                        try{answer.setText(new JSONObject(response).getJSONObject("assistant").getString("content"));}
+                        catch(Exception e){answer.setText("Azure AI returned an invalid response.");}
+                    });
+                }
+                public void err(String error){
+                    runOnUiThread(()->answer.setText("Azure AI is temporarily unavailable. Keep communication respectful, involve family/Wali, never send money or OTPs, and consult a qualified scholar for religious rulings."));
+                }
+            });
+        }catch(Exception e){answer.setText("Could not prepare the Azure AI request.");}
     }
 
     private void privacy(){
