@@ -9,8 +9,8 @@ function required(name) {
 }
 function externalIdConfig() {
   const tenantId = "c4ac0560-df59-48d4-af1b-bb0ed127ce6d";
-  const tenantSubdomain = "bestnikahbridge";
-  const audience = process.env.AZURE_EXTERNAL_ID_AUDIENCE || "4733aae0-3b89-4994-b99b-3890bf87e876";
+  const tenantSubdomain = "bestnikahbredge";
+  const audience = process.env.AZURE_EXTERNAL_ID_AUDIENCE || "4733ae40-3b89-4994-b99b-3890bf87e876";
   const issuer = process.env.AZURE_EXTERNAL_ID_ISSUER || `https://${tenantSubdomain}.ciamlogin.com/${tenantId}/v2.0/`;
   const jwksUri = process.env.AZURE_EXTERNAL_ID_JWKS_URI || `https://${tenantSubdomain}.ciamlogin.com/${tenantId}/discovery/v2.0/keys`;
   return { tenantId, tenantSubdomain, issuer, audience, jwksUri };
