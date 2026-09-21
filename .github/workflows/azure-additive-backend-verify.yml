@@ -93,7 +93,7 @@ jobs:
           p.write_text(json.dumps(d, indent=2)+"\n")
           p=pathlib.Path("app/src/main/AndroidManifest.xml")
           s=p.read_text()
-          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(" )'.replace('" )','"'), rf'\g<1>{h}\g<2>', s)
+          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(")', rf'\g<1>{h}\g<2>', s)
           p.write_text(s)
           PY
 
