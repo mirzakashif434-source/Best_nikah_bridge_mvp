@@ -111,7 +111,7 @@ app.http("azureExternalAuthMe",{methods:["GET"],authLevel:"anonymous",route:"aut
   } catch(error) {
     const status=error.statusCode||500;
     if(status>=500) context.error("AZURE_AUTHENTICATION_FAILED",error);
-    return {status,jsonBody:{ok:false,error:status===401?"UNAUTHENTICATED":status===400?error.message:"AZURE_AUTHENTICATION_ERROR"}};
+    return {status,jsonBody:{ok:false,error:status===401?"UNAUTHENTICATED":status===400?error.message:"AZURE_AUTHENTICATION_ERROR",diagnostic:status===401?error.message:null}};
   }
 }});
 module.exports={verifyAzureExternalIdToken,ensureAzureUser,requireAzureAuth};
