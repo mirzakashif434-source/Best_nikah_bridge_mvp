@@ -21,6 +21,8 @@ jobs:
           ! grep -q 'MsalUiRequiredException' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'Any silent-token failure' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'acquireTokenInteractive' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'cachedAccessToken' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'clearCachedToken' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'bindActivity' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'account.getAuthority()' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'AzureAuthManager.initialize(this' app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
