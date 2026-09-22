@@ -73,6 +73,10 @@ public class AzureHomeActivity extends Activity {
         return e;
     }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
+    private String valueOrEmpty(JSONObject o,String key){
+        if(o==null || !o.has(key) || o.isNull(key)) return "";
+        return o.optString(key,"");
+    }
 
     private void home(){
         base(); title("Best Nikah Bridge");
@@ -119,7 +123,7 @@ public class AzureHomeActivity extends Activity {
                 try{
                     JSONObject p=new JSONObject(body).optJSONObject("profile");
                     if(p==null){status.setText("No profile yet. Create your real profile below.");}
-                    else status.setText("Email: "+p.optString("email")+"\nName: "+p.optString("display_name")+"\nGender: "+p.optString("gender")+"\nCountry: "+p.optString("country")+"\nCity: "+p.optString("city")+"\nProfile completed: "+p.optBoolean("profile_completed"));
+                    else status.setText("Email: "+valueOrEmpty(p,"email")+"\nName: "+valueOrEmpty(p,"display_name")+"\nGender: "+valueOrEmpty(p,"gender")+"\nCountry: "+valueOrEmpty(p,"country")+"\nCity: "+valueOrEmpty(p,"city")+"\nProfile completed: "+p.optBoolean("profile_completed"));
                     name.setText(p.optString("display_name",""));
                     dob.setText(p.optString("date_of_birth",""));
                     gender.setText(p.optString("gender",""));
