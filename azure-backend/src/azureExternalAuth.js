@@ -22,8 +22,14 @@ async function verifyAzureExternalIdToken(request) {
   if (!token) { const e=new Error("Missing bearer token"); e.statusCode=401; throw e; }
   const cfg=externalIdConfig();
   const jwks=createRemoteJWKSet(new URL(cfg.jwksUri));
+  // External ID metadata has appeared in both tenant-name and tenant-ID issuer forms.
+  // Accept only the two issuer forms belonging to this exact tenant; audience and
+  // signature validation remain mandatory. This is additive and preserves the
+  // existing configured issuer for backward compatibility.
+  const tenantIdIssuer = `https://${cfg.tenantId}.ciamlogin.com/${cfg.tenantId}/v2.0/`;
+  const allowedIssuers = [...new Set([cfg.issuer, tenantIdIssuer])];
   try {
-    const {payload}=await jwtVerify(token,jwks,{issuer:cfg.issuer,audience:cfg.audience});
+    const {payload}=await jwtVerify(token,jwks,{issuer:allowedIssuers,audience:cfg.audience});
     if (!payload.sub) throw new Error("Token subject missing");
     return payload;
   } catch (error) {
