@@ -27,7 +27,10 @@ async function verifyAzureExternalIdToken(request) {
   // signature validation remain mandatory. This is additive and preserves the
   // existing configured issuer for backward compatibility.
   const tenantIdIssuer = `https://${cfg.tenantId}.ciamlogin.com/${cfg.tenantId}/v2.0/`;
-  const allowedIssuers = [...new Set([cfg.issuer, tenantIdIssuer])];
+  // Some External ID tokens use the tenant-ID host form:
+  // https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0/
+  const tenantIdHostIssuer = `https://${cfg.tenantId}.ciamlogin.com/${cfg.tenantId}/v2.0/`;
+  const allowedIssuers = [...new Set([cfg.issuer, tenantIdIssuer, tenantIdHostIssuer])];
   try {
     const {payload}=await jwtVerify(token,jwks,{issuer:allowedIssuers,audience:cfg.audience});
     if (!payload.sub) throw new Error("Token subject missing");
