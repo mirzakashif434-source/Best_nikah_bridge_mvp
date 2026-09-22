@@ -113,7 +113,7 @@ public class AzureHomeActivity extends Activity {
                 try{
                     JSONObject p=new JSONObject(body).optJSONObject("profile");
                     if(p==null){status.setText("No profile yet. Create your real profile below.");}
-                    else status.setText("Email: "+p.optString("email")+"\nName: "+p.optString("display_name")+"\nGender: "+p.optString("gender")+"\nCountry: "+p.optString("country")+"\nCity: "+p.optString("city")+"\nProfile completed: "+p.optBoolean("profile_completed"));
+                    else status.setText("Email: "+p.optString("email")+"\nName: "+p.optString("display_name")+"\nGender: "+p.optString("gender")+"\nCountry: "+p.optString("country")+"\nCity: "+p.optString("city")+"\nProfile completed: "+p.optBoolean("profile_completed"));\n                    name.setText(p.optString("display_name",""));\n                    dob.setText(p.optString("date_of_birth",""));\n                    gender.setText(p.optString("gender",""));\n                    country.setText(p.optString("country",""));\n                    city.setText(p.optString("city",""));\n                    bio.setText(p.optString("bio",""));
                 }catch(Exception e){status.setText("Profile response could not be read.");}
             });}
             public void err(String m){runOnUiThread(()->status.setText("Profile error: "+m));}
@@ -186,7 +186,7 @@ public class AzureHomeActivity extends Activity {
         EditText uid=input("Real recipient user ID");
         Button send=button("Send Real Interest",true);
         send.setOnClickListener(v->{try{
-            JSONObject b=new JSONObject();b.put("receiverUserId",uid.getText().toString().trim());
+            String receiverId=uid.getText().toString().trim();\n            if(receiverId.isEmpty()){uid.setError("Real recipient user ID required");uid.requestFocus();return;}\n            JSONObject b=new JSONObject();b.put("receiverUserId",receiverId);
             AzureApiClient.post("/interests",b.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String body){runOnUiThread(()->toast("Real interest sent."));}
                 public void err(String m){runOnUiThread(()->toast("Interest rejected: "+m));}
@@ -206,7 +206,7 @@ public class AzureHomeActivity extends Activity {
         EditText phone=input("Wali phone E.164 (optional)");
         Button create=button("Connect Real Wali",true);
         create.setOnClickListener(v->{try{
-            JSONObject b=new JSONObject();b.put("waliName",name.getText().toString().trim());b.put("waliEmail",email.getText().toString().trim());b.put("waliPhoneE164",phone.getText().toString().trim());
+            String waliName=name.getText().toString().trim(); String waliEmail=email.getText().toString().trim(); String waliPhone=phone.getText().toString().trim();\n            if(waliName.length()<2){name.setError("Wali full name required");name.requestFocus();return;}\n            if(waliEmail.isEmpty() && waliPhone.isEmpty()){email.setError("Email or E.164 phone required");email.requestFocus();return;}\n            JSONObject b=new JSONObject();b.put("waliName",waliName);b.put("waliEmail",waliEmail);b.put("waliPhoneE164",waliPhone);
             AzureApiClient.post("/family-links",b.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String body){runOnUiThread(()->{toast("Real Wali connection request saved in Azure.");loadFamilyLinks(out);});}
                 public void err(String m){runOnUiThread(()->toast("Wali connection failed: "+m));}
@@ -298,7 +298,7 @@ public class AzureHomeActivity extends Activity {
         TextView answer=text("",15,false);root.addView(answer);
         Button ask=button("Ask Azure AI",true),back=button("Back",false);
         ask.setOnClickListener(v->{try{
-            JSONObject msg=new JSONObject();msg.put("role","user");msg.put("content",q.getText().toString().trim());
+            String question=q.getText().toString().trim();\n            if(question.isEmpty()){q.setError("Nikah question required");q.requestFocus();return;}\n            JSONObject msg=new JSONObject();msg.put("role","user");msg.put("content",question);
             JSONArray messages=new JSONArray();messages.put(msg);JSONObject b=new JSONObject();b.put("messages",messages);
             answer.setText("Azure AI is responding…");
             AzureApiClient.post("/ai/nikah-assistant",b.toString(),new AzureApiClient.Callback(){
