@@ -163,7 +163,15 @@ public class AzureHomeActivity extends Activity {
                     out.setText(s.toString());
                 }catch(Exception e){out.setText("Match response could not be read.");}
             });}
-            public void err(String m){runOnUiThread(()->out.setText("Matches unavailable: "+m));}
+            public void err(String m){runOnUiThread(()->{
+                if(m!=null && m.contains("HTTP 409") && m.contains("PROFILE_NOT_READY")){
+                    out.setText("Your real profile is not ready yet. Complete your profile first; then real compatibility matching will become available.");
+                    Button complete=button("Complete My Real Profile",true);
+                    complete.setOnClickListener(v->profile());
+                }else{
+                    out.setText("Matches unavailable: "+m);
+                }
+            });}
         });
         Button back=button("Back",false);back.setOnClickListener(v->home());
     }
