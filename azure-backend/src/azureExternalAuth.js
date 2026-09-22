@@ -15,6 +15,32 @@ function externalIdConfig() {
   const jwksUri = process.env.AZURE_EXTERNAL_ID_JWKS_URI || `https://${tenantSubdomain}.ciamlogin.com/${tenantId}/discovery/v2.0/keys`;
   return { tenantId, tenantSubdomain, issuer, audience, jwksUri };
 }
+function normalizeIssuer(value) {
+  if (typeof value !== "string") return null;
+  try {
+    const u = new URL(value.trim());
+    return {
+      protocol: u.protocol.toLowerCase(),
+      hostname: u.hostname.toLowerCase(),
+      pathname: u.pathname.replace(/\\/+$/, "") || "/",
+      search: u.search,
+      hash: u.hash
+    };
+  } catch {
+    return null;
+  }
+}
+function issuerAllowed(tokenIssuer, allowedIssuers) {
+  const actual = normalizeIssuer(tokenIssuer);
+  if (!actual || actual.protocol !== "https:" || actual.search || actual.hash) return false;
+  return allowedIssuers.some((candidate) => {
+    const expected = normalizeIssuer(candidate);
+    return expected &&
+      actual.protocol === expected.protocol &&
+      actual.hostname === expected.hostname &&
+      actual.pathname === expected.pathname;
+  });
+}
 async function verifyAzureExternalIdToken(request) {
   const authorization = request.headers.get("authorization") || "";
   if (!authorization.startsWith("Bearer ")) { const e=new Error("Missing bearer token"); e.statusCode=401; throw e; }
@@ -22,16 +48,16 @@ async function verifyAzureExternalIdToken(request) {
   if (!token) { const e=new Error("Missing bearer token"); e.statusCode=401; throw e; }
   const cfg=externalIdConfig();
   const jwks=createRemoteJWKSet(new URL(cfg.jwksUri));
-  // External ID has used tenant-name and tenant-ID host issuer forms.
-  // Keep signature + audience verification in jose, then enforce the exact
-  // issuer allow-list explicitly. This avoids relying on issuer claim parsing
-  // while still requiring an issuer belonging to this exact tenant.
+  // External ID may emit tenant-name or tenant-ID-host issuer URLs.
+  // Signature and audience are verified cryptographically first. The issuer is
+  // then checked as a canonical HTTPS URL against only this tenant's allow-list,
+  // tolerating harmless URL formatting differences such as a trailing slash.
   const tenantIdHostIssuer = `https://${cfg.tenantId}.ciamlogin.com/${cfg.tenantId}/v2.0/`;
   const allowedIssuers = [...new Set([cfg.issuer, tenantIdHostIssuer])];
   try {
     const {payload}=await jwtVerify(token,jwks,{audience:cfg.audience});
     if (!payload.sub) throw new Error("Token subject missing");
-    if (typeof payload.iss !== "string" || !allowedIssuers.includes(payload.iss)) {
+    if (!issuerAllowed(payload.iss, allowedIssuers)) {
       const e=new Error("Unexpected Azure External ID issuer");
       e.code="ERR_JWT_ISSUER_NOT_ALLOWED";
       e.statusCode=401;
