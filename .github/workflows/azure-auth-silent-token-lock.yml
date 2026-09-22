@@ -36,3 +36,5 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :app:compileDebugJavaWithJavac --stacktrace
           echo "AZURE AUTH LOCK: Android Java compilation passed."
+
+# Production lock checkpoint: rebuild release artifact after MSAL recovery fix.
