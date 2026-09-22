@@ -108,6 +108,12 @@ public class AzureHomeActivity extends Activity {
     private void profile(){
         base(); title("My Real Azure Profile");
         TextView status=text("Loading secure profile…",15,false); root.addView(status);
+        EditText name=input("Display name");
+        EditText dob=input("Date of birth YYYY-MM-DD");
+        EditText gender=input("Gender: male or female");
+        EditText country=input("Country");
+        EditText city=input("City");
+        EditText bio=input("Short bio");
         AzureApiClient.get("/profile",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
@@ -124,12 +130,6 @@ public class AzureHomeActivity extends Activity {
             });}
             public void err(String m){runOnUiThread(()->status.setText("Profile error: "+m));}
         });
-        EditText name=input("Display name");
-        EditText dob=input("Date of birth YYYY-MM-DD");
-        EditText gender=input("Gender: male or female");
-        EditText country=input("Country");
-        EditText city=input("City");
-        EditText bio=input("Short bio");
         Button save=button("Save Real Profile",true),back=button("Back",false);
         save.setOnClickListener(v->{
             try{
