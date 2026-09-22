@@ -13,7 +13,6 @@ import com.microsoft.identity.client.IPublicClientApplication;
 import com.microsoft.identity.client.PublicClientApplication;
 import com.microsoft.identity.client.SilentAuthenticationCallback;
 import com.microsoft.identity.client.exception.MsalException;
-import com.microsoft.identity.client.exception.MsalUiRequiredException;
 
 import java.lang.ref.WeakReference;
 import java.util.Collections;
@@ -168,18 +167,20 @@ final class AzureAuthManager {
                                 }
 
                                 @Override public void onError(MsalException exception) {
-                                    if (exception instanceof MsalUiRequiredException) {
-                                        acquireTokenInteractive(callback);
-                                    } else {
-                                        callback.err("AZURE_SILENT_TOKEN_FAILED");
-                                    }
+                                    // Any silent-token failure means the cached/refreshable
+                                    // token is not usable for this API right now. Recover
+                                    // through the real interactive MSAL flow instead of
+                                    // leaving the user on the generic silent-token error.
+                                    acquireTokenInteractive(callback);
                                 }
                             })
                             .build();
 
             app.acquireTokenSilentAsync(parameters);
         } catch (Exception e) {
-            callback.err("AZURE_SILENT_TOKEN_FAILED");
+            // If silent acquisition cannot even be started, recover through the
+            // foreground MSAL flow rather than exposing a stale generic error.
+            acquireTokenInteractive(callback);
         }
     }
 
