@@ -32,7 +32,10 @@ async function verifyAzureExternalIdToken(request) {
   const tenantIdHostIssuer = `https://${cfg.tenantId}.ciamlogin.com/${cfg.tenantId}/v2.0/`;
   const allowedIssuers = [...new Set([cfg.issuer, tenantIdIssuer, tenantIdHostIssuer])];
   try {
-    const {payload}=await jwtVerify(token,jwks,{issuer:allowedIssuers,audience:cfg.audience});
+    // External ID is currently issuing this app's access token with the exact
+    // tenant-ID-host issuer shown in the live diagnostic. Keep cryptographic JWT
+    // validation unchanged; use the exact issuer string for jose validation.
+    const {payload}=await jwtVerify(token,jwks,{issuer:tenantIdHostIssuer,audience:cfg.audience});
     if (!payload.sub) throw new Error("Token subject missing");
     return payload;
   } catch (error) {
