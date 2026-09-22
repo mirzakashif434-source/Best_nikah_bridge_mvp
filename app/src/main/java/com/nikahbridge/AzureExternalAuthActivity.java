@@ -8,14 +8,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.graphics.Color;
 import android.content.Intent;
-import android.net.Uri;
 
 import com.microsoft.identity.client.AuthenticationCallback;
 import com.microsoft.identity.client.IAuthenticationResult;
 import com.microsoft.identity.client.IPublicClientApplication;
 import com.microsoft.identity.client.IMultipleAccountPublicClientApplication;
 import com.microsoft.identity.client.AcquireTokenParameters;
-import com.microsoft.identity.client.AcquireTokenSilentParameters;
 import com.microsoft.identity.client.IAccount;
 import com.microsoft.identity.client.exception.MsalException;
 import com.microsoft.identity.client.PublicClientApplication;
@@ -24,14 +22,9 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Additive real Microsoft Entra External ID authentication.
- * Existing Firebase authentication remains intact until Azure cutover is verified.
- */
 public class AzureExternalAuthActivity extends Activity {
     private static final String API_BASE =
             "https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net";
@@ -44,6 +37,8 @@ public class AzureExternalAuthActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        AzureAuthManager.bindActivity(this);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(32, 40, 32, 32);
@@ -88,8 +83,6 @@ public class AzureExternalAuthActivity extends Activity {
     }
 
     private void acquireTokenInteractive() {
-        // Request only the real delegated API scope. MSAL handles the OIDC sign-in
-        // scopes, and delegated consent already provides offline access.
         List<String> scopes = Collections.singletonList(API_SCOPE);
         AcquireTokenParameters parameters = new AcquireTokenParameters.Builder()
                 .startAuthorizationFromActivity(this)
@@ -136,10 +129,14 @@ public class AzureExternalAuthActivity extends Activity {
                 runOnUiThread(() -> {
                     status.setText(message);
                     if (code == 200) {
-                        AzureAuthManager.markSignedIn(this);
-                        Toast.makeText(this, "Real Azure login verified.", Toast.LENGTH_LONG).show();
-                        startActivity(new Intent(this, AzureHomeActivity.class));
-                        finish();
+                        AzureAuthManager.initialize(this,
+                                () -> {
+                                    AzureAuthManager.markSignedIn(this);
+                                    Toast.makeText(this, "Real Azure login verified.", Toast.LENGTH_LONG).show();
+                                    startActivity(new Intent(this, AzureHomeActivity.class));
+                                    finish();
+                                },
+                                messageText -> status.setText("Azure session initialization failed: " + messageText));
                     }
                 });
             } catch (Exception e) {
