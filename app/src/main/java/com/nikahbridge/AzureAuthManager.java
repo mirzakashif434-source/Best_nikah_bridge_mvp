@@ -31,6 +31,7 @@ final class AzureAuthManager {
     private static Context appContext;
     private static WeakReference<Activity> activeActivity = new WeakReference<>(null);
     private static boolean initializing;
+    private static String cachedAccessToken;
     private static final java.util.ArrayList<Runnable> pending = new java.util.ArrayList<>();
 
     private AzureAuthManager() {}
@@ -45,8 +46,25 @@ final class AzureAuthManager {
     static void acquireToken(Context context, Callback callback) {
         if (context instanceof Activity) bindActivity((Activity) context);
         appContext = context.getApplicationContext();
+
+        // Reuse the already verified in-memory production token while the
+        // current app session is alive. This prevents every feature request
+        // from restarting authentication/navigation.
+        synchronized (AzureAuthManager.class) {
+            if (cachedAccessToken != null && !cachedAccessToken.trim().isEmpty()) {
+                callback.ok(cachedAccessToken);
+                return;
+            }
+        }
+
         initialize(appContext, () -> acquireTokenSilent(callback),
                 message -> callback.err(message));
+    }
+
+    static void clearCachedToken() {
+        synchronized (AzureAuthManager.class) {
+            cachedAccessToken = null;
+        }
     }
 
     static void acquireToken(Callback callback) {
@@ -100,6 +118,7 @@ final class AzureAuthManager {
     }
 
     static void removeCurrentAccount(Context context, java.util.function.Consumer<Boolean> callback) {
+        clearCachedToken();
         initialize(context.getApplicationContext(), () -> {
             try {
                 List<IAccount> accounts = app.getAccounts();
@@ -162,6 +181,9 @@ final class AzureAuthManager {
                                     if (token == null || token.trim().isEmpty()) {
                                         callback.err("AZURE_ACCESS_TOKEN_UNAVAILABLE");
                                     } else {
+                                        synchronized (AzureAuthManager.class) {
+                                            cachedAccessToken = token;
+                                        }
                                         callback.ok(token);
                                     }
                                 }
@@ -200,6 +222,9 @@ final class AzureAuthManager {
                         if (token == null || token.trim().isEmpty()) {
                             callback.err("AZURE_ACCESS_TOKEN_UNAVAILABLE");
                         } else {
+                            synchronized (AzureAuthManager.class) {
+                                cachedAccessToken = token;
+                            }
                             callback.ok(token);
                         }
                     }
