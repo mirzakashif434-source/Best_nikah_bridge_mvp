@@ -1,0 +1,38 @@
+name: Azure Auth Silent Token Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+  workflow_dispatch:
+
+jobs:
+  lock:
+    name: Lock Azure External ID token flow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify production Azure MSAL auth wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'api://4733ae40-3b89-4994-b99b-3890bf87e876/access_as_user' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'MsalUiRequiredException' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'acquireTokenInteractive' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'bindActivity' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'account.getAuthority()' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'AzureAuthManager.initialize(this' app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
+          grep -q 'AzureAuthManager.bindActivity(this)' app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
+          grep -q 'AzureAuthManager.bindActivity(this)' app/src/main/java/com/nikahbridge/AzureHomeActivity.java
+          grep -q '"client_id": "f5fc2b11-420f-4741-9a52-65d60cbddb7b"' app/src/main/res/raw/auth_config.json
+          grep -q '"type": "CIAM"' app/src/main/res/raw/auth_config.json
+          echo "AZURE AUTH LOCK: External ID + API scope + silent-first recovery + interactive fallback wiring preserved."
+
+      - name: Compile Android auth path
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+          echo "AZURE AUTH LOCK: Android Java compilation passed."
