@@ -6,10 +6,15 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 final class AzureApiClient {
   private static final String BASE="https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net/api";
   private static final ExecutorService EXEC=Executors.newCachedThreadPool();
+  private static final ScheduledExecutorService TIMEOUTS=Executors.newSingleThreadScheduledExecutor();
+  private static final long AUTH_TIMEOUT_MS=12000L;
   interface Callback{void ok(int code,String body);void err(String message);}
 
   static void get(String path,Callback cb){request("GET",path,null,"application/json",cb);}
@@ -61,9 +66,21 @@ final class AzureApiClient {
   }
 
   private static void authToken(java.util.function.Consumer<String> work,Callback cb){
+    AtomicBoolean finished=new AtomicBoolean(false);
+    Runnable timeout=()->{
+      if(finished.compareAndSet(false,true)){
+        cb.err("AZURE_AUTH_TIMEOUT");
+      }
+    };
+    TIMEOUTS.schedule(timeout,AUTH_TIMEOUT_MS,TimeUnit.MILLISECONDS);
+
     AzureAuthManager.acquireToken(new AzureAuthManager.Callback(){
-      @Override public void ok(String token){work.accept(token);}
-      @Override public void err(String message){cb.err(message);}
+      @Override public void ok(String token){
+        if(finished.compareAndSet(false,true)) work.accept(token);
+      }
+      @Override public void err(String message){
+        if(finished.compareAndSet(false,true)) cb.err(message);
+      }
     });
   }
 
