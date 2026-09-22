@@ -72,7 +72,8 @@ async function verifyAzureExternalIdToken(request) {
         acceptedIssuers: allowedIssuers,
         expectedAudience: cfg.audience,
         tokenIssuer: tokenMetadata.iss || null,
-        tokenAudience: tokenMetadata.aud || null
+        tokenAudience: tokenMetadata.aud || null,
+        validationMessage: error?.message || null
       };
     }
     e.statusCode=401;
