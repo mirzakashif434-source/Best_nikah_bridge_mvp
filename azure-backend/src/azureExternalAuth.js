@@ -61,6 +61,17 @@ async function verifyAzureExternalIdToken(request) {
       tokenMetadata
     });
     const e=new Error(`Invalid Azure External ID authentication token: ${authDiagnostic}`);
+    // Safe additive diagnostic for the current 401 investigation. Only issuer/audience
+    // metadata is returned; no token, email, subject, or personal data is exposed.
+    if (tokenMetadata) {
+      e.diagnosticDetails = {
+        expectedIssuer: cfg.issuer,
+        acceptedIssuers: allowedIssuers,
+        expectedAudience: cfg.audience,
+        tokenIssuer: tokenMetadata.iss || null,
+        tokenAudience: tokenMetadata.aud || null
+      };
+    }
     e.statusCode=401;
     throw e;
   }
@@ -115,7 +126,7 @@ async function requireAzureAuth(handler) {
     } catch(error) {
       const status=error.statusCode||500;
       if(status>=500) context.error("AZURE_AUTHENTICATION_FAILED",error);
-      return {status,jsonBody:{ok:false,error:status===401?"UNAUTHENTICATED":status===400?error.message:"AZURE_AUTHENTICATION_ERROR",diagnostic:status===401?error.message:null}};
+      return {status,jsonBody:{ok:false,error:status===401?"UNAUTHENTICATED":status===400?error.message:"AZURE_AUTHENTICATION_ERROR",diagnostic:status===401?error.message:null,diagnosticDetails:status===401?error.diagnosticDetails||null:null}};
     }
   };
 }
@@ -131,7 +142,7 @@ app.http("azureExternalAuthMe",{methods:["GET"],authLevel:"anonymous",route:"aut
   } catch(error) {
     const status=error.statusCode||500;
     if(status>=500) context.error("AZURE_AUTHENTICATION_FAILED",error);
-    return {status,jsonBody:{ok:false,error:status===401?"UNAUTHENTICATED":status===400?error.message:"AZURE_AUTHENTICATION_ERROR",diagnostic:status===401?error.message:null}};
+    return {status,jsonBody:{ok:false,error:status===401?"UNAUTHENTICATED":status===400?error.message:"AZURE_AUTHENTICATION_ERROR",diagnostic:status===401?error.message:null,diagnosticDetails:status===401?error.diagnosticDetails||null:null}};
   }
 }});
 module.exports={verifyAzureExternalIdToken,ensureAzureUser,requireAzureAuth};
