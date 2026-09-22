@@ -129,6 +129,7 @@ public class AzureExternalAuthActivity extends Activity {
                 runOnUiThread(() -> {
                     status.setText(message);
                     if (code == 200) {
+                        AzureAuthManager.acceptVerifiedAccessToken(accessToken);
                         AzureAuthManager.initialize(this,
                                 () -> {
                                     AzureAuthManager.markSignedIn(this);
