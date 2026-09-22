@@ -18,7 +18,8 @@ jobs:
         run: |
           set -euo pipefail
           grep -q 'api://4733ae40-3b89-4994-b99b-3890bf87e876/access_as_user' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          grep -q 'MsalUiRequiredException' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          ! grep -q 'MsalUiRequiredException' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'Any silent-token failure' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'acquireTokenInteractive' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'bindActivity' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'account.getAuthority()' app/src/main/java/com/nikahbridge/AzureAuthManager.java
