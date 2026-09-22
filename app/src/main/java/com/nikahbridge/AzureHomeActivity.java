@@ -36,12 +36,42 @@ public class AzureHomeActivity extends Activity {
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD); return t;
     }
     private void title(String v){TextView t=text(v,28,true);t.setGravity(Gravity.CENTER);root.addView(t);}
-    private Button button(String label,boolean filled){
-        Button b=new Button(this); b.setText(label); b.setAllCaps(false); b.setTextSize(16); b.setTextColor(filled?Color.WHITE:green);
-        GradientDrawable g=new GradientDrawable();g.setColor(filled?green:Color.WHITE);g.setCornerRadius(18);if(!filled)g.setStroke(2,green);b.setBackground(g);
-        root.addView(b,new LinearLayout.LayoutParams(-1,62)); return b;
+    private int dp(int value){
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
-    private EditText input(String hint){EditText e=new EditText(this);e.setHint(hint);e.setTextSize(16);root.addView(e,new LinearLayout.LayoutParams(-1,62));return e;}
+
+    private Button button(String label,boolean filled){
+        Button b=new Button(this);
+        b.setText(label);
+        b.setAllCaps(false);
+        b.setTextSize(16);
+        b.setTextColor(filled?Color.WHITE:green);
+        b.setGravity(Gravity.CENTER);
+        b.setMinHeight(dp(56));
+        b.setMinimumHeight(dp(56));
+        b.setPadding(dp(12),0,dp(12),0);
+        GradientDrawable g=new GradientDrawable();
+        g.setColor(filled?green:Color.WHITE);
+        g.setCornerRadius(dp(18));
+        if(!filled)g.setStroke(dp(2),green);
+        b.setBackground(g);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(62));
+        lp.setMargins(0,dp(4),0,dp(4));
+        root.addView(b,lp);
+        return b;
+    }
+
+    private EditText input(String hint){
+        EditText e=new EditText(this);
+        e.setHint(hint);
+        e.setTextSize(16);
+        e.setMinHeight(dp(56));
+        e.setPadding(dp(12),0,dp(12),0);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(62));
+        lp.setMargins(0,dp(4),0,dp(4));
+        root.addView(e,lp);
+        return e;
+    }
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
 
     private void home(){
