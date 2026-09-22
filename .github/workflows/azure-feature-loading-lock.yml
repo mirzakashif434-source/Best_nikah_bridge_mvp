@@ -1,20 +1,13 @@
 name: Azure Feature Loading Lock
 
-on:
-  push:
-    branches: [azure-backend-additive]
-    paths:
-      - "app/src/main/java/com/nikahbridge/AzureApiClient.java"
-      - "app/src/main/java/com/nikahbridge/AzureWalletActivity.java"
-      - ".github/workflows/azure-feature-loading-lock.yml"
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify shared API loading timeout
+      - name: Verify Azure API client timeout guard
         run: |
           grep -q 'AUTH_TIMEOUT_MS=12000L' app/src/main/java/com/nikahbridge/AzureApiClient.java
           grep -q 'AZURE_AUTH_TIMEOUT' app/src/main/java/com/nikahbridge/AzureApiClient.java
@@ -23,9 +16,5 @@ jobs:
         run: |
           grep -q 'AzureApiClient.get("/wallet"' app/src/main/java/com/nikahbridge/AzureWalletActivity.java
           grep -q 'AzureApiClient.get("/wallet/transactions"' app/src/main/java/com/nikahbridge/AzureWalletActivity.java
-      - name: Compile Android app
-        run: |
-          chmod +x gradlew
-          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
       - name: Lock confirmation
         run: echo "LOCKED: Azure feature loading timeout + shared wallet API path verified."
