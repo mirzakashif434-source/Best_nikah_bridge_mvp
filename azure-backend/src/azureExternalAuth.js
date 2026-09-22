@@ -22,25 +22,30 @@ async function verifyAzureExternalIdToken(request) {
   if (!token) { const e=new Error("Missing bearer token"); e.statusCode=401; throw e; }
   const cfg=externalIdConfig();
   const jwks=createRemoteJWKSet(new URL(cfg.jwksUri));
-  // External ID metadata has appeared in both tenant-name and tenant-ID issuer forms.
-  // Accept only the two issuer forms belonging to this exact tenant; audience and
-  // signature validation remain mandatory. This is additive and preserves the
-  // existing configured issuer for backward compatibility.
-  const tenantIdIssuer = `https://${cfg.tenantId}.ciamlogin.com/${cfg.tenantId}/v2.0/`;
-  // Some External ID tokens use the tenant-ID host form:
-  // https://<tenant-id>.ciamlogin.com/<tenant-id>/v2.0/
+  // External ID has used tenant-name and tenant-ID host issuer forms.
+  // Keep signature + audience verification in jose, then enforce the exact
+  // issuer allow-list explicitly. This avoids relying on issuer claim parsing
+  // while still requiring an issuer belonging to this exact tenant.
   const tenantIdHostIssuer = `https://${cfg.tenantId}.ciamlogin.com/${cfg.tenantId}/v2.0/`;
-  const allowedIssuers = [...new Set([cfg.issuer, tenantIdIssuer, tenantIdHostIssuer])];
+  const allowedIssuers = [...new Set([cfg.issuer, tenantIdHostIssuer])];
   try {
-    // External ID is currently issuing this app's access token with the exact
-    // tenant-ID-host issuer shown in the live diagnostic. Keep cryptographic JWT
-    // validation unchanged; use the exact issuer string for jose validation.
-    const {payload}=await jwtVerify(token,jwks,{issuer:tenantIdHostIssuer,audience:cfg.audience});
+    const {payload}=await jwtVerify(token,jwks,{audience:cfg.audience});
     if (!payload.sub) throw new Error("Token subject missing");
+    if (typeof payload.iss !== "string" || !allowedIssuers.includes(payload.iss)) {
+      const e=new Error("Unexpected Azure External ID issuer");
+      e.code="ERR_JWT_ISSUER_NOT_ALLOWED";
+      e.statusCode=401;
+      e.diagnosticDetails={
+        expectedIssuer: cfg.issuer,
+        acceptedIssuers: allowedIssuers,
+        expectedAudience: cfg.audience,
+        tokenIssuer: payload.iss || null,
+        tokenAudience: payload.aud || null
+      };
+      throw e;
+    }
     return payload;
   } catch (error) {
-    // Safe additive diagnostic: decode only non-PII token metadata to identify the
-    // exact issuer/audience mismatch. Never log the access token or user email.
     const authDiagnostic = error?.code || error?.name || "TOKEN_VERIFICATION_FAILED";
     let tokenMetadata = null;
     try {
@@ -67,10 +72,8 @@ async function verifyAzureExternalIdToken(request) {
       tokenMetadata
     });
     const e=new Error(`Invalid Azure External ID authentication token: ${authDiagnostic}`);
-    // Safe additive diagnostic for the current 401 investigation. Only issuer/audience
-    // metadata is returned; no token, email, subject, or personal data is exposed.
     if (tokenMetadata) {
-      e.diagnosticDetails = {
+      e.diagnosticDetails = error?.diagnosticDetails || {
         expectedIssuer: cfg.issuer,
         acceptedIssuers: allowedIssuers,
         expectedAudience: cfg.audience,
@@ -78,6 +81,8 @@ async function verifyAzureExternalIdToken(request) {
         tokenAudience: tokenMetadata.aud || null,
         validationMessage: error?.message || null
       };
+    } else if (error?.diagnosticDetails) {
+      e.diagnosticDetails = error.diagnosticDetails;
     }
     e.statusCode=401;
     throw e;
@@ -87,8 +92,6 @@ async function ensureAzureUser(claims) {
   const subject=String(claims.sub);
   const email=String(claims.email||claims.preferred_username||claims.emails?.[0]||"").trim().toLowerCase();
   if (!email) { const e=new Error("AUTH_EMAIL_REQUIRED"); e.statusCode=400; throw e; }
-  // Preserve existing users during Firebase -> Azure migration.
-  // First match by Azure subject, then by verified email; only create a new row when neither exists.
   const bySubject=await query(
     `SELECT id,email,status,role,azure_subject,firebase_uid FROM users WHERE azure_subject=$1 LIMIT 1`,
     [subject]
