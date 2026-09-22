@@ -22,6 +22,7 @@ public class AzureHomeActivity extends Activity {
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
+        AzureAuthManager.bindActivity(this);
         home();
     }
 
