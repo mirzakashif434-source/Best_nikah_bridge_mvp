@@ -22,7 +22,7 @@ function normalizeIssuer(value) {
     return {
       protocol: u.protocol.toLowerCase(),
       hostname: u.hostname.toLowerCase(),
-      pathname: u.pathname.replace(/\\/+$/, "") || "/",
+      pathname: u.pathname.replace(/\/+$/, "") || "/"
       search: u.search,
       hash: u.hash
     };
