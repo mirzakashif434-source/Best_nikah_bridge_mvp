@@ -1,24 +1,24 @@
 package com.nikahbridge;
 
+import android.app.Activity;
 import android.content.Context;
 
+import com.microsoft.identity.client.AcquireTokenParameters;
 import com.microsoft.identity.client.AcquireTokenSilentParameters;
 import com.microsoft.identity.client.AuthenticationCallback;
 import com.microsoft.identity.client.IAccount;
 import com.microsoft.identity.client.IAuthenticationResult;
 import com.microsoft.identity.client.IMultipleAccountPublicClientApplication;
 import com.microsoft.identity.client.IPublicClientApplication;
-import com.microsoft.identity.client.exception.MsalException;
 import com.microsoft.identity.client.PublicClientApplication;
 import com.microsoft.identity.client.SilentAuthenticationCallback;
+import com.microsoft.identity.client.exception.MsalException;
+import com.microsoft.identity.client.exception.MsalUiRequiredException;
 
+import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Real Azure External ID/MSAL session manager.
- * MSAL owns the token cache; access tokens are never persisted by the app.
- */
 final class AzureAuthManager {
     static final String API_SCOPE =
             "api://4733ae40-3b89-4994-b99b-3890bf87e876/access_as_user";
@@ -30,12 +30,21 @@ final class AzureAuthManager {
 
     private static IMultipleAccountPublicClientApplication app;
     private static Context appContext;
+    private static WeakReference<Activity> activeActivity = new WeakReference<>(null);
     private static boolean initializing;
     private static final java.util.ArrayList<Runnable> pending = new java.util.ArrayList<>();
 
     private AzureAuthManager() {}
 
+    static void bindActivity(Activity activity) {
+        if (activity != null) {
+            activeActivity = new WeakReference<>(activity);
+            appContext = activity.getApplicationContext();
+        }
+    }
+
     static void acquireToken(Context context, Callback callback) {
+        if (context instanceof Activity) bindActivity((Activity) context);
         appContext = context.getApplicationContext();
         initialize(appContext, () -> acquireTokenSilent(callback),
                 message -> callback.err(message));
@@ -54,6 +63,7 @@ final class AzureAuthManager {
     }
 
     static void initialize(Context context, Runnable ready, java.util.function.Consumer<String> error) {
+        if (context instanceof Activity) bindActivity((Activity) context);
         appContext = context.getApplicationContext();
         synchronized (AzureAuthManager.class) {
             if (app != null) {
@@ -94,9 +104,15 @@ final class AzureAuthManager {
         initialize(context.getApplicationContext(), () -> {
             try {
                 List<IAccount> accounts = app.getAccounts();
-                if (accounts == null || accounts.isEmpty()) { context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).edit().putBoolean("signed_in", false).apply(); callback.accept(true); return; }
+                if (accounts == null || accounts.isEmpty()) {
+                    context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                            .edit().putBoolean("signed_in", false).apply();
+                    callback.accept(true);
+                    return;
+                }
                 app.removeAccount(accounts.get(0));
-                context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).edit().putBoolean("signed_in", false).apply();
+                context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                        .edit().putBoolean("signed_in", false).apply();
                 callback.accept(true);
             } catch (Exception e) {
                 callback.accept(false);
@@ -105,12 +121,16 @@ final class AzureAuthManager {
     }
 
     static void markSignedIn(Context context) {
-        context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).edit().putBoolean("signed_in", true).apply();
+        context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                .edit().putBoolean("signed_in", true).apply();
     }
 
     static boolean hasAccount(Context context) {
         try {
-            if (app == null) return context.getSharedPreferences("azure_session", Context.MODE_PRIVATE).getBoolean("signed_in", false);
+            if (app == null) {
+                return context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                        .getBoolean("signed_in", false);
+            }
             List<IAccount> accounts = app.getAccounts();
             return accounts != null && !accounts.isEmpty();
         } catch (Exception ignored) {
@@ -127,7 +147,10 @@ final class AzureAuthManager {
             }
 
             IAccount account = accounts.get(0);
-            String authority = app.getConfiguration().getDefaultAuthority().getAuthorityURL().toString();
+            String authority = account.getAuthority();
+            if (authority == null || authority.trim().isEmpty()) {
+                authority = app.getConfiguration().getDefaultAuthority().getAuthorityURL().toString();
+            }
 
             AcquireTokenSilentParameters parameters =
                     new AcquireTokenSilentParameters.Builder()
@@ -145,7 +168,11 @@ final class AzureAuthManager {
                                 }
 
                                 @Override public void onError(MsalException exception) {
-                                    callback.err("AZURE_SILENT_TOKEN_FAILED");
+                                    if (exception instanceof MsalUiRequiredException) {
+                                        acquireTokenInteractive(callback);
+                                    } else {
+                                        callback.err("AZURE_SILENT_TOKEN_FAILED");
+                                    }
                                 }
                             })
                             .build();
@@ -156,7 +183,42 @@ final class AzureAuthManager {
         }
     }
 
+    private static void acquireTokenInteractive(Callback callback) {
+        Activity activity = activeActivity.get();
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+            callback.err("AZURE_INTERACTION_REQUIRED");
+            return;
+        }
+
+        AcquireTokenParameters parameters = new AcquireTokenParameters.Builder()
+                .startAuthorizationFromActivity(activity)
+                .withScopes(Collections.singletonList(API_SCOPE))
+                .withCallback(new AuthenticationCallback() {
+                    @Override public void onSuccess(IAuthenticationResult result) {
+                        String token = result.getAccessToken();
+                        if (token == null || token.trim().isEmpty()) {
+                            callback.err("AZURE_ACCESS_TOKEN_UNAVAILABLE");
+                        } else {
+                            callback.ok(token);
+                        }
+                    }
+
+                    @Override public void onError(MsalException exception) {
+                        callback.err("AZURE_INTERACTIVE_TOKEN_FAILED");
+                    }
+
+                    @Override public void onCancel() {
+                        callback.err("AZURE_AUTH_CANCELLED");
+                    }
+                })
+                .build();
+
+        app.acquireToken(parameters);
+    }
+
     private static String safe(String value) {
-        return value == null || value.trim().isEmpty() ? "AZURE_AUTH_INITIALIZATION_FAILED" : value;
+        return value == null || value.trim().isEmpty()
+                ? "AZURE_AUTH_INITIALIZATION_FAILED"
+                : value;
     }
 }
