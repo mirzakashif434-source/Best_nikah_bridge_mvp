@@ -61,6 +61,13 @@ final class AzureAuthManager {
                 message -> callback.err(message));
     }
 
+    static void acceptVerifiedAccessToken(String accessToken) {
+        if (accessToken == null || accessToken.trim().isEmpty()) return;
+        synchronized (AzureAuthManager.class) {
+            cachedAccessToken = accessToken;
+        }
+    }
+
     static void clearCachedToken() {
         synchronized (AzureAuthManager.class) {
             cachedAccessToken = null;
