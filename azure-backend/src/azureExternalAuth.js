@@ -1,5 +1,5 @@
 const { app } = require("@azure/functions");
-const { createRemoteJWKSet, jwtVerify } = require("jose");
+const { createRemoteJWKSet, jwtVerify, decodeJwt, decodeProtectedHeader } = require("jose");
 const { query } = require("./db");
 
 function required(name) {
@@ -33,12 +33,32 @@ async function verifyAzureExternalIdToken(request) {
     if (!payload.sub) throw new Error("Token subject missing");
     return payload;
   } catch (error) {
-    // Safe production diagnostic: log validation metadata only; never log the access token.
+    // Safe additive diagnostic: decode only non-PII token metadata to identify the
+    // exact issuer/audience mismatch. Never log the access token or user email.
     const authDiagnostic = error?.code || error?.name || "TOKEN_VERIFICATION_FAILED";
+    let tokenMetadata = null;
+    try {
+      const header = decodeProtectedHeader(token);
+      const payload = decodeJwt(token);
+      tokenMetadata = {
+        alg: header?.alg || null,
+        kid: header?.kid || null,
+        iss: payload?.iss || null,
+        aud: payload?.aud || null,
+        ver: payload?.ver || null,
+        tid: payload?.tid || null,
+        azp: payload?.azp || null,
+        appid: payload?.appid || null,
+        exp: payload?.exp || null
+      };
+    } catch (_) {}
     console.warn("AZURE_EXTERNAL_ID_TOKEN_VERIFY_FAILED", {
       code: error?.code || null,
       name: error?.name || null,
-      message: error?.message || null
+      message: error?.message || null,
+      expectedIssuer: cfg.issuer,
+      expectedAudience: cfg.audience,
+      tokenMetadata
     });
     const e=new Error(`Invalid Azure External ID authentication token: ${authDiagnostic}`);
     e.statusCode=401;
