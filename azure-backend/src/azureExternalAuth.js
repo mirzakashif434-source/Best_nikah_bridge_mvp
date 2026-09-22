@@ -26,7 +26,13 @@ async function verifyAzureExternalIdToken(request) {
     const {payload}=await jwtVerify(token,jwks,{issuer:cfg.issuer,audience:cfg.audience});
     if (!payload.sub) throw new Error("Token subject missing");
     return payload;
-  } catch {
+  } catch (error) {
+    // Safe production diagnostic: log validation metadata only; never log the access token.
+    console.warn("AZURE_EXTERNAL_ID_TOKEN_VERIFY_FAILED", {
+      code: error?.code || null,
+      name: error?.name || null,
+      message: error?.message || null
+    });
     const e=new Error("Invalid Azure External ID authentication token");
     e.statusCode=401;
     throw e;
