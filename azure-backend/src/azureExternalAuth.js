@@ -34,12 +34,13 @@ async function verifyAzureExternalIdToken(request) {
     return payload;
   } catch (error) {
     // Safe production diagnostic: log validation metadata only; never log the access token.
+    const authDiagnostic = error?.code || error?.name || "TOKEN_VERIFICATION_FAILED";
     console.warn("AZURE_EXTERNAL_ID_TOKEN_VERIFY_FAILED", {
       code: error?.code || null,
       name: error?.name || null,
       message: error?.message || null
     });
-    const e=new Error("Invalid Azure External ID authentication token");
+    const e=new Error(`Invalid Azure External ID authentication token: ${authDiagnostic}`);
     e.statusCode=401;
     throw e;
   }
@@ -94,7 +95,7 @@ async function requireAzureAuth(handler) {
     } catch(error) {
       const status=error.statusCode||500;
       if(status>=500) context.error("AZURE_AUTHENTICATION_FAILED",error);
-      return {status,jsonBody:{ok:false,error:status===401?"UNAUTHENTICATED":status===400?error.message:"AZURE_AUTHENTICATION_ERROR"}};
+      return {status,jsonBody:{ok:false,error:status===401?"UNAUTHENTICATED":status===400?error.message:"AZURE_AUTHENTICATION_ERROR",diagnostic:status===401?error.message:null}};
     }
   };
 }
