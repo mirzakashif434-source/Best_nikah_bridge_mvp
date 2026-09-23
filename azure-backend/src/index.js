@@ -40,29 +40,20 @@ require("./account");
 require("./moderation");
 require("./accountDeletionWeb");
 
-// Firebase migration #1: additive Azure Entra External ID authentication endpoints.
 require("./azureExternalAuth");
 
 require("./rewardedAds");
 
-// Firebase migration #2: additive production Premium plan catalog.
 require("./premiumPlans");
-
 
 // Step 2: real Google Play subscription verification and paid entitlements.
 require("./premiumPurchaseVerification");
 
-
-// Firebase migration #3: additive Azure wallet ledger/API.
 require("./wallet");
 
-
-// Firebase migration #4: additive Azure Help Line AI/admin APIs.
 require("./helpLine");
 
-
-// Firebase migration #5: additive Azure owner earnings/dashboard and settlement APIs.
 require("./ownerEarnings");
-require("./firebaseParity");
+require("./featureParity");
 
 require("./settings");

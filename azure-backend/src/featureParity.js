@@ -1,3 +1,4 @@
+// Azure production feature parity routes retained after final backend cutover.
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");

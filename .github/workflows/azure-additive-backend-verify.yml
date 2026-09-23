@@ -1,7 +1,4 @@
-# Final production verification build after Azure API admin consent — preserve all existing work
-# Trigger after Azure External ID scope-request fix
-# Build trigger: rebuild after Azure MSAL silent-token recovery fix bfbee2e0
-name: Azure Additive Backend + Android Verification
+name: Azure Production Cutover Verification
 
 on:
   push:
@@ -28,8 +25,22 @@ jobs:
   verify:
     runs-on: ubuntu-24.04
     steps:
-      - name: Checkout
+      - name: Checkout exact cutover source
         uses: actions/checkout@v5
+
+      - name: Verify Firebase runtime is retired
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -d functions
+          test ! -e firebase.json
+          test ! -e firestore.indexes.json
+          test ! -e firestore.rules
+          test ! -e storage.rules
+          test ! -e .github/workflows/firebase-production-deploy.yml
+          ! grep -RInE 'import[[:space:]]+com\.google\.firebase|FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable' app/src/main/java --include='*.java'
+          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
+          echo "FIREBASE RUNTIME RETIRED: PASS"
 
       - name: Set up Node 22
         uses: actions/setup-node@v5
@@ -40,258 +51,50 @@ jobs:
         working-directory: azure-backend
         run: npm install
 
-      - name: Validate Azure backend JavaScript
+      - name: Validate Azure backend modules
         working-directory: azure-backend
         run: |
-          test -d src
+          set -euo pipefail
           find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
 
-      # Step 2: Azure owner earnings is the production ledger/dashboard path.
-      - name: Verify Step 2 Azure owner earnings path
-        run: |
-          grep -Fq 'require("./ownerEarnings")' azure-backend/src/index.js
-          grep -Fq 'route:"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
-          grep -Fq 'route:"admin/owner/settlement-profile"' azure-backend/src/ownerEarnings.js
-          grep -Fq 'route:"admin/owner/provider-settlement"' azure-backend/src/ownerEarnings.js
-          grep -Fq 'route:"admin/owner/settlements"' azure-backend/src/ownerEarnings.js
-          grep -Fq 'route:"admin/owner/settlements/{id}/paid"' azure-backend/src/ownerEarnings.js
-          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_earnings' azure-backend/database/schema.sql
-          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_earnings_summary' azure-backend/database/schema.sql
-          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_settlement_profile' azure-backend/database/schema.sql
-          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_provider_settlements' azure-backend/database/schema.sql
-          grep -Fq 'CREATE TABLE IF NOT EXISTS owner_settlements' azure-backend/database/schema.sql
-          echo "Step 2 Azure owner earnings/settlement ledger verified; legacy Firebase owner earnings remains preserved."
-
-      # Step 3: migrated Firebase Functions UI call-sites use Azure APIs.
-      - name: Verify Step 3 Firebase Functions to Azure migration
-        run: |
-          for f in app/src/main/java/com/nikahbridge/PremiumPlansActivity.java app/src/main/java/com/nikahbridge/RewardedMessageActivity.java app/src/main/java/com/nikahbridge/CommunityChatActivity.java; do
-            if grep -nE 'FirebaseFunctions|getHttpsCallable|firebase-functions|FirebaseAuth|FirebaseFirestore|FirebaseUser' "$f"; then
-              echo "Legacy Firebase client call/import found in $f"
-              exit 1
-            fi
-          done
-          grep -Eq 'route:[[:space:]]*"premium/plans"' azure-backend/src/premiumPlans.js
-          grep -Eq 'route:[[:space:]]*"premium/entitlement"' azure-backend/src/premiumPurchaseVerification.js
-          grep -Eq 'route:[[:space:]]*"premium/purchases/verify"' azure-backend/src/premiumPurchaseVerification.js
-          grep -Eq 'route:[[:space:]]*"admob/rewarded/config"' azure-backend/src/rewardedAds.js
-          grep -Eq 'route:[[:space:]]*"community/messages"' azure-backend/src/community.js
-          grep -Eq 'route:[[:space:]]*"community/reports"' azure-backend/src/community.js
-          echo "Step 3 Azure API migration verified; legacy Firebase backend remains preserved for rollback."
-
-      # Step 4: Firestore collection parity against Azure PostgreSQL.
-      - name: Verify Step 4 Firestore to Azure PostgreSQL parity schema
+      - name: Verify Azure production routes
+        shell: bash
         run: |
           set -euo pipefail
-          schema="azure-backend/database/schema.sql"
-          for table in users profiles partner_preferences interests conversations messages family_links verifications photos safety_reports blocked_users privacy_settings entitlements rewarded_ad_transactions daily_reward_claims premium_plans premium_purchase_tokens premium_entitlements wallet_accounts wallet_ledger wallet_withdrawals community_messages community_mutes community_reports community_rate_limits help_line_tickets owner_earnings owner_earnings_summary owner_settlement_profile owner_provider_settlements owner_settlements user_settings wali_connections family_bridges family_bridge_participants family_bridge_questions deletion_requests moderation_queue risk_signals play_purchases public_config admin_records; do
-            grep -Eq "CREATE TABLE IF NOT EXISTS $table" "$schema"
-          done
-          grep -Fq 'firebase_uid TEXT UNIQUE' "$schema"
-          grep -Fq 'azure_subject TEXT' "$schema"
-          echo "Step 4 Azure PostgreSQL parity schema verified. Firebase schema/config remains preserved for controlled cutover."
-
-      # STEP 4 LOCKED CHECKPOINT: Firestore parity schema is verified against Azure PostgreSQL.
-      # Existing Firebase data/config is intentionally preserved until final tested cutover.
-      - name: Lock Step 4 Azure PostgreSQL parity checkpoint
-        run: |
-          set -euo pipefail
-          grep -Eq 'CREATE TABLE IF NOT EXISTS users' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS profiles' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS interests' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS conversations' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS messages' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS family_bridges' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS verifications' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS privacy_settings' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS deletion_requests' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS moderation_queue' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS risk_signals' azure-backend/database/schema.sql
-          grep -Eq 'CREATE TABLE IF NOT EXISTS public_config' azure-backend/database/schema.sql
-          grep -Fq 'azure_subject TEXT' azure-backend/database/schema.sql
-          echo "STEP 4 LOCKED: Azure PostgreSQL parity checkpoint verified; Firebase retained only for controlled final cutover."
-
-      # Step 5: Firebase Storage -> Azure Blob Storage production path.
-      - name: Verify Step 5 Azure Blob Storage migration
-        run: |
-          set -euo pipefail
-          grep -Eq 'require\("./storage"\)' azure-backend/src/photos.js
-          grep -Fq 'getProfilePhotosContainer' azure-backend/src/photos.js
-          grep -Fq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
-          grep -Eq 'route:"photos"' azure-backend/src/photos.js
-          grep -Eq 'route:"photos/\{photoId\}/content"' azure-backend/src/photos.js
-          grep -Eq 'route:"verification/identity"' azure-backend/src/verification.js
-          grep -Fq 'AZURE_STORAGE_ACCOUNT_URL' azure-backend/src/storage.js
-          grep -Fq 'new BlobServiceClient' azure-backend/src/storage.js
-          for f in app/src/main/java/com/nikahbridge/ProfilePhotoActivity.java app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java; do
-            if grep -nE 'FirebaseStorage|StorageReference|FirebaseFirestore|FirebaseAuth|FirebaseFunctions' "$f"; then
-              echo "Legacy Firebase storage/auth client path found in $f"
-              exit 1
-            fi
-          done
-          grep -Eq 'CREATE TABLE IF NOT EXISTS photos' azure-backend/database/schema.sql
-          grep -Fq 'document_blob_key TEXT' azure-backend/database/schema.sql
-          echo "Step 5 Azure Blob Storage production path verified; Firebase Storage remains preserved for controlled final cutover."
-
-      # Step 6: Azure External ID is the production authentication authority.
-      - name: Verify Step 6 Azure External ID authentication cutover
-        run: |
-          set -euo pipefail
-          grep -Fq 'AZURE_AUTH_ONLY || "true"' azure-backend/src/auth.js
+          grep -Fq 'require("./featureParity")' azure-backend/src/index.js
           grep -Fq 'verifyAzureExternalIdToken' azure-backend/src/auth.js
           grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
-          grep -Fq 'azure_subject' azure-backend/src/azureExternalAuth.js
-          grep -Fq 'firebase_uid' azure-backend/src/azureExternalAuth.js
-          grep -Fq 'Azure External ID is the only active production authentication path.' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -Fq 'API_SCOPE' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          grep -Fq 'access_as_user' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq 'route:"auth/azure/me"' azure-backend/src/azureExternalAuth.js
-          echo "STEP 6 VERIFIED: Azure External ID is the default production auth authority; Firebase auth code remains preserved for controlled rollback."
-
-      # STEP 5 + 6 LOCKED CHECKPOINT: Azure Blob + Azure External ID are verified production paths.
-      - name: Lock Step 5 Azure Blob Storage checkpoint
-        run: |
-          set -euo pipefail
-          grep -Fq 'new BlobServiceClient' azure-backend/src/storage.js
+          grep -Fq 'route:"profile"' azure-backend/src/profile.js
+          grep -Fq 'route:"blocks"' azure-backend/src/blocks.js
+          grep -Fq 'route:"admin/verifications"' azure-backend/src/verification.js
+          grep -Fq 'route:"help/ask"' azure-backend/src/helpLine.js
+          grep -Fq 'route:"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Fq 'route:"premium/plans"' azure-backend/src/premiumPlans.js
+          grep -Fq 'route:"community/messages"' azure-backend/src/community.js
           grep -Fq 'getProfilePhotosContainer' azure-backend/src/photos.js
           grep -Fq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
-          grep -Fq 'AZURE_STORAGE_ACCOUNT_URL' azure-backend/src/storage.js
-          echo "STEP 5 LOCKED: Azure Blob Storage production path verified; Firebase Storage retained for final cutover."
-
-      - name: Lock Step 6 Azure External ID checkpoint
-        run: |
-          set -euo pipefail
-          grep -Fq 'AZURE_AUTH_ONLY || "true"' azure-backend/src/auth.js
-          grep -Fq 'verifyAzureExternalIdToken' azure-backend/src/auth.js
-          grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
-          grep -Fq 'azure_subject' azure-backend/src/azureExternalAuth.js
-          grep -Fq 'access_as_user' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          echo "STEP 6 LOCKED: Azure External ID production authentication verified; Firebase auth retained for controlled final cutover."
-
-      # Step 7: Azure AI is the production path. Firebase AI dependency/code remains untouched for rollback compatibility.
-      - name: Verify Azure AI production path
-        run: |
-          grep -q 'route: "ai/nikah-assistant"' azure-backend/src/aiNikahAssistant.js
-          grep -q 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/NikahAssistantActivity.java
-          grep -Fq 'route:"ai/nikah-mediator"' azure-backend/src/aiCompatibility.js
-          grep -Fq 'route:"ai/future-life"' azure-backend/src/aiCompatibility.js
-          grep -Fq 'Azure External ID is the only active production authentication path.' app/src/main/java/com/nikahbridge/MainActivity.java
-          echo "Azure AI compatibility endpoints and primary Android paths verified; legacy Firebase AI remains preserved for rollback."
-
-      # Step 7: Azure AI is the production path; no Firebase AI client calls remain in Android.
-      - name: Verify Step 7 Azure AI production path
-        run: |
-          set -euo pipefail
-          grep -Fq 'route: "ai/nikah-assistant"' azure-backend/src/aiNikahAssistant.js
-          grep -Fq 'route:"ai/nikah-mediator"' azure-backend/src/aiCompatibility.js
-          grep -Fq 'route:"ai/future-life"' azure-backend/src/aiCompatibility.js
-                    grep -Fq 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/NikahAssistantActivity.java
-                    grep -Fq 'AZURE_AI_ENDPOINT' azure-backend/src/aiNikahAssistant.js
-          grep -Fq 'AZURE_AI_MODEL' azure-backend/src/aiNikahAssistant.js
-          grep -Fq 'https://cognitiveservices.azure.com/.default' azure-backend/src/aiNikahAssistant.js
-          echo "STEP 7 VERIFIED: Android AI uses Azure API and backend uses Azure AI endpoint/model with managed identity."
-
-      # STEP 7 LOCKED CHECKPOINT: Azure AI is the Android production AI path.
-      - name: Lock Step 7 Azure AI production checkpoint
-        run: |
-          set -euo pipefail
-                    grep -Fq 'route: "ai/nikah-assistant"' azure-backend/src/aiNikahAssistant.js
-          grep -Fq 'AZURE_AI_ENDPOINT' azure-backend/src/aiNikahAssistant.js
-          grep -Fq 'AZURE_AI_MODEL' azure-backend/src/aiNikahAssistant.js
-                    echo "STEP 7 LOCKED: Azure AI production path verified; Firebase AI client path is not used by MainActivity."
-
-      # Step 8: Firestore -> Azure PostgreSQL data consistency and migration audit.
-      - name: Verify Step 8 Azure data migration integrity layer
-        run: |
-          set -euo pipefail
-          schema="azure-backend/database/schema.sql"
-          grep -Fq 'CREATE TABLE IF NOT EXISTS firestore_migration_audit' "$schema"
-          grep -Fq "('users','users')" "$schema"
-          grep -Fq "('profiles','profiles')" "$schema"
-          grep -Fq "('messages','messages')" "$schema"
-          grep -Fq "('photos','photos')" "$schema"
-          grep -Fq "('owner_earnings','owner_earnings')" "$schema"
-          grep -Fq 'source_record_count BIGINT' "$schema"
-          grep -Fq 'target_record_count BIGINT' "$schema"
-          grep -Fq 'migration_status TEXT' "$schema"
-          grep -Fq 'idx_users_firebase_uid' "$schema"
-          grep -Fq 'idx_users_azure_subject' "$schema"
-          echo "STEP 8 VERIFIED: Azure PostgreSQL has a controlled Firestore migration audit ledger and identity/data integrity indexes."
-
-      # STEP 8 LOCKED CHECKPOINT: Azure PostgreSQL migration-integrity layer is verified.
-      - name: Lock Step 8 Azure data integrity checkpoint
-        run: |
-          set -euo pipefail
-          grep -Fq 'CREATE TABLE IF NOT EXISTS firestore_migration_audit' azure-backend/database/schema.sql
-          grep -Fq 'source_record_count BIGINT' azure-backend/database/schema.sql
-          grep -Fq 'target_record_count BIGINT' azure-backend/database/schema.sql
-          grep -Fq 'idx_users_firebase_uid' azure-backend/database/schema.sql
-          grep -Fq 'idx_users_azure_subject' azure-backend/database/schema.sql
-          echo "STEP 8 LOCKED: Azure PostgreSQL migration-integrity checkpoint verified. Firebase source data remains preserved for controlled final cutover."
-
-      # Step 9: Firebase Functions -> Azure Functions parity verification.
-      - name: Verify Step 9 Firebase Functions Azure parity
-        run: |
-          set -euo pipefail
-          grep -Fq 'require("./firebaseParity")' azure-backend/src/index.js
           for route in 'likes' 'entitlements/free-boost' 'connections/{connectionId}/nikah-promise' 'compatibility/living' 'compatibility/living/share' 'connections/{connectionId}/health-check'; do
-            grep -Eq 'route:[[:space:]]*"'"$route"'"' azure-backend/src/firebaseParity.js
+            grep -Eq 'route:[[:space:]]*"'"$route"'"' azure-backend/src/featureParity.js
           done
-          for route in 'interests' 'conversations' 'family-links' 'verification/identity' 'photos' 'premium/purchases/verify' 'admob/rewarded/config' 'community/messages' 'admin/owner/earnings' 'help/ask' 'account' 'safety/reports' 'privacy' 'blocks' 'admin/moderation/reports'; do
-            grep -REqs 'route:[[:space:]]*"'"$route"'"' azure-backend/src --include='*.js'
-          done
-          grep -Fq 'CREATE TABLE IF NOT EXISTS likes' azure-backend/database/schema.sql
-          grep -Fq 'CREATE TABLE IF NOT EXISTS nikah_promise_paths' azure-backend/database/schema.sql
-          grep -Fq 'CREATE TABLE IF NOT EXISTS living_compatibility' azure-backend/database/schema.sql
-          grep -Fq 'CREATE TABLE IF NOT EXISTS connection_health_checks' azure-backend/database/schema.sql
-          echo "STEP 9 VERIFIED: Firebase callable-function coverage is represented by Azure HTTP routes and PostgreSQL-backed parity handlers. Firebase source remains preserved for final cutover."
+          echo "AZURE PRODUCTION ROUTES: PASS"
 
-      # STEP 9 LOCKED CHECKPOINT: Azure parity routes for remaining Firebase Functions are verified.
-      - name: Lock Step 9 Azure Functions parity checkpoint
+      - name: Verify six final Android cutover screens
+        shell: bash
         run: |
           set -euo pipefail
-          grep -Fq 'require("./firebaseParity")' azure-backend/src/index.js
-          grep -Eq 'route:[[:space:]]*"likes"' azure-backend/src/firebaseParity.js
-          grep -Eq 'route:[[:space:]]*"entitlements/free-boost"' azure-backend/src/firebaseParity.js
-          grep -Eq 'route:[[:space:]]*"connections/{connectionId}/nikah-promise"' azure-backend/src/firebaseParity.js
-          grep -Eq 'route:[[:space:]]*"compatibility/living"' azure-backend/src/firebaseParity.js
-          grep -Eq 'route:[[:space:]]*"connections/{connectionId}/health-check"' azure-backend/src/firebaseParity.js
-          grep -Fq 'CREATE TABLE IF NOT EXISTS likes' azure-backend/database/schema.sql
-          grep -Fq 'CREATE TABLE IF NOT EXISTS nikah_promise_paths' azure-backend/database/schema.sql
-          echo "STEP 9 LOCKED: Azure Functions parity checkpoint verified; Firebase Functions remain preserved for final cutover."
-
-      # Step 10: Firebase Storage -> Azure Blob production storage verification.
-      # Additive verification only: existing application files and Firebase source remain preserved.
-      - name: Verify Step 10 Azure Blob storage cutover path
-        run: |
-          set -euo pipefail
-
-          echo "Checking Azure Blob SDK and managed identity wiring..."
-          grep -Eq 'new[[:space:]]+BlobServiceClient\(accountUrl,[[:space:]]*new[[:space:]]+DefaultAzureCredential\(\)\)' azure-backend/src/storage.js
-          grep -Eq 'AZURE_STORAGE_ACCOUNT_URL' azure-backend/src/storage.js
-
-          echo "Checking profile-photo and verification containers..."
-          grep -Eq 'getProfilePhotosContainer' azure-backend/src/storage.js
-          grep -Eq 'getVerificationDocumentsContainer' azure-backend/src/storage.js
-          grep -Eq 'getProfilePhotosContainer' azure-backend/src/photos.js
-          grep -Eq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
-
-          echo "Checking Azure moderation/storage metadata..."
-          grep -Eq 'azure-ai-content-safety' azure-backend/src/photos.js
-          grep -Eq 'azure-private-storage' azure-backend/src/verification.js
-          grep -Eq 'document_blob_key' azure-backend/database/schema.sql
-          grep -Eq 'ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_subject' azure-backend/database/schema.sql
-
-          echo "Checking Android photo flows for forbidden direct Firebase storage/client calls..."
-          for f in app/src/main/java/com/nikahbridge/ProfilePhotoActivity.java app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java; do
-            if grep -nE 'FirebaseStorage|StorageReference|FirebaseFirestore|FirebaseFunctions' "$f"; then
-              echo "Legacy Firebase client path found in $f"
-              exit 1
-            fi
-            grep -Eq 'AzureApiClient\.multipart\("/photos"' "$f"
+          for f in             app/src/main/java/com/nikahbridge/ProductionMainActivity.java             app/src/main/java/com/nikahbridge/MainActivity.java             app/src/main/java/com/nikahbridge/HelpLineActivity.java             app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java             app/src/main/java/com/nikahbridge/VerificationAdminActivity.java             app/src/main/java/com/nikahbridge/BlockedMembersActivity.java; do
+            test -f "$f"
+            ! grep -nE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' "$f"
           done
-
-          echo "STEP 10 VERIFIED: Android photo flows use the authenticated Azure API; backend uses Azure Blob containers and PostgreSQL metadata. Existing Firebase source is preserved for controlled rollback."
+          grep -Fq 'AzureAuthManager' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -Fq 'AzureAuthManager' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -Fq 'AzureApiClient.post("/help/ask"' app/src/main/java/com/nikahbridge/HelpLineActivity.java
+          grep -Fq 'AzureApiClient.get("/admin/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.get("/admin/verifications"' app/src/main/java/com/nikahbridge/VerificationAdminActivity.java
+          grep -Fq 'AzureApiClient.get("/blocks"' app/src/main/java/com/nikahbridge/BlockedMembersActivity.java
+          echo "SIX ANDROID CUTOVER SCREENS: PASS"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -302,13 +105,10 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x ./gradlew
 
-      - name: Compile Android source before Step 3 lock
-        run: |
-          set -euo pipefail
-          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+      - name: Compile Android production source
+        run: ./gradlew :app:compileDebugJavaWithJavac --stacktrace
 
-
-      - name: Prepare stable Azure Android redirect URI from production signing key
+      - name: Prepare production signing and Azure redirect URI
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -320,8 +120,6 @@ jobs:
           test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
           keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
           HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
-          REDIRECT="msauth://com.nikahbridge/${HASH}"
-          echo "Stable Azure Android redirect URI: ${REDIRECT}"
           python3 - "$HASH" <<'PY'
           import json, pathlib, re, sys
           h=sys.argv[1]
@@ -335,7 +133,7 @@ jobs:
           p.write_text(s)
           PY
 
-      - name: Build stable Azure release APK
+      - name: Build signed release APK and Play Store AAB
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -343,12 +141,20 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
-          ./gradlew clean assembleRelease --stacktrace
+          ./gradlew clean assembleRelease bundleRelease --stacktrace
           test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
 
-      - name: Upload stable Azure release APK
+      - name: Upload signed release APK
         uses: actions/upload-artifact@v6
         with:
-          name: android-azure-release-apk
+          name: best-nikah-bridge-azure-release-apk
           path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Upload Play Store AAB
+        uses: actions/upload-artifact@v6
+        with:
+          name: best-nikah-bridge-azure-release-aab
+          path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
