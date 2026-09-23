@@ -36,3 +36,9 @@ app.http("livingChangeAzure",{methods:["POST"],authLevel:"anonymous",route:"comp
 app.http("healthCheckAzure",{methods:["POST"],authLevel:"anonymous",route:"connections/{connectionId}/health-check",handler:h(async(req,ctx,user)=>{
  const u=await me(user),b=await req.json(),id=String(req.params.connectionId||"");await query("INSERT INTO connection_health_checks(connection_id,user_id,communication,family_progress,unresolved_differences,timeline_aligned) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(connection_id,user_id) DO UPDATE SET communication=EXCLUDED.communication,family_progress=EXCLUDED.family_progress,unresolved_differences=EXCLUDED.unresolved_differences,timeline_aligned=EXCLUDED.timeline_aligned,updated_at=now()",[id,u.id,String(b.communication||"").slice(0,500),String(b.familyProgress||"").slice(0,500),String(b.unresolvedDifferences||"").slice(0,500),String(b.timelineAligned||"").slice(0,500)]);return {status:200,jsonBody:{ok:true,saved:true}};
 })});
+
+app.http("livingCompatibilityGetAzure",{methods:["GET"],authLevel:"anonymous",route:"compatibility/living",handler:h(async(req,ctx,user)=>{
+ const u=await me(user);
+ const r=await query("SELECT country,city,marriage_timeline,family_involvement,children_expectation,career_plan,living_plan,updated_at FROM living_compatibility WHERE user_id=$1",[u.id]);
+ return {status:200,jsonBody:{ok:true,living:r.rows[0]||{}}};
+})});
