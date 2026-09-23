@@ -58,6 +58,8 @@ public class PremiumPlansActivity extends Activity {
         root.addView(Premium2030Ui.heroLine(this,"20 • 40 • 60 SAR — Real Google Play Billing"));
         add("Real Google Play purchases only. Premium access is granted only after verified Play purchase confirmation.", 14, false);
         add("The final price and payment screen are supplied by Google Play for your country.", 14, false);
+        add("Serious Nikah Plus includes: Who Liked You, unlimited interests, full Why We Matched, advanced compatibility, marriage timeline matching, Azure AI Nikah Assistant, Family Circle up to 10 members, and priority profile visibility.", 15, true);
+        add("Free members keep basic matching, up to 3 interests per day, basic Family Circle for up to 2 family members, safe chat after mutual interest, and essential privacy/safety controls.", 14, false);
         status = new TextView(this);
         status.setTextSize(15);
         status.setPadding(8,12,8,18);
