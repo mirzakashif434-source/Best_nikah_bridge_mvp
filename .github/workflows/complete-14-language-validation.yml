@@ -65,7 +65,10 @@ jobs:
       - name: No raw validation errors outside localization layer
         run: |
           set -euo pipefail
-          ! grep -RniE '\.[[:space:]]*setError\(' app/src/main/java/com/nikahbridge --include='*.java' --exclude='LanguageManager.java'
+          if grep -RniE '\.[[:space:]]*setError\(' app/src/main/java/com/nikahbridge --include='*.java' --exclude='LanguageManager.java' | grep -v 'LanguageManager\.setError'; then
+            echo "Raw setError call found outside localization layer"
+            exit 1
+          fi
 
       - name: Verify user content translation privacy guards
         run: |
