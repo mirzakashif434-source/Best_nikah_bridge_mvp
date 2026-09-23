@@ -12,6 +12,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ScrollView;
 
 
 import java.io.ByteArrayOutputStream;
@@ -35,6 +36,7 @@ public class RealFourPhotoActivity extends Activity {
     private final ArrayList<Uri> galleryUris = new ArrayList<>();
     private Bitmap cameraBitmap;
     private ImageView[] previews;
+    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -44,29 +46,29 @@ public class RealFourPhotoActivity extends Activity {
     private void build() {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(20, 22, 20, 30);
+        root.setPadding(dp(20), dp(22), dp(20), dp(30));
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setBackgroundColor(Color.rgb(247, 250, 249));
-        setContentView(root);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(root,new ScrollView.LayoutParams(-1,-2));setContentView(scroll);
 
         TextView title = new TextView(this);
         title.setText("Genuine 4-Photo Profile");
         title.setTextSize(27);
         title.setTextColor(Color.rgb(30,45,41));
         title.setGravity(Gravity.CENTER);
-        root.addView(title, new LinearLayout.LayoutParams(-1, 70));
+        root.addView(title, new LinearLayout.LayoutParams(-1, dp(70)));
 
         TextView intro = new TextView(this);
         intro.setText("Photo 1 must be taken now with your camera. Photos 2–4 can come from your gallery. This helps reduce copied or misleading profiles.");
         intro.setTextSize(16);
         intro.setTextColor(Color.rgb(95,108,103));
-        root.addView(intro, new LinearLayout.LayoutParams(-1, 100));
+        root.addView(intro, new LinearLayout.LayoutParams(-1, dp(100)));
 
         status = new TextView(this);
         status.setText("Start with the real camera photo.");
         status.setTextSize(15);
         status.setTextColor(Color.rgb(30,45,41));
-        root.addView(status, new LinearLayout.LayoutParams(-1, 60));
+        root.addView(status, new LinearLayout.LayoutParams(-1, dp(60)));
 
         previews = new ImageView[4];
         for (int i = 0; i < 4; i++) {
@@ -77,8 +79,8 @@ public class RealFourPhotoActivity extends Activity {
             label.setText("Photo " + (i + 1) + (i == 0 ? " — CAMERA REQUIRED" : " — GALLERY"));
             label.setTextSize(14);
             label.setTextColor(Color.rgb(30,45,41));
-            root.addView(label, new LinearLayout.LayoutParams(-1, 42));
-            root.addView(previews[i], new LinearLayout.LayoutParams(-1, 210));
+            root.addView(label, new LinearLayout.LayoutParams(-1, dp(42)));
+            root.addView(previews[i], new LinearLayout.LayoutParams(-1, dp(210)));
         }
 
         Button camera = button("1. Take Photo 1 with Camera", true);
@@ -98,7 +100,7 @@ public class RealFourPhotoActivity extends Activity {
         b.setTextSize(16);
         b.setTextColor(filled ? Color.WHITE : Color.rgb(18,103,82));
         b.setBackgroundColor(filled ? Color.rgb(18,103,82) : Color.WHITE);
-        root.addView(b, new LinearLayout.LayoutParams(-1, 62));
+        root.addView(b, new LinearLayout.LayoutParams(-1, dp(62)));
         return b;
     }
 
