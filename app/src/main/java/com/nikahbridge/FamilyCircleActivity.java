@@ -104,7 +104,9 @@ public class FamilyCircleActivity extends Activity {
                 try{
                     JSONObject o=new JSONObject(s);JSONObject circle=o.optJSONObject("circle");
                     JSONArray members=o.optJSONArray("members");
+                    int memberLimit=o.optInt("memberLimit",2);
                     membersBox.removeAllViews();
+                    membersBox.addView(Premium2030Ui.subtitle(FamilyCircleActivity.this,"Circle member limit: "+memberLimit));
                     if(circle!=null){
                         myRole=circle.optString("role","");
                         membersBox.addView(Premium2030Ui.subtitle(FamilyCircleActivity.this,"Circle: "+circle.optString("name","My Nikah Circle")+" • Role: "+myRole));
