@@ -41,14 +41,9 @@ public class SeriousNikahPlusActivity extends Activity {
         LinearLayout card=Premium2030Ui.card(this);
         card.addView(Premium2030Ui.section(this,"Premium unlocks"));
         card.addView(Premium2030Ui.subtitle(this,
-            "✓ See Who Liked You\n"+
-            "✓ Unlimited serious interests\n"+
-            "✓ Full Why We Matched report\n"+
-            "✓ Advanced deal-breaker compatibility\n"+
-            "✓ Marriage timeline matching\n"+
-            "✓ Azure AI Nikah Assistant\n"+
-            "✓ Family Circle up to 10 members\n"+
-            "✓ Priority profile visibility"));
+            "20 SAR Basic\n✓ See Who Liked You\n✓ Unlimited interests\n✓ Family Circle up to 4\n\n"+
+            "40 SAR Plus\n✓ Basic features\n✓ Full Why We Matched\n✓ Advanced compatibility\n✓ Marriage timeline\n✓ Family Circle up to 7\n\n"+
+            "60 SAR VIP\n✓ Plus features\n✓ Azure AI Nikah Assistant\n✓ Family Circle up to 10\n✓ Priority profile visibility"));
         root.addView(card);
 
         whoLiked=btn("See Who Liked You",true);whoLiked.setOnClickListener(v->loadWhoLiked());
@@ -71,10 +66,12 @@ public class SeriousNikahPlusActivity extends Activity {
                         ?"1 serious member has sent you an interest."
                         :incoming+" serious members have sent you interests.");
                     if(premium){
+                        String plan=p==null?"":p.optString("planKey","");
                         limitText.setText("Premium active • unlimited serious interests");
-                        upgrade.setVisibility(android.view.View.GONE);
+                        upgrade.setVisibility(android.view.View.VISIBLE);
+                        upgrade.setText("Change / Upgrade Plan");
                         whoLiked.setText("Open Who Liked You");
-                        status.setText("Status: Serious Nikah Plus active");
+                        status.setText("Status: Serious Nikah Plus active • "+plan);
                     }else{
                         int remaining=o.optInt("freeInterestsRemaining",0),limit=o.optInt("freeInterestDailyLimit",3);
                         limitText.setText("Free plan: "+remaining+" of "+limit+" interests remaining today");
