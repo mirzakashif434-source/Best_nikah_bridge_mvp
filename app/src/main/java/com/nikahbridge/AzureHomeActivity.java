@@ -409,7 +409,7 @@ public class AzureHomeActivity extends Activity {
             JSONArray messages=new JSONArray();messages.put(msg);JSONObject b=new JSONObject();b.put("messages",messages);
             answer.setText("Azure AI is responding…");
             AzureApiClient.post("/ai/nikah-assistant",b.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String body){runOnUiThread(()->{try{answer.setText(new JSONObject(body).optJSONObject("assistant").optString("content"));}catch(Exception e){answer.setText(body);}});}
+                public void ok(int code,String body){runOnUiThread(()->{try{JSONObject a=new JSONObject(body).optJSONObject("assistant");String text=a==null?"":a.optString("content","");answer.setText(text.isEmpty()?"Azure AI response could not be displayed.":text);}catch(Exception e){answer.setText("Azure AI response could not be displayed.");}});}
                 public void err(String m){runOnUiThread(()->answer.setText("Azure AI unavailable: "+m));}
             });
         }catch(Exception e){answer.setText("Please enter a clear question.");}});
