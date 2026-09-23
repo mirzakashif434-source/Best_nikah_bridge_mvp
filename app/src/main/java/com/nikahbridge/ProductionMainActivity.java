@@ -73,8 +73,9 @@ public class ProductionMainActivity extends Activity {
 
         root.addView(text("All server-side actions above use authenticated Azure production APIs. Access-controlled admin screens remain protected by Azure backend roles.",14,false));
         Button out=button("Sign out of Azure",false);
-        out.setOnClickListener(v->AzureAuthManager.signOut(new AzureAuthManager.SimpleCallback(){
-            @Override public void done(){runOnUiThread(()->{startActivity(new Intent(ProductionMainActivity.this,AzureExternalAuthActivity.class));finish();});}
-        }));
+        out.setOnClickListener(v->AzureAuthManager.removeCurrentAccount(this,ok->runOnUiThread(()->{
+            if(ok){startActivity(new Intent(ProductionMainActivity.this,AzureExternalAuthActivity.class));finish();}
+            else Toast.makeText(this,"Azure sign out failed. Please try again.",Toast.LENGTH_LONG).show();
+        })));
     }
 }
