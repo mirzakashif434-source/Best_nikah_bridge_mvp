@@ -124,12 +124,12 @@ public class AzureHomeActivity extends Activity {
                     JSONObject p=new JSONObject(body).optJSONObject("profile");
                     if(p==null){status.setText("No profile yet. Create your real profile below.");}
                     else status.setText("Email: "+valueOrEmpty(p,"email")+"\nName: "+valueOrEmpty(p,"display_name")+"\nGender: "+valueOrEmpty(p,"gender")+"\nCountry: "+valueOrEmpty(p,"country")+"\nCity: "+valueOrEmpty(p,"city")+"\nProfile completed: "+p.optBoolean("profile_completed"));
-                    name.setText(p.optString("display_name",""));
-                    dob.setText(p.optString("date_of_birth",""));
-                    gender.setText(p.optString("gender",""));
-                    country.setText(p.optString("country",""));
-                    city.setText(p.optString("city",""));
-                    bio.setText(p.optString("bio",""));
+                    name.setText(valueOrEmpty(p,"display_name"));
+                    dob.setText(valueOrEmpty(p,"date_of_birth"));
+                    gender.setText(valueOrEmpty(p,"gender"));
+                    country.setText(valueOrEmpty(p,"country"));
+                    city.setText(valueOrEmpty(p,"city"));
+                    bio.setText(valueOrEmpty(p,"bio"));
                 }catch(Exception e){status.setText("Profile response could not be read.");}
             });}
             public void err(String m){runOnUiThread(()->status.setText("Profile error: "+m));}
@@ -137,16 +137,34 @@ public class AzureHomeActivity extends Activity {
         Button save=button("Save Real Profile",true),back=button("Back",false);
         save.setOnClickListener(v->{
             try{
+                String displayName=name.getText().toString().trim();
+                String birthDate=dob.getText().toString().trim();
+                String profileGender=gender.getText().toString().trim().toLowerCase(java.util.Locale.US);
+
+                if(displayName.length()<2){name.setError("Display name is required");name.requestFocus();return;}
+                if(!birthDate.matches("\\d{4}-\\d{2}-\\d{2}")){dob.setError("Use YYYY-MM-DD, for example 1990-05-21");dob.requestFocus();return;}
+                java.text.SimpleDateFormat df=new java.text.SimpleDateFormat("yyyy-MM-dd",java.util.Locale.US);
+                df.setLenient(false);
+                java.util.Date parsedBirth;
+                try{parsedBirth=df.parse(birthDate);}catch(Exception ex){dob.setError("Enter a real calendar date");dob.requestFocus();return;}
+                java.util.Calendar today=java.util.Calendar.getInstance();
+                java.util.Calendar birth=java.util.Calendar.getInstance();
+                birth.setTime(parsedBirth);
+                int age=today.get(java.util.Calendar.YEAR)-birth.get(java.util.Calendar.YEAR);
+                if(today.get(java.util.Calendar.DAY_OF_YEAR)<birth.get(java.util.Calendar.DAY_OF_YEAR)) age--;
+                if(age<18||age>100){dob.setError("Age must be between 18 and 100");dob.requestFocus();return;}
+                if(!"male".equals(profileGender)&&!"female".equals(profileGender)){gender.setError("Enter male or female");gender.requestFocus();return;}
+
                 JSONObject b=new JSONObject();
-                b.put("displayName",name.getText().toString().trim());
-                b.put("dateOfBirth",dob.getText().toString().trim());
-                b.put("gender",gender.getText().toString().trim().toLowerCase());
+                b.put("displayName",displayName);
+                b.put("dateOfBirth",birthDate);
+                b.put("gender",profileGender);
                 b.put("country",country.getText().toString().trim());
                 b.put("city",city.getText().toString().trim());
                 b.put("bio",bio.getText().toString().trim());
                 b.put("profileCompleted",true); b.put("isVisible",true);
                 AzureApiClient.put("/profile",b.toString(),new AzureApiClient.Callback(){
-                    public void ok(int code,String body){runOnUiThread(()->toast("Real Azure profile saved."));}
+                    public void ok(int code,String body){runOnUiThread(()->{toast("Real Azure profile saved.");profile();});}
                     public void err(String m){runOnUiThread(()->toast("Profile save failed: "+m));}
                 });
             }catch(Exception e){toast("Invalid profile data.");}
