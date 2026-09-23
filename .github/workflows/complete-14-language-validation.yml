@@ -1,0 +1,126 @@
+name: Fourteen Language Production Validation
+
+on:
+  push:
+    branches: [complete-14-language-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Azure backend syntax and module load
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
+
+      - name: Verify 14 supported app languages
+        run: |
+          set -euo pipefail
+          grep -Fq 'public static final String[] CODES={"en","ur","ar","bn","hi","tr","id","ms","pa","fa","fr","de","es","it"}' app/src/main/java/com/nikahbridge/LanguageManager.java
+          grep -Fq 'Bahasa Indonesia' app/src/main/java/com/nikahbridge/LanguageManager.java
+          grep -Fq 'ਪੰਜਾਬੀ' app/src/main/java/com/nikahbridge/LanguageManager.java
+          grep -Fq 'فارسی' app/src/main/java/com/nikahbridge/LanguageManager.java
+
+      - name: Verify Azure translation service
+        run: |
+          set -euo pipefail
+          grep -Fq 'route:"localization/translate"' azure-backend/src/localization.js
+          grep -Fq 'require("./localization")' azure-backend/src/index.js
+          grep -Fq 'DefaultAzureCredential' azure-backend/src/localization.js
+          grep -Fq 'X-App-Language' app/src/main/java/com/nikahbridge/AzureApiClient.java
+
+      - name: Verify full UI localization routing
+        run: |
+          set -euo pipefail
+          grep -Fq 'class LocalizedDialogBuilder' app/src/main/java/com/nikahbridge/LanguageManager.java
+          grep -Fq 'class DeferredToast' app/src/main/java/com/nikahbridge/LanguageManager.java
+          grep -Fq 'getViewTreeObserver().addOnGlobalLayoutListener' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'public static void setError' app/src/main/java/com/nikahbridge/LanguageManager.java
+
+      - name: No raw dialog builders outside localization layer
+        run: |
+          set -euo pipefail
+          ! grep -Rni 'new[[:space:]]\+AlertDialog\.Builder(' app/src/main/java/com/nikahbridge --include='*.java' --exclude='LanguageManager.java'
+          ! grep -Rni 'new[[:space:]]\+android\.app\.AlertDialog\.Builder(' app/src/main/java/com/nikahbridge --include='*.java' --exclude='LanguageManager.java'
+
+      - name: No raw toast calls outside localization layer
+        run: |
+          set -euo pipefail
+          ! grep -Rni 'Toast\.makeText(' app/src/main/java/com/nikahbridge --include='*.java' --exclude='LanguageManager.java'
+          ! grep -Rni 'android\.widget\.Toast\.makeText(' app/src/main/java/com/nikahbridge --include='*.java' --exclude='LanguageManager.java'
+
+      - name: No raw validation errors outside localization layer
+        run: |
+          set -euo pipefail
+          ! grep -RniE '\.[[:space:]]*setError\(' app/src/main/java/com/nikahbridge --include='*.java' --exclude='LanguageManager.java'
+
+      - name: Verify user content translation privacy guards
+        run: |
+          set -euo pipefail
+          grep -Fq 'protectUserContent(authorView)' app/src/main/java/com/nikahbridge/CommunityChatActivity.java
+          grep -Fq 'protectUserContent(bodyView)' app/src/main/java/com/nikahbridge/CommunityChatActivity.java
+          grep -Fq 'protectUserContent(history)' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+          grep -Fq 'shouldAutoTranslate' app/src/main/java/com/nikahbridge/LanguageManager.java
+
+      - name: Verify pre-auth Welcome localization
+        run: |
+          set -euo pipefail
+          grep -Fq 'LanguageManager.tr(getContext(),"Welcome")' app/src/main/java/com/nikahbridge/WelcomeArtworkView.java
+          grep -Fq 'LanguageManager.tr(getContext(),"Get Started")' app/src/main/java/com/nikahbridge/WelcomeArtworkView.java
+          grep -Fq 'LanguageManager.tr(getContext(),"Sign In")' app/src/main/java/com/nikahbridge/WelcomeArtworkView.java
+          grep -Fq 'LanguageManager.currentName(getContext())' app/src/main/java/com/nikahbridge/WelcomeArtworkView.java
+
+      - name: Verify AI features follow selected language
+        run: |
+          set -euo pipefail
+          grep -Fq 'responseLanguage(request)' azure-backend/src/aiNikahAssistant.js
+          grep -Fq 'responseLanguage(req)' azure-backend/src/aiCompatibility.js
+          grep -Fq 'responseLanguage(request)' azure-backend/src/helpLine.js
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production release signing secret
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed production release bundle
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
