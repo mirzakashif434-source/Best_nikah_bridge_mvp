@@ -12,7 +12,7 @@ import java.net.URL;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Loads real Firebase Storage profile-photo URLs without blocking the UI thread. */
+/** Loads real Azure Blob Storage profile-photo URLs without blocking the UI thread. */
 public final class ProfilePhotoLoader {
     private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(3);
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
