@@ -32,10 +32,28 @@ async function entitlementForUser(userId){
   };
 }
 
+function capabilitiesFor(premium){
+  const plan=premium?.active?premium.planKey:null;
+  const basic=plan==="premium_basic_20"||plan==="premium_plus_40"||plan==="premium_vip_60";
+  const plus=plan==="premium_plus_40"||plan==="premium_vip_60";
+  const vip=plan==="premium_vip_60";
+  return {
+    whoLikedYou:basic,
+    unlimitedInterests:basic,
+    advancedMatching:plus,
+    whyWeMatched:plus,
+    marriageTimeline:plus,
+    aiNikahAssistant:vip,
+    familyCircleLimit:vip?10:plus?7:basic?4:2,
+    priorityVisibility:vip,
+    adFree:basic
+  };
+}
+
 async function accessForAuth(authUser){
   const user=await userFromAuth(authUser);
   const premium=await entitlementForUser(user.id);
-  return {user,premium};
+  return {user,premium,capabilities:capabilitiesFor(premium)};
 }
 
 function premiumRequired(premium){
@@ -43,4 +61,4 @@ function premiumRequired(premium){
   return {status:402,jsonBody:{ok:false,error:"PREMIUM_REQUIRED",locked:true}};
 }
 
-module.exports={userFromAuth,entitlementForUser,accessForAuth,premiumRequired};
+module.exports={userFromAuth,entitlementForUser,accessForAuth,premiumRequired,capabilitiesFor};
