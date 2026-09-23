@@ -180,14 +180,14 @@ public class PremiumPlansActivity extends Activity {
     private void buy(String productId) {
         ProductDetails details = products.get(productId);
         if (details == null) {
-            new AlertDialog.Builder(this).setTitle("Plan unavailable")
+            LanguageManager.dialog(this).setTitle("Plan unavailable")
                     .setMessage("This product is not currently available from Google Play. Make sure the product is active in Play Console and the app is installed from a test/release track.")
                     .setPositiveButton("OK", null).show();
             return;
         }
         List<ProductDetails.SubscriptionOfferDetails> offers = details.getSubscriptionOfferDetails();
         if (offers == null || offers.isEmpty()) {
-            new AlertDialog.Builder(this).setTitle("Plan unavailable")
+            LanguageManager.dialog(this).setTitle("Plan unavailable")
                     .setMessage("Google Play did not return a valid subscription offer for this product.")
                     .setPositiveButton("OK", null).show();
             return;
