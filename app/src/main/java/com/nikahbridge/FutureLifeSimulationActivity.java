@@ -35,7 +35,7 @@ public class FutureLifeSimulationActivity extends Activity {
             root.setPadding(dp(20),dp(24),dp(20),dp(32)+bars.bottom);
             return insets;
         });
-        ViewCompat.requestApplyWindowInsets(sc);
+        ViewCompat.requestApplyInsets(sc);
         root.addView(txt("🔥 Future Life Simulation",28,true));root.addView(txt("Real Azure AI comparison. It supports discussion and does not predict the future or decide whether two people should marry.",15,false));
         root.addView(txt("Your answers",20,true));
         for(int i=0;i<8;i++){root.addView(txt(titles[i]+" — "+prompts[i],16,true));my[i]=area("Write your honest answer");root.addView(my[i],new LinearLayout.LayoutParams(-1,dp(118)));}
