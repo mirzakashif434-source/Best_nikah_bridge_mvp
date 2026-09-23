@@ -4,6 +4,19 @@ const { requireAuth } = require("./auth");
 
 const text = (v, max) => typeof v === "string" ? v.trim().slice(0, max) : "";
 
+function exactAgeFromIsoDate(dob) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob);
+  if (!m) return null;
+  const year = Number(m[1]), month = Number(m[2]), day = Number(m[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  const now = new Date();
+  let age = now.getUTCFullYear() - year;
+  const monthDelta = now.getUTCMonth() - (month - 1);
+  if (monthDelta < 0 || (monthDelta === 0 && now.getUTCDate() < day)) age--;
+  return age;
+}
+
 async function ensureUser(user) {
   const email = text(user.email, 320).toLowerCase();
   if (!email) throw new Error("AUTH_EMAIL_REQUIRED");
@@ -54,8 +67,9 @@ app.http("profilePut", {
       const gender=text(b.gender,20).toLowerCase();
       if(displayName.length<2) return {status:400,jsonBody:{ok:false,error:"DISPLAY_NAME_REQUIRED"}};
       if(!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return {status:400,jsonBody:{ok:false,error:"DATE_OF_BIRTH_REQUIRED"}};
-      const age=Math.floor((Date.now()-new Date(dob+"T00:00:00Z").getTime())/31557600000);
-      if(age<18||age>100||Number.isNaN(age)) return {status:400,jsonBody:{ok:false,error:"AGE_MUST_BE_18_TO_100"}};
+      const age=exactAgeFromIsoDate(dob);
+      if(age===null) return {status:400,jsonBody:{ok:false,error:"DATE_OF_BIRTH_INVALID"}};
+      if(age<18||age>100) return {status:400,jsonBody:{ok:false,error:"AGE_MUST_BE_18_TO_100"}};
       if(!["male","female"].includes(gender)) return {status:400,jsonBody:{ok:false,error:"GENDER_INVALID"}};
       const min=b.minAge==null?null:Number(b.minAge), max=b.maxAge==null?null:Number(b.maxAge);
       if((min!=null&&(!Number.isInteger(min)||min<18||min>100))||(max!=null&&(!Number.isInteger(max)||max<18||max>100))||(min!=null&&max!=null&&min>max))
