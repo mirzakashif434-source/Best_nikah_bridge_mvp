@@ -418,7 +418,21 @@ public class AzureHomeActivity extends Activity {
                     JSONObject o=new JSONObject(body);
                     JSONArray a=o.optJSONArray("verifications");
                     if(a==null)a=o.optJSONArray("items");
-                    if(a==null||a.length()==0){out.setText("No verification submission yet.");return;}
+                    if(a==null){
+                        Object raw=o.has("verifications")?o.opt("verifications"):o.opt("items");
+                        if(raw instanceof String){
+                            String value=((String)raw).trim();
+                            if(value.isEmpty()||"[]".equals(value)||"null".equalsIgnoreCase(value)){
+                                out.setText("No verification submission yet.");
+                                return;
+                            }
+                            try{a=new JSONArray(value);}catch(Exception ignored){}
+                        }
+                    }
+                    if(a==null||a.length()==0){
+                        out.setText("No verification submission yet.");
+                        return;
+                    }
                     StringBuilder s=new StringBuilder();
                     for(int i=0;i<a.length();i++){
                         JSONObject x=a.optJSONObject(i);if(x==null)continue;
