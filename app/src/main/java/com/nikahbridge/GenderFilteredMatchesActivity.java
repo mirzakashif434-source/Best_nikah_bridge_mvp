@@ -93,7 +93,16 @@ public class GenderFilteredMatchesActivity extends Activity {
             button.setEnabled(false);button.setText("Sending…");
             AzureApiClient.post("/interests",body.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String response){runOnUiThread(()->{button.setText("Interest Sent");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Interest Sent",Toast.LENGTH_SHORT).show();});}
-                public void err(String message){runOnUiThread(()->{button.setEnabled(true);button.setText("Send Interest");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Interest could not be sent: "+message,Toast.LENGTH_LONG).show();});}
+                public void err(String message){runOnUiThread(()->{
+                    button.setEnabled(true);button.setText("Send Interest");
+                    if(message!=null&&message.contains("FREE_DAILY_INTEREST_LIMIT")){
+                        LanguageManager.dialog(GenderFilteredMatchesActivity.this)
+                            .setTitle("Daily free interest limit reached")
+                            .setMessage("Free members can send up to 3 new interests per day. Serious Nikah Plus unlocks unlimited interests.")
+                            .setPositiveButton("View Serious Nikah Plus",(d,w)->startActivity(new android.content.Intent(GenderFilteredMatchesActivity.this,SeriousNikahPlusActivity.class)))
+                            .setNegativeButton("Not now",null).show();
+                    }else LanguageManager.toast(GenderFilteredMatchesActivity.this,"Interest could not be sent: "+message,Toast.LENGTH_LONG).show();
+                });}
             });
         }catch(Exception e){button.setEnabled(true);button.setText("Send Interest");}
     }
