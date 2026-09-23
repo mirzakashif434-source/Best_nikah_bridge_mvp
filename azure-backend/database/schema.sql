@@ -261,12 +261,12 @@ CREATE INDEX IF NOT EXISTS idx_premium_entitlements_status_expiry
 -- Real Play Console 20/40/60 monthly tiers.
 INSERT INTO premium_plans (plan_key, display_name, billing_period, features, active, sort_order)
 VALUES
-  ('premium_basic_20', 'Premium 20', 'monthly',
-   '{"advanced_matching":true,"why_we_matched":true}'::jsonb, TRUE, 10),
-  ('premium_plus_40', 'Premium 40', 'monthly',
-   '{"advanced_matching":true,"why_we_matched":true,"enhanced_privacy":true}'::jsonb, TRUE, 20),
-  ('premium_vip_60', 'Premium 60', 'monthly',
-   '{"advanced_matching":true,"why_we_matched":true,"enhanced_privacy":true,"priority_support":true}'::jsonb, TRUE, 30)
+  ('premium_basic_20', 'Serious Nikah Plus Basic 20', 'monthly',
+   '{"who_liked_you":true,"unlimited_interests":true,"ad_free":true,"family_circle_limit":4}'::jsonb, TRUE, 10),
+  ('premium_plus_40', 'Serious Nikah Plus 40', 'monthly',
+   '{"who_liked_you":true,"unlimited_interests":true,"ad_free":true,"advanced_matching":true,"why_we_matched":true,"marriage_timeline":true,"family_circle_limit":7}'::jsonb, TRUE, 20),
+  ('premium_vip_60', 'Serious Nikah VIP 60', 'monthly',
+   '{"who_liked_you":true,"unlimited_interests":true,"ad_free":true,"advanced_matching":true,"why_we_matched":true,"marriage_timeline":true,"ai_nikah_assistant":true,"priority_visibility":true,"family_circle_limit":10}'::jsonb, TRUE, 30)
 ON CONFLICT (plan_key) DO UPDATE SET
   display_name = EXCLUDED.display_name,
   billing_period = EXCLUDED.billing_period,
