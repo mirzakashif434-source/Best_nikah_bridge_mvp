@@ -1,7 +1,7 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
-const { accessForAuth, premiumRequired } = require("./premiumAccess");
+const { accessForAuth } = require("./premiumAccess");
 
 function norm(v){
   return typeof v === "string" ? v.toLowerCase().replace(/[\\/,_-]+/g," ").trim() : "";
@@ -28,8 +28,7 @@ app.http("matchDetail",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const access=await accessForAuth(user);
-      const locked=premiumRequired(access.premium);
-      if(locked) return locked;
+      if(!access.capabilities.advancedMatching) return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};
       const matchUserId=request.params?.matchUserId||context.triggerMetadata?.matchUserId;
       if(!matchUserId) return {status:400,jsonBody:{ok:false,error:"MATCH_USER_ID_REQUIRED"}};
 
