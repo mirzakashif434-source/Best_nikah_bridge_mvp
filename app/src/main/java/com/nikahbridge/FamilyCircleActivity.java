@@ -5,6 +5,9 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -31,12 +34,34 @@ public class FamilyCircleActivity extends Activity {
         AzureAuthManager.bindActivity(this);
         captureDeepLink(getIntent());
         if(!AzureAuthManager.hasAccount(this)){
-            startActivity(new Intent(this,AzureExternalAuthActivity.class));
+            buildAuthRecovery();
+            return;
         }
         build();
     }
     @Override protected void onNewIntent(Intent i){super.onNewIntent(i);setIntent(i);captureDeepLink(i);if(AzureAuthManager.hasAccount(this))tryJoinPending();}
     @Override protected void onResume(){super.onResume();if(AzureAuthManager.hasAccount(this)){tryJoinPending();load();}}
+
+    private void buildAuthRecovery(){
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setClipToPadding(false);sc.setBackgroundColor(Premium2030Ui.CREAM);
+        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(24),dp(18),dp(34));root.setBackgroundColor(Premium2030Ui.CREAM);
+        sc.addView(root);setContentView(sc);
+
+        root.addView(Premium2030Ui.title(this,"Best Nikah Family Circle"));
+        root.addView(Premium2030Ui.subtitle(this,"Sign in with Azure to manage your real private Family Circle, invites, members and suggestions."));
+        Button signIn=btn("Sign in with Azure",true);
+        Button back=btn("Back",false);
+        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        back.setOnClickListener(v->finish());
+
+        ViewCompat.setOnApplyWindowInsetsListener(sc,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(18),dp(24),dp(18),dp(34)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(sc);
+    }
 
     private void captureDeepLink(Intent i){
         Uri d=i==null?null:i.getData();
@@ -50,8 +75,15 @@ public class FamilyCircleActivity extends Activity {
     private EditText input(String h){EditText e=new EditText(this);e.setHint(h);e.setTextSize(16);e.setPadding(dp(14),0,dp(14),0);e.setBackground(Premium2030Ui.outlined(this,android.graphics.Color.WHITE,Premium2030Ui.GOLD_SOFT,16));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(58));lp.setMargins(0,dp(4),0,dp(6));root.addView(e,lp);return e;}
 
     private void build(){
-        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(Premium2030Ui.CREAM);
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setClipToPadding(false);sc.setBackgroundColor(Premium2030Ui.CREAM);
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(20),dp(18),dp(34));sc.addView(root);setContentView(sc);
+        ViewCompat.setOnApplyWindowInsetsListener(sc,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(18),dp(20),dp(18),dp(34)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(sc);
 
         root.addView(Premium2030Ui.title(this,"Best Nikah Family Circle"));
         root.addView(Premium2030Ui.subtitle(this,"Invite trusted family, involve your Wali, and let your circle suggest serious matches."));
@@ -135,7 +167,15 @@ public class FamilyCircleActivity extends Activity {
     }
 
     private void createInvite(){
-        if(!AzureAuthManager.hasAccount(this)){status.setText("Status: Azure sign in required");return;}
+        if(!AzureAuthManager.hasAccount(this)){
+            LanguageManager.dialog(this)
+                .setTitle("Sign in required")
+                .setMessage("Sign in with Azure to create a real Family Circle invite.")
+                .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+                .setNegativeButton("Not now",null)
+                .show();
+            return;
+        }
         try{
             JSONObject b=new JSONObject().put("role",String.valueOf(role.getSelectedItem())).put("maxUses",5).put("expiresDays",7);
             status.setText("Status: creating secure invite…");
