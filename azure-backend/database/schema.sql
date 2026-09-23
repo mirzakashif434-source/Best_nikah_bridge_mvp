@@ -452,6 +452,22 @@ CREATE TABLE IF NOT EXISTS owner_settlements (
 );
 CREATE INDEX IF NOT EXISTS idx_owner_settlements_status_created ON owner_settlements(status,created_at DESC);
 
+-- Owner Wallet: Saudi Google Play merchant payouts arrive by USD wire transfer.
+-- Additive only: existing SAR/PKR/USDT data remains valid and untouched.
+ALTER TABLE owner_earnings_summary ADD COLUMN IF NOT EXISTS available_usd_minor BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE owner_earnings_summary ADD COLUMN IF NOT EXISTS pending_usd_minor BIGINT NOT NULL DEFAULT 0;
+ALTER TABLE owner_earnings_summary ADD COLUMN IF NOT EXISTS settled_usd_minor BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE owner_provider_settlements DROP CONSTRAINT IF EXISTS owner_provider_settlements_currency_check;
+ALTER TABLE owner_provider_settlements
+  ADD CONSTRAINT owner_provider_settlements_currency_check
+  CHECK (currency IN ('SAR','USD','PKR','USDT'));
+
+ALTER TABLE owner_settlements DROP CONSTRAINT IF EXISTS owner_settlements_currency_check;
+ALTER TABLE owner_settlements
+  ADD CONSTRAINT owner_settlements_currency_check
+  CHECK (currency IN ('SAR','USD','PKR','USDT'));
+
 
 -- Step 4: Firestore -> Azure PostgreSQL parity layer (additive only).
 -- These tables mirror remaining production Firestore collections before cutover.
