@@ -118,9 +118,45 @@ app.http("familyCircleInviteCreate",{
         [circle.id,me.id,tokenHash,role,maxUses,String(expiresDays)]
       );
       const deepLink="bestnikahbredge://circle/join?token="+encodeURIComponent(raw);
-      return {status:201,jsonBody:{ok:true,invite:r.rows[0],deepLink}};
+      const origin=new URL(request.url).origin;
+      const shareUrl=origin+"/api/family-circle/invite/"+encodeURIComponent(raw);
+      return {status:201,jsonBody:{ok:true,invite:r.rows[0],deepLink,shareUrl}};
     }catch(e){context.error("FAMILY_CIRCLE_INVITE_CREATE_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"FAMILY_CIRCLE_INVITE_CREATE_FAILED"}};}
   })
+});
+
+
+app.http("familyCircleInviteLanding",{
+  methods:["GET"],authLevel:"anonymous",route:"family-circle/invite/{token}",
+  handler:async(request,context)=>{
+    try{
+      const token=text((request.params&&request.params.token)||context.triggerMetadata?.token,200);
+      if(!token) return {status:400,headers:{"Content-Type":"text/plain; charset=utf-8"},body:"Invalid Family Circle invite."};
+      const r=await query(
+        `SELECT i.role,i.max_uses,i.use_count,i.expires_at,i.revoked_at,c.status
+         FROM family_circle_invites i JOIN family_circles c ON c.id=i.circle_id
+         WHERE i.token_hash=$1 LIMIT 1`,
+        [hashToken(token)]
+      );
+      const i=r.rows[0];
+      if(!i||i.status!=="active"||i.revoked_at||new Date(i.expires_at)<=new Date()||i.use_count>=i.max_uses)
+        return {status:410,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"},body:"<!doctype html><html><body><h2>This Family Circle invite is no longer available.</h2></body></html>"};
+
+      const encoded=encodeURIComponent(token);
+      const openApp="bestnikahbredge://circle/join?token="+encoded;
+      const play="https://play.google.com/store/apps/details?id=com.nikahbridge";
+      const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Best Nikah Family Circle</title>
+      <style>body{font-family:system-ui,sans-serif;background:#faf7ef;color:#1e3a30;margin:0;padding:24px}.card{max-width:560px;margin:40px auto;background:white;border-radius:24px;padding:28px;box-shadow:0 8px 30px #00000012}.btn{display:block;text-align:center;text-decoration:none;padding:16px;margin:14px 0;border-radius:14px;font-weight:700}.open{background:#126752;color:white}.play{border:2px solid #126752;color:#126752}small{color:#5b6d66}</style></head>
+      <body><div class="card"><h1>Best Nikah Family Circle</h1><p>You have a secure invitation to join a private family-led Nikah circle.</p>
+      <a class="btn open" href="${openApp}">Open Best Nikah Bredge</a>
+      <a class="btn play" href="${play}">Get it on Google Play</a>
+      <small>The invitation expires automatically and can be revoked by the circle owner.</small></div></body></html>`;
+      return {status:200,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer"},body:html};
+    }catch(e){
+      context.error("FAMILY_CIRCLE_INVITE_LANDING_FAILED",e);
+      return {status:500,headers:{"Content-Type":"text/plain; charset=utf-8"},body:"Family Circle invite is temporarily unavailable."};
+    }
+  }
 });
 
 app.http("familyCircleJoin",{
