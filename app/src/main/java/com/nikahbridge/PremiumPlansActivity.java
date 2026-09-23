@@ -5,6 +5,9 @@ import android.app.AlertDialog;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.android.billingclient.api.BillingClient;
 import com.android.billingclient.api.BillingClientStateListener;
 import com.android.billingclient.api.BillingFlowParams;
@@ -46,12 +49,20 @@ public class PremiumPlansActivity extends Activity {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
+        scroll.setClipToPadding(false);
         scroll.setBackgroundColor(Premium2030Ui.CREAM);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(Premium2030Ui.dp(this,18),Premium2030Ui.dp(this,20),Premium2030Ui.dp(this,18),Premium2030Ui.dp(this,30));
         scroll.addView(root);
         setContentView(scroll);
+        ViewCompat.setOnApplyWindowInsetsListener(scroll,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(Premium2030Ui.dp(this,18),Premium2030Ui.dp(this,20),Premium2030Ui.dp(this,18),Premium2030Ui.dp(this,30)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(scroll);
 
         root.addView(Premium2030Ui.title(this,"Go Premium"));
         root.addView(Premium2030Ui.subtitle(this,"Unlock more opportunities for your halal journey."));
@@ -64,8 +75,12 @@ public class PremiumPlansActivity extends Activity {
         add("Free members keep basic matching, up to 3 interests per day, basic Family Circle for up to 2 family members, safe chat after mutual interest, and essential privacy/safety controls.", 14, false);
         status = new TextView(this);
         status.setTextSize(15);
+        status.setTextColor(Premium2030Ui.MUTED);
+        status.setSingleLine(false);
+        status.setMaxLines(4);
+        status.setHorizontallyScrolling(false);
         status.setPadding(8,12,8,18);
-        root.addView(status);
+        root.addView(status,new LinearLayout.LayoutParams(-1,-2));
 
         Button p20 = button("20 SAR Premium — Buy");
         Button p40 = button("40 SAR Premium — Buy");
