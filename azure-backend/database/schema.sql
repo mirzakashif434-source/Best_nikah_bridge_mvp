@@ -755,3 +755,21 @@ CREATE TABLE IF NOT EXISTS profile_boost_claims (
 );
 CREATE INDEX IF NOT EXISTS idx_profile_boost_claims_user_claimed
   ON profile_boost_claims(user_id, claimed_at DESC);
+
+
+-- Live discovery: rolling 24-hour like quota + online presence.
+CREATE TABLE IF NOT EXISTS like_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_like_events_user_created
+  ON like_events(user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS user_presence (
+  user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_presence_last_seen
+  ON user_presence(last_seen_at DESC);
