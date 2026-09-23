@@ -3,6 +3,7 @@ const { getPool, query } = require("./db");
 const { requireAuth } = require("./auth");
 
 const PLAN_VALUES = { premium_basic_20: 2000, premium_plus_40: 4000, premium_vip_60: 6000 };
+const OWNER_WALLET_ROUTE_VERSION = "2026-09-23-owner-live";
 const clean=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 function moneyMinor(v){const n=Number(v);if(!Number.isFinite(n)||n<=0||n>1000000000)throw Object.assign(new Error("INVALID_AMOUNT"),{statusCode:400});return Math.round(n*100);}
 function currency(v){const c=clean(v,10).toUpperCase();if(!["SAR","USD","PKR","USDT"].includes(c))throw Object.assign(new Error("UNSUPPORTED_CURRENCY"),{statusCode:400});return c;}
