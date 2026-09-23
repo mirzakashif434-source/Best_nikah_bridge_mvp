@@ -53,7 +53,7 @@ public class RealFourPhotoActivity extends Activity {
         root.setPadding(dp(18),dp(20),dp(18),dp(30));root.setBackgroundColor(Color.rgb(247,250,249));scroll.addView(root);setContentView(scroll);
 
         TextView title=text("4-Photo Profile Verification",27,true);title.setGravity(Gravity.CENTER);root.addView(title);
-        root.addView(text("Your main photo must be taken now with the camera. Photos 2–4 may come from your gallery, but all four must clearly show the same person. Your profile is not marked verified until the complete set passes verification.",15,false));
+        root.addView(text("18+ ONLY — male or female. Your main photo must be taken now with the camera. Photos 2–4 may come from your gallery, but all four must clearly show the same person. Your profile is not marked verified until the complete set passes verification.",15,false));
 
         status=text("Status: start with Photo 1.",15,true);root.addView(status);
 
@@ -79,7 +79,7 @@ public class RealFourPhotoActivity extends Activity {
                     takeCameraPhoto();
                 }catch(Exception e){status.setText("Status: verification set could not start.");}
             });}
-            public void err(String m){runOnUiThread(()->status.setText("Status: could not start 4-photo verification."));}
+            public void err(String m){runOnUiThread(()->status.setText(m!=null&&m.contains("AGE_18_PLUS_REQUIRED")?"Status: ❌ Verification is only for age 18+.":"Status: could not start 4-photo verification."));}
         });
     }
 
@@ -158,6 +158,7 @@ public class RealFourPhotoActivity extends Activity {
             });}
             public void err(String m){runOnUiThread(()->{
                 if(m!=null&&m.contains("PHOTOS_NOT_SAME_PERSON"))status.setText("Status: ❌ photos did not verify as the same person. Please upload 4 matching photos.");
+                else if(m!=null&&m.contains("AGE_18_PLUS_REQUIRED"))status.setText("Status: ❌ Verification is only for age 18+.");
                 else status.setText("Status: verification submission failed. "+m);
             });}
         });
