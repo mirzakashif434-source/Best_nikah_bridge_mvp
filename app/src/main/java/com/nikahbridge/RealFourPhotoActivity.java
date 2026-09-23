@@ -21,7 +21,7 @@ import java.util.ArrayList;
 /**
  * Additive camera-first four-photo flow.
  * Photo 1 MUST be captured with the device camera. Photos 2-4 may be selected
- * from the device gallery. Every image is uploaded to Firebase Storage under
+ * from the device gallery. Every image is uploaded to Azure Blob Storage under
  * the authenticated UID; no bundled, stock, placeholder or demo photos exist.
  * The existing ProfilePhotoActivity remains untouched.
  */
