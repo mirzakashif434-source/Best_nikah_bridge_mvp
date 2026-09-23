@@ -125,3 +125,45 @@ app.http("matches",{
     }
   })
 });
+
+
+app.http("matchMessageAccess",{
+  methods:["GET"],authLevel:"anonymous",route:"matches/{targetUserId}/message-access",
+  handler:requireAuth(async(request,context,user)=>{
+    try{
+      const me=await query(
+        "SELECT id,status FROM users WHERE status='active' AND (azure_subject=$1 OR firebase_uid=$2) LIMIT 1",
+        [user.azure_subject||"",user.uid||""]
+      );
+      if(!me.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};
+      const premium=await entitlementForUser(me.rows[0].id);
+      if(!premium.active)return {status:402,jsonBody:{ok:false,error:"PREMIUM_REQUIRED_FOR_MATCH_MESSAGE",upgradeRequired:true}};
+
+      const targetKey=String((request.params&&request.params.targetUserId)||context.triggerMetadata?.targetUserId||"").trim();
+      const target=await query(
+        "SELECT id FROM users WHERE status='active' AND (azure_subject=$1 OR firebase_uid=$1 OR id::text=$1) LIMIT 1",
+        [targetKey]
+      );
+      if(!target.rows[0])return {status:404,jsonBody:{ok:false,error:"TARGET_NOT_FOUND"}};
+
+      const blocked=await query(
+        "SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",
+        [me.rows[0].id,target.rows[0].id]
+      );
+      if(blocked.rows[0])return {status:403,jsonBody:{ok:false,error:"USER_BLOCKED"}};
+
+      const conv=await query(
+        `SELECT id FROM conversations
+          WHERE status='mutual'
+            AND ((user_a_id=$1 AND user_b_id=$2) OR (user_b_id=$1 AND user_a_id=$2))
+          LIMIT 1`,
+        [me.rows[0].id,target.rows[0].id]
+      );
+      if(!conv.rows[0])return {status:409,jsonBody:{ok:false,error:"MUTUAL_CHAT_REQUIRED"}};
+      return {status:200,jsonBody:{ok:true,premium:true,conversationId:conv.rows[0].id}};
+    }catch(error){
+      context.error("MATCH_MESSAGE_ACCESS_FAILED",error);
+      return {status:500,jsonBody:{ok:false,error:"MATCH_MESSAGE_ACCESS_FAILED"}};
+    }
+  })
+});
