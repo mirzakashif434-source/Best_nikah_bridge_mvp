@@ -1,13 +1,13 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
-const { accessForAuth, premiumRequired } = require("./premiumAccess");
+const { accessForAuth } = require("./premiumAccess");
 
 app.http("seriousNikahPlusSummary",{
   methods:["GET"],authLevel:"anonymous",route:"premium/serious-plus-summary",
   handler:requireAuth(async(request,context,authUser)=>{
     try{
-      const {user,premium}=await accessForAuth(authUser);
+      const {user,premium,capabilities}=await accessForAuth(authUser);
       const [likes,today,circle]=await Promise.all([
         query(
           `SELECT count(*)::int AS count
@@ -38,15 +38,8 @@ app.http("seriousNikahPlusSummary",{
         freeInterestDailyLimit:freeLimit,
         freeInterestsRemaining:premium.active?null:Math.max(0,freeLimit-used),
         familyCircleMembers:Number(circle.rows[0]?.count||0),
-        familyCircleLimit:premium.active?10:2,
-        features:{
-          whoLikedYou:premium.active,
-          unlimitedInterests:premium.active,
-          aiNikahAssistant:premium.active,
-          advancedCompatibility:premium.active,
-          marriageTimeline:premium.active,
-          largerFamilyCircle:premium.active
-        }
+        familyCircleLimit:capabilities.familyCircleLimit,
+        features:capabilities
       }};
     }catch(e){
       context.error("SERIOUS_PLUS_SUMMARY_FAILED",e);
@@ -59,7 +52,7 @@ app.http("whoLikedYou",{
   methods:["GET"],authLevel:"anonymous",route:"premium/who-liked-you",
   handler:requireAuth(async(request,context,authUser)=>{
     try{
-      const {user,premium}=await accessForAuth(authUser);
+      const {user,premium,capabilities}=await accessForAuth(authUser);
       const count=await query(
         `SELECT count(*)::int AS count
            FROM interests i
@@ -70,8 +63,7 @@ app.http("whoLikedYou",{
                   OR (b.blocked_user_id=$1 AND b.blocker_user_id=i.sender_user_id)
             )`,[user.id]);
       const incomingCount=Number(count.rows[0]?.count||0);
-      const locked=premiumRequired(premium);
-      if(locked) return {status:402,jsonBody:{...locked.jsonBody,incomingInterestCount:incomingCount}};
+      if(!capabilities.whoLikedYou) return {status:402,jsonBody:{ok:false,error:"PREMIUM_BASIC_REQUIRED",locked:true,incomingInterestCount}};
       const r=await query(
         `SELECT i.id AS interest_id,i.created_at,
                 COALESCE(u.azure_subject,u.firebase_uid) AS user_id,
