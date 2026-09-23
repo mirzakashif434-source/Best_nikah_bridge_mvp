@@ -47,7 +47,7 @@ public class NikahBridgeApplication extends Application implements Application.A
         if(root==null||root.getTag(INSETS_TAG)!=null)return;
         WindowInsetsControllerCompat controller=new WindowInsetsControllerCompat(a.getWindow(),root);
         controller.setAppearanceLightNavigationBars(true);
-        controller.setAppearanceLightStatusBars(false);
+        controller.setAppearanceLightStatusBars(true);
         final int left=root.getPaddingLeft(),top=root.getPaddingTop(),right=root.getPaddingRight(),bottom=root.getPaddingBottom();
         root.setTag(INSETS_TAG,Boolean.TRUE);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{
