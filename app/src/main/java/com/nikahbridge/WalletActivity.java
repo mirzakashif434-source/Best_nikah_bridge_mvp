@@ -13,7 +13,7 @@ public class WalletActivity extends Activity {
     private LinearLayout root;
     private TextView balance;
     private int dp(int value){ return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
-    private void add(String s,int size,boolean bold){ TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(bold?Color.rgb(30,45,41):Color.rgb(95,108,103)); t.setPadding(dp(8),dp(10),dp(8),dp(10)); if(bold)t.setTypeface(null,1); root.addView(t); }
+    private void add(String s,int size,boolean bold){ TextView t=new TextView(this); t.setText(s); t.setTextSize(size); t.setTextColor(bold?Color.rgb(30,45,41):Color.rgb(95,108,103)); t.setPadding(dp(8),dp(10),dp(8),dp(10)); if(bold)t.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD); root.addView(t); }
     private Button btn(String s){ Button b=Premium2030Ui.secondary(this,s); Premium2030Ui.addButton(root,b); return b; }
 
     @Override protected void onCreate(Bundle state){
