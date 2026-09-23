@@ -10,7 +10,7 @@ import android.view.View;
 
 /**
  * Production Welcome artwork drawn locally so the screen remains crisp on every device.
- * This is visual-only; real Firebase actions stay in WelcomeActivity.
+ * This is visual-only; real Azure actions stay in WelcomeActivity.
  */
 public class WelcomeArtworkView extends View {
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -52,7 +52,7 @@ public class WelcomeArtworkView extends View {
         fill(c, Color.WHITE); c.drawRoundRect(new RectF(755*s, 18*s, 980*s, 82*s), 28*s, 28*s, p);
         stroke(c, Color.rgb(215, 215, 205), 2*s); c.drawRoundRect(new RectF(755*s,18*s,980*s,82*s),28*s,28*s,p);
         stroke(c, green, 3*s); c.drawCircle(790*s,50*s,15*s,p); c.drawOval(new RectF(782*s,35*s,798*s,65*s),p); c.drawLine(775*s,50*s,805*s,50*s,p);
-        txt(c,"English / اردو",820*s,58*s,22*s,dark,Paint.Align.LEFT,false); txt(c,"⌄",954*s,59*s,26*s,green,Paint.Align.CENTER,true);
+        txt(c,LanguageManager.currentName(getContext()),820*s,58*s,20*s,dark,Paint.Align.LEFT,false); txt(c,"⌄",954*s,59*s,26*s,green,Paint.Align.CENTER,true);
 
         txt(c,"بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ",w/2,158*s,34*s,dark,Paint.Align.CENTER,false);
         txt(c,"Welcome",w/2,220*s,58*s,dark,Paint.Align.CENTER,true);
