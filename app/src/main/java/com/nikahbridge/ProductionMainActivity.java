@@ -121,6 +121,10 @@ public class ProductionMainActivity extends Activity {
             "Use Azure AI for profile guidance, serious questions and nikah preparation.",
             "AZURE AI","Open AI Assistant",NikahAssistantActivity.class,false);
 
+        addCardAction("Owner Live Analytics",
+            "See real users, online activity, verification, likes, messages, upgrades, premium tiers, revenue and payout status in one private admin dashboard.",
+            "OWNER LIVE","Open Owner Dashboard",OwnerLiveAnalyticsActivity.class,true);
+
         addCardAction("Owner Wallet",
             "Track verified Google Play earnings and real Google payout records to Al Rajhi.",
             "OWNER","Open Owner Wallet",OwnerEarningsActivity.class,false);
