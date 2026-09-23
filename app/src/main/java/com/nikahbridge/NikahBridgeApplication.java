@@ -20,6 +20,7 @@ import com.google.android.ump.UserMessagingPlatform;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 /** Additive navigation helper. Existing screens and flows are preserved. */
 public class NikahBridgeApplication extends Application implements Application.ActivityLifecycleCallbacks {
@@ -44,6 +45,9 @@ public class NikahBridgeApplication extends Application implements Application.A
     private void applySafeInsets(Activity a){
         View root=a.findViewById(android.R.id.content);
         if(root==null||root.getTag(INSETS_TAG)!=null)return;
+        WindowInsetsControllerCompat controller=new WindowInsetsControllerCompat(a.getWindow(),root);
+        controller.setAppearanceLightNavigationBars(true);
+        controller.setAppearanceLightStatusBars(false);
         final int left=root.getPaddingLeft(),top=root.getPaddingTop(),right=root.getPaddingRight(),bottom=root.getPaddingBottom();
         root.setTag(INSETS_TAG,Boolean.TRUE);
         ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{
