@@ -163,3 +163,34 @@ app.http("messagesRead",{
     }catch(e){context.error("MESSAGES_READ_FAILED",e);return {status:500,jsonBody:{ok:false,error:"MESSAGES_READ_FAILED"}};}
   })
 });
+
+
+app.http("conversationDeleteForBoth",{
+  methods:["DELETE"],authLevel:"anonymous",route:"conversations/{conversationId}",
+  handler:requireAuth(async(request,context,user)=>{
+    const client=await getPool().connect();
+    try{
+      const me=await ensureUser(user);
+      const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
+      await client.query("BEGIN");
+      const conv=await client.query(
+        "SELECT id,user_a_id,user_b_id,status FROM conversations WHERE id=$1 AND (user_a_id=$2 OR user_b_id=$2) FOR UPDATE",
+        [id,me.id]
+      );
+      if(!conv.rows[0]){
+        await client.query("ROLLBACK");
+        return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};
+      }
+      const deleted=await client.query(
+        "DELETE FROM conversations WHERE id=$1 RETURNING id,user_a_id,user_b_id",
+        [id]
+      );
+      await client.query("COMMIT");
+      return {status:200,jsonBody:{ok:true,deletedForBoth:true,conversationId:deleted.rows[0].id}};
+    }catch(e){
+      await client.query("ROLLBACK").catch(()=>{});
+      context.error("CONVERSATION_DELETE_FOR_BOTH_FAILED",e);
+      return {status:500,jsonBody:{ok:false,error:"CONVERSATION_DELETE_FOR_BOTH_FAILED"}};
+    }finally{client.release();}
+  })
+});
