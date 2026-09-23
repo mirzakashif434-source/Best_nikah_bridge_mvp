@@ -96,6 +96,20 @@ jobs:
           grep -Fq 'AzureApiClient.post("/admin/owner/provider-settlement"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           echo "OWNER WALLET GOOGLE PLAY → AL RAJHI TRACKING: PASS"
 
+      - name: Verify locked 2030 premium design
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/nikahbridge/Premium2030Ui.java
+          grep -Fq 'Faith • Family • Trust • A Brighter Tomorrow' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+          grep -Fq 'Meaningful Matches • Verified Profiles • Private & Safe' app/src/main/java/com/nikahbridge/AzureHomeActivity.java
+          grep -Fq 'Family / Wali Connect' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
+          grep -Fq 'Privacy Control Center' app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
+          grep -Fq 'Identity Verification' app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
+          grep -Fq 'Meaningful matches for a brighter halal future' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq 'Go Premium' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          echo "LOCKED 2030 PREMIUM DESIGN: PASS"
+
       - name: Verify six final Android cutover screens
         shell: bash
         run: |
