@@ -297,6 +297,12 @@ public class AzureHomeActivity extends Activity {
             String waliName=name.getText().toString().trim(); String waliEmail=email.getText().toString().trim(); String waliPhone=phone.getText().toString().trim();
             if(waliName.length()<2){LanguageManager.setError(name,"Wali full name required");name.requestFocus();return;}
             if(waliEmail.isEmpty() && waliPhone.isEmpty()){LanguageManager.setError(email,"Email or E.164 phone required");email.requestFocus();return;}
+            if(!waliEmail.isEmpty() && !android.util.Patterns.EMAIL_ADDRESS.matcher(waliEmail).matches()){
+                LanguageManager.setError(email,"Enter a valid email address");email.requestFocus();return;
+            }
+            if(!waliPhone.isEmpty() && !waliPhone.matches("^\\+[1-9]\\d{7,14}$")){
+                LanguageManager.setError(phone,"Use E.164 format, for example +9665XXXXXXXX");phone.requestFocus();return;
+            }
             JSONObject b=new JSONObject();b.put("waliName",waliName);b.put("waliEmail",waliEmail);b.put("waliPhoneE164",waliPhone);
             AzureApiClient.post("/family-links",b.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String body){runOnUiThread(()->{toast("Real Wali connection request saved in Azure.");loadFamilyLinks(out);});}
@@ -323,8 +329,23 @@ public class AzureHomeActivity extends Activity {
         AzureApiClient.get("/family-links",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
-                    JSONArray a=new JSONObject(body).optJSONArray("familyLinks");
-                    if(a==null||a.length()==0){out.setText("No Family/Wali connection yet.");return;}
+                    JSONObject response=new JSONObject(body);
+                    JSONArray a=response.optJSONArray("familyLinks");
+                    if(a==null){
+                        Object raw=response.opt("familyLinks");
+                        if(raw instanceof String){
+                            String value=((String)raw).trim();
+                            if(value.isEmpty()||"[]".equals(value)||"null".equalsIgnoreCase(value)){
+                                out.setText("No Family/Wali connection yet.");
+                                return;
+                            }
+                            try{a=new JSONArray(value);}catch(Exception ignored){}
+                        }
+                    }
+                    if(a==null||a.length()==0){
+                        out.setText("No Family/Wali connection yet.");
+                        return;
+                    }
                     StringBuilder s=new StringBuilder();
                     for(int i=0;i<a.length();i++){
                         JSONObject x=a.optJSONObject(i);if(x==null)continue;
