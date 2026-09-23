@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
+const { entitlementForUser } = require("./premiumAccess");
 
 function norm(v){return typeof v==="string"?v.toLowerCase().replace(/[\\/,_-]+/g," ").trim():"";}
 function overlap(a,b){
@@ -33,10 +34,15 @@ app.http("matches",{
         return {status:409,jsonBody:{ok:false,error:"PROFILE_NOT_READY"}};
 
       const m=me.rows[0];
+      const viewerPremium=await entitlementForUser(m.id);
       const candidates=await query(`
         SELECT u.id,u.azure_subject,u.firebase_uid,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city,
                COALESCE(ps.show_photo_to_matches,true) AS show_photo_to_matches,
+               EXISTS(
+                 SELECT 1 FROM premium_entitlements pe
+                 WHERE pe.user_id=u.id AND pe.status='active' AND pe.expires_at>now()
+               ) AS premium_priority,
                (SELECT ph.id FROM photos ph WHERE ph.user_id=u.id AND ph.moderation_status='approved' ORDER BY ph.created_at ASC LIMIT 1) AS photo_id
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
@@ -70,14 +76,19 @@ app.http("matches",{
         matches.push({
           userId:c.azure_subject||c.firebase_uid||null,displayName:c.display_name,age:c.age,gender:c.gender,
           country:c.country,city:c.show_city===false?null:c.city,marriageIntention:c.marriage_intention,
-          marriageTimeline:c.preferred_marriage_timeline,readinessScore:c.readiness_score,
-          compatibilityScore:score,whyWeMatched:reasons,
+          marriageTimeline:viewerPremium.active?c.preferred_marriage_timeline:null,
+          readinessScore:viewerPremium.active?c.readiness_score:null,
+          compatibilityScore:score,
+          whyWeMatched:viewerPremium.active?reasons:[],
+          advancedLocked:!viewerPremium.active,
+          premiumPriority:Boolean(c.premium_priority),
+          rankingScore:score+(c.premium_priority?3:0),
           photoId:c.show_photo_to_matches===true?c.photo_id:null,
           photoBlurred:!(c.show_photo_to_matches===true&&c.photo_id)
         });
       }
-      matches.sort((a,b)=>b.compatibilityScore-a.compatibilityScore);
-      return {status:200,jsonBody:{ok:true,count:matches.length,matches:matches.slice(0,50)}};
+      matches.sort((a,b)=>b.rankingScore-a.rankingScore || b.compatibilityScore-a.compatibilityScore);
+      return {status:200,jsonBody:{ok:true,count:matches.length,premium:viewerPremium.active,matches:matches.slice(0,50).map(({rankingScore,...m})=>m)}};
     }catch(error){
       context.error("MATCHES_FAILED",error);
       return {status:500,jsonBody:{ok:false,error:"MATCHES_FAILED"}};
