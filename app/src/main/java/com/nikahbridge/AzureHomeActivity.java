@@ -131,19 +131,19 @@ public class AzureHomeActivity extends Activity {
                 String birthDate=dob.getText().toString().trim();
                 String profileGender=gender.getText().toString().trim().toLowerCase(java.util.Locale.US);
 
-                if(displayName.length()<2){name.setError("Display name is required");name.requestFocus();return;}
-                if(!birthDate.matches("\\d{4}-\\d{2}-\\d{2}")){dob.setError("Use YYYY-MM-DD, for example 1990-05-21");dob.requestFocus();return;}
+                if(displayName.length()<2){LanguageManager.setError(name,"Display name is required");name.requestFocus();return;}
+                if(!birthDate.matches("\\d{4}-\\d{2}-\\d{2}")){LanguageManager.setError(dob,"Use YYYY-MM-DD, for example 1990-05-21");dob.requestFocus();return;}
                 java.text.SimpleDateFormat df=new java.text.SimpleDateFormat("yyyy-MM-dd",java.util.Locale.US);
                 df.setLenient(false);
                 java.util.Date parsedBirth;
-                try{parsedBirth=df.parse(birthDate);}catch(Exception ex){dob.setError("Enter a real calendar date");dob.requestFocus();return;}
+                try{parsedBirth=df.parse(birthDate);}catch(Exception ex){LanguageManager.setError(dob,"Enter a real calendar date");dob.requestFocus();return;}
                 java.util.Calendar today=java.util.Calendar.getInstance();
                 java.util.Calendar birth=java.util.Calendar.getInstance();
                 birth.setTime(parsedBirth);
                 int age=today.get(java.util.Calendar.YEAR)-birth.get(java.util.Calendar.YEAR);
                 if(today.get(java.util.Calendar.DAY_OF_YEAR)<birth.get(java.util.Calendar.DAY_OF_YEAR)) age--;
-                if(age<18||age>100){dob.setError("Age must be between 18 and 100");dob.requestFocus();return;}
-                if(!"male".equals(profileGender)&&!"female".equals(profileGender)){gender.setError("Enter male or female");gender.requestFocus();return;}
+                if(age<18||age>100){LanguageManager.setError(dob,"Age must be between 18 and 100");dob.requestFocus();return;}
+                if(!"male".equals(profileGender)&&!"female".equals(profileGender)){LanguageManager.setError(gender,"Enter male or female");gender.requestFocus();return;}
 
                 JSONObject b=new JSONObject();
                 b.put("displayName",displayName);
@@ -205,7 +205,7 @@ public class AzureHomeActivity extends Activity {
         Button send=button("Send Real Interest",true);
         send.setOnClickListener(v->{try{
             String receiverId=uid.getText().toString().trim();
-            if(receiverId.isEmpty()){uid.setError("Real recipient user ID required");uid.requestFocus();return;}
+            if(receiverId.isEmpty()){LanguageManager.setError(uid,"Real recipient user ID required");uid.requestFocus();return;}
             JSONObject b=new JSONObject();b.put("receiverUserId",receiverId);
             AzureApiClient.post("/interests",b.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String body){runOnUiThread(()->toast("Real interest sent."));}
@@ -227,8 +227,8 @@ public class AzureHomeActivity extends Activity {
         Button create=button("Connect Real Wali",true);
         create.setOnClickListener(v->{try{
             String waliName=name.getText().toString().trim(); String waliEmail=email.getText().toString().trim(); String waliPhone=phone.getText().toString().trim();
-            if(waliName.length()<2){name.setError("Wali full name required");name.requestFocus();return;}
-            if(waliEmail.isEmpty() && waliPhone.isEmpty()){email.setError("Email or E.164 phone required");email.requestFocus();return;}
+            if(waliName.length()<2){LanguageManager.setError(name,"Wali full name required");name.requestFocus();return;}
+            if(waliEmail.isEmpty() && waliPhone.isEmpty()){LanguageManager.setError(email,"Email or E.164 phone required");email.requestFocus();return;}
             JSONObject b=new JSONObject();b.put("waliName",waliName);b.put("waliEmail",waliEmail);b.put("waliPhoneE164",waliPhone);
             AzureApiClient.post("/family-links",b.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String body){runOnUiThread(()->{toast("Real Wali connection request saved in Azure.");loadFamilyLinks(out);});}
@@ -239,7 +239,7 @@ public class AzureHomeActivity extends Activity {
         sectionTitle("Wali Verification");
         EditText linkId=input("Family link ID");
         Button verify=button("Verify This Wali Account",false);
-        verify.setOnClickListener(v->{String id=linkId.getText().toString().trim();if(id.isEmpty()){linkId.setError("Family link ID required");return;}
+        verify.setOnClickListener(v->{String id=linkId.getText().toString().trim();if(id.isEmpty()){LanguageManager.setError(linkId,"Family link ID required");return;}
             AzureApiClient.post("/family-links/"+id+"/verify","{}",new AzureApiClient.Callback(){
                 public void ok(int code,String body){runOnUiThread(()->{toast("Wali identity verified in Azure.");loadFamilyLinks(out);});}
                 public void err(String m){runOnUiThread(()->toast("Wali verification failed: "+m));}
@@ -322,7 +322,7 @@ public class AzureHomeActivity extends Activity {
         Button ask=button("Ask Azure AI",true),back=button("Back",false);
         ask.setOnClickListener(v->{try{
             String question=q.getText().toString().trim();
-            if(question.isEmpty()){q.setError("Nikah question required");q.requestFocus();return;}
+            if(question.isEmpty()){LanguageManager.setError(q,"Nikah question required");q.requestFocus();return;}
             JSONObject msg=new JSONObject();msg.put("role","user");msg.put("content",question);
             JSONArray messages=new JSONArray();messages.put(msg);JSONObject b=new JSONObject();b.put("messages",messages);
             answer.setText("Azure AI is responding…");
