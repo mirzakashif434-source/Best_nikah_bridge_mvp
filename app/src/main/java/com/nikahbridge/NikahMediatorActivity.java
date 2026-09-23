@@ -1,12 +1,16 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONObject;
 
 /** Real Azure AI Nikah Mediator with private Azure session storage. */
@@ -21,7 +25,14 @@ public class NikahMediatorActivity extends Activity {
     private Button btn(String s,boolean fill){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(16);b.setTextColor(fill?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(fill?green:Color.WHITE);g.setCornerRadius(dp(18));if(!fill)g.setStroke(dp(2),green);b.setBackground(g);return b;}
 
     private void render(){
-        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(light);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(24),dp(20),dp(32));sc.addView(root);setContentView(sc);
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setClipToPadding(false);sc.setBackgroundColor(light);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(24),dp(20),dp(32));root.setBackgroundColor(light);sc.addView(root);setContentView(sc);
+        ViewCompat.setOnApplyWindowInsetsListener(sc,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(20),dp(24),dp(20),dp(32)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(sc);
         root.addView(txt("🧠 AI Nikah Mediator",28,true));root.addView(txt("Real Azure AI discussion support. It does not decide who is right or replace family/Wali/professional help.",15,false));
         root.addView(txt("Your perspective",17,true));mySide=area("Explain your concern or expectation.");root.addView(mySide,new LinearLayout.LayoutParams(-1,dp(140)));
         root.addView(txt("Other person's perspective",17,true));otherSide=area("Enter the other person's words only with permission.");root.addView(otherSide,new LinearLayout.LayoutParams(-1,dp(140)));
@@ -31,8 +42,22 @@ public class NikahMediatorActivity extends Activity {
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
     }
 
+    private boolean authError(String message){
+        if(message==null) return false;
+        return message.contains("AZURE_SIGN_IN_REQUIRED") || message.contains("AZURE_INTERACTION_REQUIRED") || message.contains("AZURE_AUTH");
+    }
+
+    private void showSignInRecovery(String action){
+        LanguageManager.dialog(this)
+            .setTitle("Sign in required")
+            .setMessage("Your Azure session expired. Sign in again to "+action+".")
+            .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+            .setNegativeButton("Not now",null)
+            .show();
+    }
+
     private void mediate(){
-        if(!AzureAuthManager.hasAccount(this)){LanguageManager.toast(this,"Azure sign in required.",Toast.LENGTH_LONG).show();return;}
+        if(!AzureAuthManager.hasAccount(this)){showSignInRecovery("run real AI mediation");return;}
         String a=mySide.getText().toString().trim(),b=otherSide.getText().toString().trim();
         if(a.length()<20||b.length()<20){LanguageManager.toast(this,"Please provide both perspectives with enough detail.",Toast.LENGTH_LONG).show();return;}
         if(!consent.isChecked()){LanguageManager.toast(this,"Permission is required.",Toast.LENGTH_LONG).show();return;}
@@ -42,7 +67,7 @@ public class NikahMediatorActivity extends Activity {
             JSONObject body=new JSONObject().put("prompt",prompt);
             AzureApiClient.post("/ai/nikah-mediator",body.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String response){runOnUiThread(()->{try{String out=new JSONObject(response).getJSONObject("assistant").getString("content");result.setText(out);save(a,b,out);}catch(Exception e){result.setText("Azure AI returned an invalid response.");}run.setEnabled(true);});}
-                public void err(String message){runOnUiThread(()->{result.setText("Azure AI mediation is temporarily unavailable.");run.setEnabled(true);});}
+                public void err(String message){runOnUiThread(()->{if(authError(message))showSignInRecovery("run real AI mediation");result.setText(authError(message)?"Sign in with Azure to continue.":"Azure AI mediation is temporarily unavailable.");run.setEnabled(true);});}
             });
         }catch(Exception e){result.setText("Could not prepare the Azure AI request.");run.setEnabled(true);}
     }
@@ -50,7 +75,7 @@ public class NikahMediatorActivity extends Activity {
     private void save(String a,String b,String out){
         try{
             JSONObject v=new JSONObject().put("perspectiveA",a).put("perspectiveB",b).put("lastResult",out);
-            AzureApiClient.put("/settings/nikah_mediator_last",v.toString(),new AzureApiClient.Callback(){public void ok(int c,String x){}public void err(String m){runOnUiThread(()->LanguageManager.toast(NikahMediatorActivity.this,"Mediation completed, but private Azure history could not be saved.",Toast.LENGTH_LONG).show());}});
+            AzureApiClient.put("/settings/nikah_mediator_last",v.toString(),new AzureApiClient.Callback(){public void ok(int c,String x){}public void err(String m){runOnUiThread(()->{if(authError(m))showSignInRecovery("save your private mediation history");else LanguageManager.toast(NikahMediatorActivity.this,"Mediation completed, but private Azure history could not be saved.",Toast.LENGTH_LONG).show();});}});
         }catch(Exception ignored){}
     }
 }
