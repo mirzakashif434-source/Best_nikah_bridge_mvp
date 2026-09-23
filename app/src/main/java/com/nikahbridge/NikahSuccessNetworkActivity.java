@@ -82,5 +82,5 @@ public class NikahSuccessNetworkActivity extends Activity {
             AzureApiClient.post("/success-network/mentor-requests",b.toString(),new AzureApiClient.Callback(){public void ok(int c,String x){runOnUiThread(()->toast("Real Azure mentorship request submitted."));}public void err(String m){runOnUiThread(()->toast("Mentorship request failed: "+m));}});
         }catch(Exception e){toast("Invalid mentor request.");}
     }
-    private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
+    private void toast(String s){LanguageManager.toast(this,s,Toast.LENGTH_LONG).show();}
 }
