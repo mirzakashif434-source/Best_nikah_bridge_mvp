@@ -86,10 +86,10 @@ public class CommunityChatActivity extends Activity {
         }).show();
     }
     private void muteAzureUser(String uid,String name){
-        if(uid.isEmpty())return;try{JSONObject b=new JSONObject();b.put("userId",uid);AzureApiClient.post("/community/mutes",b.toString(),new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.add(uid);loadAzureCommunity();toast(name+" muted in Azure Community Chat.");}public void err(String message){toast("Mute could not be saved.");}});}catch(Exception e){toast("Mute could not be saved.");}
+        if(uid.isEmpty())return;try{JSONObject b=new JSONObject();b.put("userId",uid);AzureApiClient.post("/community/mutes",b.toString(),new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.add(uid);loadAzureCommunity();toast("Member muted in Azure Community Chat.");}public void err(String message){toast("Mute could not be saved.");}});}catch(Exception e){toast("Mute could not be saved.");}
     }
     private void blockAzureUser(String uid,String name){
-        if(uid.isEmpty())return;LanguageManager.dialog(this).setTitle("Block "+name+"?").setMessage("This is a real Azure safety action and blocks the member.").setNegativeButton("Cancel",null).setPositiveButton("Block",(dialog,which)->{try{JSONObject b=new JSONObject();b.put("userId",uid);AzureApiClient.post("/blocks",b.toString(),new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.add(uid);loadAzureCommunity();toast("Member blocked securely in Azure.");}public void err(String message){toast("Block failed: "+message);}});}catch(Exception e){toast("Block failed.");}}).show();
+        if(uid.isEmpty())return;LanguageManager.dialog(this).setTitle("Block member?").setMessage("This is a real Azure safety action and blocks the member.").setNegativeButton("Cancel",null).setPositiveButton("Block",(dialog,which)->{try{JSONObject b=new JSONObject();b.put("userId",uid);AzureApiClient.post("/blocks",b.toString(),new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.add(uid);loadAzureCommunity();toast("Member blocked securely in Azure.");}public void err(String message){toast("Block failed: "+message);}});}catch(Exception e){toast("Block failed.");}}).show();
     }
     private void showSafetyAzure(){LanguageManager.dialog(this).setTitle("My Chat Safety").setItems(new String[]{"Refresh my safety settings","Unmute a member"},(d,w)->{if(w==0){loadAzureMutes();toast("Azure safety settings refreshed.");}else showAzureUnmute();}).show();}
     private void showAzureUnmute(){
