@@ -34,14 +34,18 @@ public class AzureExternalAuthActivity extends Activity {
     private IMultipleAccountPublicClientApplication msal;
     private TextView status;
     private IAccount currentAccount;
+    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         AzureAuthManager.bindActivity(this);
 
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(32, 40, 32, 32);
+        root.setPadding(dp(22), dp(28), dp(22), dp(28));
+        scroll.addView(root);
 
         TextView title = new TextView(this);
         title.setText(LanguageManager.tr(AzureExternalAuthActivity.this,"Microsoft / Azure Sign in"));
@@ -64,7 +68,7 @@ public class AzureExternalAuthActivity extends Activity {
         root.addView(back);
         back.setOnClickListener(v -> finish());
 
-        setContentView(root);
+        setContentView(scroll);
 
         PublicClientApplication.createMultipleAccountPublicClientApplication(
                 this,
