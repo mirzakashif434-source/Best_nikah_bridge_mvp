@@ -7,6 +7,13 @@ import android.graphics.BitmapFactory;
 import androidx.core.content.FileProvider;
 import java.io.File;
 import android.graphics.Color;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.view.View;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -22,11 +29,71 @@ public class RealFourPhotoActivity extends Activity {
 
     private LinearLayout root;
     private TextView status;
+    private TextView poseStatus;
     private ImageView[] previews=new ImageView[4];
+    private PoseGuideView[] poseGuides=new PoseGuideView[4];
+    private String profileGender="";
     private final ArrayList<Uri> galleryUris=new ArrayList<>();
     private Uri cameraUri;
     private String verificationSetId="";
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+
+    private class PoseGuideView extends View {
+        private final int pose;
+        private String gender="";
+        private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+        PoseGuideView(int pose){super(RealFourPhotoActivity.this);this.pose=pose;setBackgroundColor(Color.rgb(248,250,249));}
+        void setGender(String g){gender=g==null?"":g.toLowerCase(java.util.Locale.US);invalidate();}
+        @Override protected void onDraw(Canvas c){
+            super.onDraw(c);
+            float w=getWidth(),h=getHeight(),cx=w/2f,cy=h*0.42f;
+            p.setStrokeWidth(dp(3));p.setStyle(Paint.Style.STROKE);p.setColor(Color.rgb(18,103,82));
+            if(!"male".equals(gender)&&!"female".equals(gender)){
+                p.setStyle(Paint.Style.FILL);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(dp(16));p.setColor(Color.rgb(95,108,103));
+                c.drawText("Complete profile gender to load pose guide",cx,h/2f,p);return;
+            }
+            float shift=pose==1?-w*0.08f:pose==2?w*0.08f:0f;
+            float faceX=cx+shift;
+            p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(224,190,160));c.drawOval(new RectF(faceX-dp(42),cy-dp(52),faceX+dp(42),cy+dp(48)),p);
+            p.setColor(Color.rgb(50,45,42));
+            if("female".equals(gender)){
+                c.drawArc(new RectF(faceX-dp(54),cy-dp(68),faceX+dp(54),cy+dp(58)),185,170,true,p);
+                p.setColor(Color.rgb(247,250,249));c.drawOval(new RectF(faceX-dp(36),cy-dp(44),faceX+dp(36),cy+dp(44)),p);
+                p.setColor(Color.rgb(224,190,160));c.drawOval(new RectF(faceX-dp(34),cy-dp(42),faceX+dp(34),cy+dp(42)),p);
+            } else {
+                c.drawArc(new RectF(faceX-dp(44),cy-dp(62),faceX+dp(44),cy+dp(25)),190,160,true,p);
+            }
+            p.setColor(Color.DKGRAY);c.drawCircle(faceX-dp(13),cy-dp(8),dp(3),p);c.drawCircle(faceX+dp(13),cy-dp(8),dp(3),p);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(2));p.setColor(Color.rgb(120,70,65));
+            RectF mouth=new RectF(faceX-dp(16),cy+dp(4),faceX+dp(16),cy+dp(24));
+            c.drawArc(mouth, pose==3?10:25, pose==3?160:130,false,p);
+            p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(35,75,65));
+            c.drawRoundRect(new RectF(cx-dp(80),h*0.70f,cx+dp(80),h*0.98f),dp(24),dp(24),p);
+            p.setTextAlign(Paint.Align.CENTER);p.setTextSize(dp(14));p.setColor(Color.rgb(18,103,82));
+            String label=pose==0?"FRONT":pose==1?"SLIGHT LEFT":pose==2?"SLIGHT RIGHT":"NATURAL SMILE";
+            c.drawText(("female".equals(gender)?"FEMALE • ":"MALE • ")+label,cx,dp(22),p);
+        }
+    }
+
+    private void loadPoseGender(){
+        if(!AzureAuthManager.hasAccount(this)){poseStatus.setText("Complete your profile gender to load your pose guide.");return;}
+        AzureApiClient.get("/profile",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    org.json.JSONObject p=new org.json.JSONObject(body).optJSONObject("profile");
+                    profileGender=p==null?"":p.optString("gender","").trim().toLowerCase(java.util.Locale.US);
+                    if(!"male".equals(profileGender)&&!"female".equals(profileGender)){
+                        poseStatus.setText("Complete your profile gender to load your pose guide.");
+                        profileGender="";
+                    }else{
+                        poseStatus.setText(("female".equals(profileGender)?"Female":"Male")+" pose guide loaded from your real Azure profile.");
+                    }
+                    for(PoseGuideView v:poseGuides)if(v!=null)v.setGender(profileGender);
+                }catch(Exception e){poseStatus.setText("Complete your profile gender to load your pose guide.");}
+            });}
+            public void err(String m){runOnUiThread(()->poseStatus.setText("Pose guide could not load your profile gender."));}
+        });
+    }
 
     @Override protected void onCreate(Bundle state){super.onCreate(state);AzureAuthManager.bindActivity(this);build();loadStatus();}
 
@@ -41,9 +108,10 @@ public class RealFourPhotoActivity extends Activity {
         b.setTextColor(primary?Color.WHITE:Color.rgb(18,103,82));b.setBackgroundColor(primary?Color.rgb(18,103,82):Color.WHITE);
         root.addView(b,new LinearLayout.LayoutParams(-1,dp(62)));return b;
     }
-    private void guide(String icon,String title,String body,int slot){
+    private void guide(String title,String body,int slot){
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(14),dp(12),dp(14),dp(14));card.setBackgroundColor(Color.WHITE);
-        TextView visual=text(icon,42,true);visual.setGravity(Gravity.CENTER);card.addView(visual,new LinearLayout.LayoutParams(-1,dp(68)));
+        poseGuides[slot]=new PoseGuideView(slot);
+        card.addView(poseGuides[slot],new LinearLayout.LayoutParams(-1,dp(210)));
         card.addView(text(title,17,true));
         card.addView(text(body,14,false));
         previews[slot]=new ImageView(this);previews[slot].setScaleType(ImageView.ScaleType.CENTER_CROP);previews[slot].setBackgroundColor(Color.rgb(238,243,241));
@@ -52,18 +120,27 @@ public class RealFourPhotoActivity extends Activity {
     }
 
     private void build(){
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(18),dp(20),dp(18),dp(30));root.setBackgroundColor(Color.rgb(247,250,249));scroll.addView(root);setContentView(scroll);
+        ViewCompat.setOnApplyWindowInsetsListener(scroll,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(18),dp(20),dp(18),dp(30)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(scroll);
 
         TextView title=text("4-Photo Profile Verification",27,true);title.setGravity(Gravity.CENTER);root.addView(title);
         root.addView(text("18+ ONLY — male or female. Your main photo must be taken now with the camera. Photos 2–4 may come from your gallery, but all four must clearly show the same person. Your profile is not marked verified until the complete set passes verification.",15,false));
 
         status=text("Status: start with Photo 1.",15,true);root.addView(status);
+        poseStatus=text("Loading your pose guide from your real profile…",14,false);root.addView(poseStatus);
 
-        guide("🙂","Photo 1 — MAIN PHOTO • CAMERA REQUIRED","Look straight at the camera. Good light, one face only, no sunglasses, no heavy filter. This becomes your verified main profile photo.",0);
-        guide("🙂↙️","Photo 2 — GALLERY","Choose a clear recent photo of the same person. A slight left angle is fine; face must still be easy to recognize.",1);
-        guide("↘️🙂","Photo 3 — GALLERY","Choose another clear recent photo of the same person. A slight right angle is fine; avoid masks and strong filters.",2);
-        guide("😊","Photo 4 — GALLERY","Choose one more clear recent photo of the same person. Natural smile is fine. No group photo; one visible face only.",3);
+        guide("Photo 1 — MAIN PHOTO • CAMERA REQUIRED","Look straight at the camera. Good light, one face only, no sunglasses, no heavy filter. This becomes your verified main profile photo.",0);
+        guide("Photo 2 — GALLERY","Choose a clear recent photo of the same person. Turn slightly to your left while keeping both eyes visible.",1);
+        guide("Photo 3 — GALLERY","Choose another clear recent photo of the same person. Turn slightly to your right; avoid masks and strong filters.",2);
+        guide("Photo 4 — GALLERY","Choose one more clear recent photo of the same person with a natural smile. No group photo; one visible face only.",3);
+        loadPoseGender();
 
         Button camera=button("1. Take Main Photo with Camera",true);camera.setOnClickListener(v->startSetThenCamera());
         Button gallery=button("2. Choose Exactly 3 Gallery Photos",true);gallery.setOnClickListener(v->chooseRemainingPhotos());
