@@ -5,6 +5,9 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -27,9 +30,18 @@ public class SeriousNikahPlusActivity extends Activity {
         Premium2030Ui.addButton(root,b);return b;
     }
     private void build(){
-        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(Premium2030Ui.CREAM);
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setClipToPadding(false);sc.setBackgroundColor(Premium2030Ui.CREAM);
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(20),dp(18),dp(30));
         sc.addView(root);setContentView(sc);
+
+        // Keep this long premium screen clear of status/navigation bars
+        // without changing any premium, billing, or Azure behavior.
+        ViewCompat.setOnApplyWindowInsetsListener(sc,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(sc);
 
         root.addView(Premium2030Ui.title(this,"Serious Nikah Plus"));
         root.addView(Premium2030Ui.subtitle(this,"Premium for serious members. Free core matching stays available."));
