@@ -46,6 +46,7 @@ require("./azureExternalAuth");
 require("./rewardedAds");
 
 require("./premiumPlans");
+require("./seriousNikahPlus");
 
 // Step 2: real Google Play subscription verification and paid entitlements.
 require("./premiumPurchaseVerification");
