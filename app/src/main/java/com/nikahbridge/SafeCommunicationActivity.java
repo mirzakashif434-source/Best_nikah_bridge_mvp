@@ -27,6 +27,7 @@ public class SafeCommunicationActivity extends Activity {
         conversationId=input("Conversation ID from a real mutual connection");message=input("Write a respectful message");
         Button send=btn("Send Secure Azure Message",true);root.addView(send,new LinearLayout.LayoutParams(-1,dp(62)));send.setOnClickListener(v->send());
         Button load=btn("Load Recent Messages",false);root.addView(load,new LinearLayout.LayoutParams(-1,dp(62)));load.setOnClickListener(v->loadMessages());
+        Button deleteBoth=btn("Delete Chat for Both",false);root.addView(deleteBoth,new LinearLayout.LayoutParams(-1,dp(62)));deleteBoth.setOnClickListener(v->confirmDeleteForBoth());
         status=txt("Status: waiting",15,false);root.addView(status);
         root.addView(txt("Recent secure Azure messages",15,true));
         history=txt("",15,false);LanguageManager.protectUserContent(history);root.addView(history);
@@ -77,6 +78,32 @@ public class SafeCommunicationActivity extends Activity {
                 });}
             });
         }catch(Exception e){status.setText("Status: invalid message");}
+    }
+
+    private void confirmDeleteForBoth(){
+        String id=conversationId.getText().toString().trim();
+        if(id.isEmpty()){status.setText("Status: choose a real conversation first");return;}
+        LanguageManager.dialog(this)
+            .setTitle("Delete this chat for both?")
+            .setMessage("This permanently deletes the chat room and all messages for both people. The conversation, member ID/name in this chat room, and message history will no longer appear for either person.")
+            .setNegativeButton("Cancel",null)
+            .setPositiveButton("Delete for Both",(d,w)->deleteForBoth(id))
+            .show();
+    }
+
+    private void deleteForBoth(String id){
+        status.setText("Status: deleting chat for both…");
+        AzureApiClient.delete("/conversations/"+id,"{}",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                conversationId.setText("");
+                message.setText("");
+                history.setText("");
+                status.setText("Status: chat deleted for both people");
+                loadConversations();
+                LanguageManager.toast(SafeCommunicationActivity.this,"Chat deleted for both.",Toast.LENGTH_LONG).show();
+            });}
+            public void err(String m){runOnUiThread(()->status.setText("Status: chat delete failed — "+m));}
+        });
     }
 
     private void loadMessages(){
