@@ -119,6 +119,9 @@ final class AzureApiClient {
       String s; while((s=r.readLine())!=null)b.append(s);
     }
     if(code>=200&&code<300)cb.ok(code,b.toString());
-    else cb.err("HTTP "+code+(b.length()==0?"":": "+b));
+    else if(code==401){
+      AzureAuthManager.clearCachedToken();
+      cb.err("AZURE_SIGN_IN_REQUIRED");
+    } else cb.err("HTTP "+code+(b.length()==0?"":": "+b));
   }
 }
