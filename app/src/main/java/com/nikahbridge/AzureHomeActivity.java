@@ -455,8 +455,23 @@ public class AzureHomeActivity extends Activity {
         AzureApiClient.get("/safety/reports/mine",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
-                    JSONArray a=new JSONObject(body).optJSONArray("reports");
-                    if(a==null||a.length()==0){out.setText("No safety reports submitted.");return;}
+                    JSONObject response=new JSONObject(body);
+                    JSONArray a=response.optJSONArray("reports");
+                    if(a==null){
+                        Object raw=response.opt("reports");
+                        if(raw instanceof String){
+                            String value=((String)raw).trim();
+                            if(value.isEmpty()||"[]".equals(value)||"null".equalsIgnoreCase(value)){
+                                out.setText("No safety reports submitted.");
+                                return;
+                            }
+                            try{a=new JSONArray(value);}catch(Exception ignored){}
+                        }
+                    }
+                    if(a==null||a.length()==0){
+                        out.setText("No safety reports submitted.");
+                        return;
+                    }
                     StringBuilder s=new StringBuilder();
                     for(int i=0;i<a.length();i++){
                         JSONObject x=a.optJSONObject(i);if(x==null)continue;
@@ -481,7 +496,14 @@ public class AzureHomeActivity extends Activity {
         EditText details=input("Details");
         Button send=button("Submit Real Report",true);
         send.setOnClickListener(v->{try{
-            JSONObject b=new JSONObject();b.put("reportedUserId",uid.getText().toString().trim());b.put("reason",reason.getText().toString().trim());b.put("details",details.getText().toString().trim());
+            String reportedUserId=uid.getText().toString().trim();
+            String reportReason=reason.getText().toString().trim().toLowerCase(java.util.Locale.US);
+            String reportDetails=details.getText().toString().trim();
+            if(reportedUserId.isEmpty()){LanguageManager.setError(uid,"Reported user ID required");uid.requestFocus();return;}
+            java.util.Set<String> allowedReasons=new java.util.HashSet<>(java.util.Arrays.asList("harassment","scam","impersonation","inappropriate_content","unsafe_request","other"));
+            if(!allowedReasons.contains(reportReason)){LanguageManager.setError(reason,"Use harassment, scam, impersonation, inappropriate_content, unsafe_request, or other");reason.requestFocus();return;}
+            if(reportDetails.length()<5){LanguageManager.setError(details,"Please add a short safety detail");details.requestFocus();return;}
+            JSONObject b=new JSONObject();b.put("reportedUserId",reportedUserId);b.put("reason",reportReason);b.put("details",reportDetails);
             AzureApiClient.post("/safety/reports",b.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String body){runOnUiThread(()->toast("Safety report securely stored in Azure."));}
                 public void err(String m){runOnUiThread(()->toast("Report rejected: "+m));}
