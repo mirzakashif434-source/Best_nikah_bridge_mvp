@@ -95,6 +95,59 @@ app.http("photoContent",{
   })
 });
 
+
+app.http("matchPhotoContent",{
+  methods:["GET"],authLevel:"anonymous",route:"matches/{targetIdentity}/photos/{photoId}/content",
+  handler:requireAuth(async(request,context,user)=>{
+    try{
+      const me=await ensureUser(user);
+      if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      const targetIdentity=text(request.params?.targetIdentity||context.triggerMetadata?.targetIdentity,300);
+      const photoId=text(request.params?.photoId||context.triggerMetadata?.photoId,100);
+      if(!targetIdentity||!photoId) return {status:400,jsonBody:{ok:false,error:"PHOTO_REQUEST_INVALID"}};
+
+      const target=await query(
+        `SELECT u.id,u.status,p.profile_completed,p.is_visible,
+                COALESCE(ps.profile_discoverable,true) AS discoverable,
+                COALESCE(ps.show_photo_to_matches,true) AS show_photo
+         FROM users u
+         JOIN profiles p ON p.user_id=u.id
+         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
+         WHERE (u.azure_subject=$1 OR u.firebase_uid=$1) LIMIT 1`,
+        [targetIdentity]
+      );
+      const t=target.rows[0];
+      if(!t||t.status!=="active"||!t.profile_completed||!t.is_visible||!t.discoverable)
+        return {status:404,jsonBody:{ok:false,error:"MATCH_NOT_AVAILABLE"}};
+      if(!t.show_photo)
+        return {status:403,jsonBody:{ok:false,error:"PHOTO_PRIVATE"}};
+
+      const blocked=await query(
+        "SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",
+        [me.id,t.id]
+      );
+      if(blocked.rows[0]) return {status:403,jsonBody:{ok:false,error:"PHOTO_NOT_AVAILABLE"}};
+
+      const p=await query(
+        "SELECT id,blob_key,visibility,moderation_status FROM photos WHERE id=$1 AND user_id=$2 LIMIT 1",
+        [photoId,t.id]
+      );
+      const photo=p.rows[0];
+      if(!photo||photo.moderation_status!=="approved"||!["matches","public"].includes(photo.visibility))
+        return {status:404,jsonBody:{ok:false,error:"PHOTO_NOT_AVAILABLE"}};
+
+      const blob=getProfilePhotosContainer().getBlockBlobClient(photo.blob_key);
+      if(!(await blob.exists())) return {status:404,jsonBody:{ok:false,error:"PHOTO_BLOB_NOT_FOUND"}};
+      const bytes=await blob.downloadToBuffer();
+      const props=await blob.getProperties();
+      return {status:200,headers:{"Content-Type":props.contentType||"image/jpeg","Cache-Control":"private, no-store"},body:bytes};
+    }catch(e){
+      context.error("MATCH_PHOTO_CONTENT_FAILED",e);
+      return {status:500,jsonBody:{ok:false,error:"MATCH_PHOTO_CONTENT_FAILED"}};
+    }
+  })
+});
+
 app.http("photoVisibility",{
   methods:["PATCH"],authLevel:"anonymous",route:"photos/{photoId}",
   handler:requireAuth(async(request,context,user)=>{
