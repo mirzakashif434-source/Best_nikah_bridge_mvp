@@ -773,3 +773,35 @@ CREATE TABLE IF NOT EXISTS user_presence (
 );
 CREATE INDEX IF NOT EXISTS idx_user_presence_last_seen
   ON user_presence(last_seen_at DESC);
+
+
+-- Four-photo same-person profile verification (additive).
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS photo_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS verification_set_id UUID;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS verification_slot SMALLINT;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS is_main_profile_photo BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE photos ADD COLUMN IF NOT EXISTS face_match_status TEXT;
+
+CREATE TABLE IF NOT EXISTS photo_verification_sets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft','pending','approved','rejected')),
+  provider TEXT NOT NULL DEFAULT 'manual-review',
+  automated_face_match BOOLEAN NOT NULL DEFAULT FALSE,
+  face_match_confidence NUMERIC(6,5),
+  submitted_at TIMESTAMPTZ,
+  reviewed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_photo_verification_sets_user_status
+  ON photo_verification_sets(user_id,status,created_at DESC);
+
+ALTER TABLE photos
+  ADD CONSTRAINT photos_verification_slot_check
+  CHECK (verification_slot IS NULL OR verification_slot BETWEEN 1 AND 4);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_photos_verification_set_slot
+  ON photos(verification_set_id,verification_slot)
+  WHERE verification_set_id IS NOT NULL AND verification_slot IS NOT NULL;
