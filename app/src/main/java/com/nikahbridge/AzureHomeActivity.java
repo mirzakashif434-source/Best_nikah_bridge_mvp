@@ -197,6 +197,14 @@ public class AzureHomeActivity extends Activity {
     private void matches(){
         base(); title("Real Compatibility Matches");
         TextView out=text("Loading real matches from Azure PostgreSQL…",15,false);root.addView(out);
+
+        // Keep the primary recovery action in the correct visual order.
+        // It stays hidden unless Azure confirms the real profile is incomplete.
+        Button complete=button("Complete My Real Profile",true);
+        complete.setVisibility(android.view.View.GONE);
+        complete.setOnClickListener(v->profile());
+        Button back=button("Back",false);back.setOnClickListener(v->home());
+
         AzureApiClient.get("/matches",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
@@ -216,14 +224,12 @@ public class AzureHomeActivity extends Activity {
             public void err(String m){runOnUiThread(()->{
                 if(m!=null && m.contains("HTTP 409") && m.contains("PROFILE_NOT_READY")){
                     out.setText("Your real profile is not ready yet. Complete your profile first; then real compatibility matching will become available.");
-                    Button complete=button("Complete My Real Profile",true);
-                    complete.setOnClickListener(v->profile());
+                    complete.setVisibility(android.view.View.VISIBLE);
                 }else{
                     out.setText("Matches unavailable: "+m);
                 }
             });}
         });
-        Button back=button("Back",false);back.setOnClickListener(v->home());
     }
 
     private void interests(){
