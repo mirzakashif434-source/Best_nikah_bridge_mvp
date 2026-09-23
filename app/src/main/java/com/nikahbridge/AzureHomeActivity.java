@@ -503,6 +503,10 @@ public class AzureHomeActivity extends Activity {
             });}
             public void err(String m){runOnUiThread(()->out.setText("Verification unavailable: "+m));}
         });
+        Button startIdentity=button("Start ID / Selfie Verification",true);
+        startIdentity.setOnClickListener(v->startActivity(new Intent(this,IdentityVerificationActivity.class)));
+        Button startPhotos=button("Start 4-Photo Verification",false);
+        startPhotos.setOnClickListener(v->startActivity(new Intent(this,RealFourPhotoActivity.class)));
         Button back=button("Back",false);back.setOnClickListener(v->home());
     }
 
