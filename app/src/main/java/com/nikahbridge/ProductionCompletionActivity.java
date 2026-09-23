@@ -37,6 +37,7 @@ public class ProductionCompletionActivity extends Activity {
         Button privacy=btn("Privacy Control Center",false);privacy.setOnClickListener(v->open(PrivacyControlCenterActivity.class));
         Button admin=btn("Admin Verification Review",false);admin.setOnClickListener(v->open(VerificationAdminActivity.class));
         Button core=btn("Open Azure Home",false);core.setOnClickListener(v->open(AzureHomeActivity.class));
+        Button back=btn("Back",false);back.setOnClickListener(v->finish());
         root.addView(txt("All data actions use Azure External ID, Azure Functions, PostgreSQL and Azure Blob Storage. Ad rewards use the production AdMob flow and server verification.",14,false));
     }
 }
