@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { getPool, query } = require("./db");
 const { requireAuth } = require("./auth");
+const { entitlementForUser } = require("./premiumAccess");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 
@@ -39,6 +40,20 @@ app.http("interestCreate",{
       if(!receiver.rows[0]||receiver.rows[0].status!=="active") return {status:404,jsonBody:{ok:false,error:"RECEIVER_NOT_FOUND"}};
       const blocked=await query("SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",[me.id,receiver.rows[0].id]);
       if(blocked.rows[0]) return {status:403,jsonBody:{ok:false,error:"USER_BLOCKED"}};
+
+      const existingInterest=await query(
+        "SELECT id,status,created_at FROM interests WHERE sender_user_id=$1 AND receiver_user_id=$2 LIMIT 1",
+        [me.id,receiver.rows[0].id]
+      );
+      const premium=await entitlementForUser(me.id);
+      if(!premium.active && !existingInterest.rows[0]){
+        const today=await query(
+          "SELECT count(*)::int AS count FROM interests WHERE sender_user_id=$1 AND created_at::date=(now() AT TIME ZONE 'UTC')::date",
+          [me.id]
+        );
+        const used=Number(today.rows[0]?.count||0),limit=3;
+        if(used>=limit) return {status:402,jsonBody:{ok:false,error:"FREE_DAILY_INTEREST_LIMIT",premiumRequired:true,limit,used,remaining:0}};
+      }
       const r=await query(
         `INSERT INTO interests(sender_user_id,receiver_user_id,status)
          VALUES($1,$2,'pending')
