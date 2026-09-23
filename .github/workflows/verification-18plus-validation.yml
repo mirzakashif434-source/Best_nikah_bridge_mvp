@@ -1,0 +1,94 @@
+name: Verification 18 Plus Production Validation
+
+on:
+  push:
+    branches: [verification-18plus-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js')"
+
+      - name: Verify exact 18 plus backend gate
+        run: |
+          set -euo pipefail
+          grep -Fq 'EXTRACT(YEAR FROM age(CURRENT_DATE,date_of_birth))::int AS age' azure-backend/src/ageGate.js
+          grep -Fq 'AGE_18_PLUS_REQUIRED' azure-backend/src/ageGate.js
+          grep -Fq 'DATE_OF_BIRTH_REQUIRED' azure-backend/src/ageGate.js
+          grep -Fq 'if(age<18)' azure-backend/src/ageGate.js
+          grep -Fq 'requireAdultProfile(me.id)' azure-backend/src/verification.js
+          grep -Fq 'requireAdultProfile(me.id)' azure-backend/src/photoVerification.js
+
+      - name: Verify all verification entry points protected
+        run: |
+          set -euo pipefail
+          test $(grep -c 'requireAdultProfile(me.id)' azure-backend/src/verification.js) -ge 2
+          test $(grep -c 'requireAdultProfile(me.id)' azure-backend/src/photoVerification.js) -ge 3
+          grep -Fq 'verification/identity' azure-backend/src/verification.js
+          grep -Fq 'verification/selfie' azure-backend/src/verification.js
+          grep -Fq 'photo-verification/start' azure-backend/src/photoVerification.js
+          grep -Fq 'photo-verification/{setId}/photos/{slot}' azure-backend/src/photoVerification.js
+          grep -Fq 'photo-verification/{setId}/submit' azure-backend/src/photoVerification.js
+
+      - name: Verify Android 18 plus UX
+        run: |
+          set -euo pipefail
+          grep -Fq 'Verification is available only to members age 18+ — male or female.' app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
+          grep -Fq '18+ ONLY — male or female.' app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java
+          grep -Fq 'Verification is only for age 18+.' app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
+          grep -Fq 'Verification is only for age 18+.' app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java
+
+      - name: Preserve four-photo and existing verification
+        run: |
+          set -euo pipefail
+          grep -Fq 'FOUR_PHOTOS_REQUIRED' azure-backend/src/photoVerification.js
+          grep -Fq 'MAIN_PHOTO_CAMERA_REQUIRED' azure-backend/src/photoVerification.js
+          grep -Fq 'verificationAdminReview' azure-backend/src/verification.js
+          grep -Fq 'verificationSelfieSubmit' azure-backend/src/verification.js
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed production AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
