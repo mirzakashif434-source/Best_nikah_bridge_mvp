@@ -156,7 +156,7 @@ public class ProductionMainActivity extends Activity {
                 startActivity(new Intent(ProductionMainActivity.this,AzureExternalAuthActivity.class));
                 finish();
             }else{
-                Toast.makeText(this,"Azure sign out failed. Please try again.",Toast.LENGTH_LONG).show();
+                LanguageManager.toast(this,"Azure sign out failed. Please try again.",Toast.LENGTH_LONG).show();
             }
         })));
 
