@@ -12,6 +12,8 @@ import org.json.JSONObject;
 
 public class GenderFilteredMatchesActivity extends Activity {
     private LinearLayout root;
+    private boolean premiumActive=false;
+    private final java.util.ArrayDeque<LinearLayout> hiddenCards=new java.util.ArrayDeque<>();
     private final Handler presenceHandler=new Handler(Looper.getMainLooper());
     private final Runnable presencePulse=new Runnable(){public void run(){presenceHeartbeat();presenceHandler.postDelayed(this,60000);}};
     private int dp(int v){return Premium2030Ui.dp(this,v);}
@@ -38,12 +40,15 @@ public class GenderFilteredMatchesActivity extends Activity {
         AzureApiClient.get("/matches",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
-                    JSONArray a=new JSONObject(body).optJSONArray("matches");
+                    JSONObject response=new JSONObject(body);
+                    premiumActive=response.optBoolean("premium",false);
+                    JSONArray a=response.optJSONArray("matches");
                     if(a==null||a.length()==0){root.addView(Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,"No eligible real profiles are available yet."));return;}
                     for(int i=0;i<a.length();i++){
                         JSONObject m=a.optJSONObject(i);if(m==null)continue;
                         final String receiverId=m.optString("userId","");
                         final String displayName=m.optString("displayName","Member");
+                        final String conversationId=m.optString("conversationId","");
                         LinearLayout card=Premium2030Ui.card(GenderFilteredMatchesActivity.this);
                         FrameLayout photoFrame=new FrameLayout(GenderFilteredMatchesActivity.this);
                         PrivacyPhotoView privateView=new PrivacyPhotoView(GenderFilteredMatchesActivity.this);
@@ -75,9 +80,20 @@ public class GenderFilteredMatchesActivity extends Activity {
                             TextView w=Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,why.toString());
                             w.setGravity(android.view.Gravity.START);card.addView(w);
                         }
-                        Button like=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"♡ Like");
-                        LinearLayout.LayoutParams llp=new LinearLayout.LayoutParams(-1,dp(52));llp.setMargins(0,dp(6),0,0);card.addView(like,llp);
-                        like.setOnClickListener(v->sendLike(receiverId,like));
+                        LinearLayout actions=new LinearLayout(GenderFilteredMatchesActivity.this);
+                        actions.setOrientation(LinearLayout.HORIZONTAL);
+                        Button like=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"✅");
+                        Button pass=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"❎");
+                        Button rewind=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"↩️");
+                        Button messageBtn=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"💬");
+                        LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(0,dp(54),1f);ap.setMargins(dp(2),dp(6),dp(2),0);
+                        actions.addView(like,ap);actions.addView(pass,ap);actions.addView(rewind,ap);actions.addView(messageBtn,ap);
+                        card.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+                        like.setOnClickListener(v->sendLike(receiverId,like,card));
+                        pass.setOnClickListener(v->passCard(card));
+                        rewind.setOnClickListener(v->rewindLast());
+                        messageBtn.setOnClickListener(v->openPremiumMessage(receiverId,conversationId));
+
                         Button interest=Premium2030Ui.primary(GenderFilteredMatchesActivity.this,"Send Interest");
                         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(54));lp.setMargins(0,dp(8),0,0);card.addView(interest,lp);
                         interest.setOnClickListener(v->sendInterest(receiverId,displayName,interest));
@@ -91,7 +107,7 @@ public class GenderFilteredMatchesActivity extends Activity {
             public void err(String message){runOnUiThread(()->root.addView(Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,"Could not load real Azure matches: "+message)));}
         });
     }
-    private void sendLike(String receiverId,Button button){
+    private void sendLike(String receiverId,Button button,LinearLayout card){
         if(receiverId==null||receiverId.trim().isEmpty()){LanguageManager.toast(this,"This profile cannot receive a like yet.",Toast.LENGTH_LONG).show();return;}
         try{
             JSONObject b=new JSONObject().put("toUid",receiverId);
@@ -103,6 +119,7 @@ public class GenderFilteredMatchesActivity extends Activity {
                         button.setText("♥ Liked");
                         int remaining=o.optInt("remaining",0);
                         LanguageManager.toast(GenderFilteredMatchesActivity.this,"Liked • "+remaining+" likes remaining in 24 hours",Toast.LENGTH_SHORT).show();
+                        hideCard(card);
                     }catch(Exception e){button.setText("♥ Liked");}
                 });}
                 public void err(String m){runOnUiThread(()->{
@@ -116,6 +133,63 @@ public class GenderFilteredMatchesActivity extends Activity {
                 });}
             });
         }catch(Exception e){button.setEnabled(true);button.setText("♡ Like");}
+    }
+
+    private void hideCard(LinearLayout card){
+        if(card==null||card.getVisibility()!=View.VISIBLE)return;
+        hiddenCards.push(card);card.setVisibility(View.GONE);
+    }
+
+    private void passCard(LinearLayout card){
+        hideCard(card);
+        LanguageManager.toast(this,"Passed. You can use ↩️ Back if your plan includes rewind.",Toast.LENGTH_SHORT).show();
+    }
+
+    private void rewindLast(){
+        if(!premiumActive){
+            LanguageManager.dialog(this)
+                .setTitle("Upgrade to use Back")
+                .setMessage("↩️ Back / Rewind is available with an upgraded plan so you can return to the last profile you liked or passed.")
+                .setPositiveButton("Upgrade",(d,w)->startActivity(new android.content.Intent(this,PremiumPlansActivity.class)))
+                .setNegativeButton("Not now",null).show();
+            return;
+        }
+        LinearLayout previous=hiddenCards.poll();
+        if(previous==null){LanguageManager.toast(this,"No previous profile to restore.",Toast.LENGTH_SHORT).show();return;}
+        previous.setVisibility(View.VISIBLE);
+        LanguageManager.toast(this,"Previous profile restored.",Toast.LENGTH_SHORT).show();
+    }
+
+    private void openPremiumMessage(String receiverId,String knownConversationId){
+        if(!premiumActive){
+            LanguageManager.dialog(this)
+                .setTitle("Upgrade to Message")
+                .setMessage("💬 Messaging from the Live Matches screen is available after upgrade.")
+                .setPositiveButton("Upgrade",(d,w)->startActivity(new android.content.Intent(this,PremiumPlansActivity.class)))
+                .setNegativeButton("Not now",null).show();
+            return;
+        }
+        AzureApiClient.get("/matches/"+Uri.encode(receiverId)+"/message-access",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    String cid=new JSONObject(body).optString("conversationId",knownConversationId);
+                    if(cid==null||cid.isEmpty()){LanguageManager.toast(GenderFilteredMatchesActivity.this,"Safe mutual chat is not ready yet.",Toast.LENGTH_LONG).show();return;}
+                    android.content.Intent i=new android.content.Intent(GenderFilteredMatchesActivity.this,SafeCommunicationActivity.class);
+                    i.putExtra("conversationId",cid);
+                    startActivity(i);
+                }catch(Exception e){LanguageManager.toast(GenderFilteredMatchesActivity.this,"Could not open safe chat.",Toast.LENGTH_LONG).show();}
+            });}
+            public void err(String m){runOnUiThread(()->{
+                if(m!=null&&m.contains("PREMIUM_REQUIRED_FOR_MATCH_MESSAGE")){
+                    startActivity(new android.content.Intent(GenderFilteredMatchesActivity.this,PremiumPlansActivity.class));
+                }else if(m!=null&&m.contains("MUTUAL_CHAT_REQUIRED")){
+                    LanguageManager.dialog(GenderFilteredMatchesActivity.this)
+                        .setTitle("Mutual connection required")
+                        .setMessage("For safety, messaging starts only after a real mutual connection. Your upgrade remains active; send/accept interest first, then chat.")
+                        .setPositiveButton("OK",null).show();
+                }else LanguageManager.toast(GenderFilteredMatchesActivity.this,"Message access unavailable.",Toast.LENGTH_LONG).show();
+            });}
+        });
     }
 
     private void suggestToFamilyCircle(String receiverId,Button button){
