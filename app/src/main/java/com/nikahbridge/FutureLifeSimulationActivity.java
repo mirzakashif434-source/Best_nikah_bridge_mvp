@@ -45,10 +45,10 @@ public class FutureLifeSimulationActivity extends Activity {
     }
 
     private void compare(CheckBox consent){
-        if(!AzureAuthManager.hasAccount(this)){Toast.makeText(this,"Azure sign in required.",Toast.LENGTH_LONG).show();return;}
-        if(!consent.isChecked()){Toast.makeText(this,"Permission is required before comparing partner answers.",Toast.LENGTH_LONG).show();return;}
+        if(!AzureAuthManager.hasAccount(this)){LanguageManager.toast(this,"Azure sign in required.",Toast.LENGTH_LONG).show();return;}
+        if(!consent.isChecked()){LanguageManager.toast(this,"Permission is required before comparing partner answers.",Toast.LENGTH_LONG).show();return;}
         StringBuilder a=new StringBuilder(),b=new StringBuilder();
-        for(int i=0;i<8;i++){String av=my[i].getText().toString().trim(),bv=partner[i].getText().toString().trim();if(av.length()<20||bv.length()<20){Toast.makeText(this,"Please answer all 8 scenarios in both sections.",Toast.LENGTH_LONG).show();return;}a.append("Scenario ").append(i+1).append(": ").append(av).append("\n");b.append("Scenario ").append(i+1).append(": ").append(bv).append("\n");}
+        for(int i=0;i<8;i++){String av=my[i].getText().toString().trim(),bv=partner[i].getText().toString().trim();if(av.length()<20||bv.length()<20){LanguageManager.toast(this,"Please answer all 8 scenarios in both sections.",Toast.LENGTH_LONG).show();return;}a.append("Scenario ").append(i+1).append(": ").append(av).append("\n");b.append("Scenario ").append(i+1).append(": ").append(bv).append("\n");}
         run.setEnabled(false);result.setText("Real Azure AI comparison in progress…");
         String prompt="Compare these two sets of marriage-scenario answers fairly. Return agreements, differences, issues to discuss, five practical questions and a neutral next step. Do not predict a marriage outcome or invent facts.\n\nPERSON A:\n"+a+"\nPERSON B:\n"+b;
         try{
@@ -63,7 +63,7 @@ public class FutureLifeSimulationActivity extends Activity {
     private void save(String output){
         try{
             JSONObject v=new JSONObject();for(int i=0;i<8;i++){v.put("my"+(i+1),my[i].getText().toString().trim());v.put("partner"+(i+1),partner[i].getText().toString().trim());}v.put("lastResult",output);
-            AzureApiClient.put("/settings/future_life_simulation",v.toString(),new AzureApiClient.Callback(){public void ok(int c,String b){}public void err(String m){runOnUiThread(()->Toast.makeText(FutureLifeSimulationActivity.this,"Comparison completed, but private Azure history could not be saved.",Toast.LENGTH_LONG).show());}});
+            AzureApiClient.put("/settings/future_life_simulation",v.toString(),new AzureApiClient.Callback(){public void ok(int c,String b){}public void err(String m){runOnUiThread(()->LanguageManager.toast(FutureLifeSimulationActivity.this,"Comparison completed, but private Azure history could not be saved.",Toast.LENGTH_LONG).show());}});
         }catch(Exception ignored){}
     }
 }
