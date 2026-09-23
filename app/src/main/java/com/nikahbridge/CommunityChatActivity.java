@@ -72,7 +72,7 @@ public class CommunityChatActivity extends Activity {
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(5),0,dp(5));messages.addView(card,lp);
     }
     private void sendMessageAzure(){
-        String value=composer.getText().toString().trim();if(value.isEmpty()){composer.setError("Write a message first");return;}if(value.length()>500){composer.setError("Maximum 500 characters");return;}
+        String value=composer.getText().toString().trim();if(value.isEmpty()){LanguageManager.setError(composer,"Write a message first");return;}if(value.length()>500){LanguageManager.setError(composer,"Maximum 500 characters");return;}
         JSONObject b=new JSONObject();try{b.put("text",value);}catch(Exception ignored){}
         AzureApiClient.post("/community/messages",b.toString(),new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){runOnUiThread(()->{composer.setText("");toast("Message sent to the real Azure community.");loadAzureCommunity();});}
