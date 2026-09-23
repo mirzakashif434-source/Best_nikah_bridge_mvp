@@ -54,10 +54,14 @@ jobs:
           set -euo pipefail
           test -f app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
           grep -Fq 'bestnikahbredge://circle/join?token=' azure-backend/src/familyCircle.js
+          grep -Eq 'route:[[:space:]]*"family-circle/invite/{token}"' azure-backend/src/familyCircle.js
+          grep -Fq 'https://play.google.com/store/apps/details?id=com.nikahbridge' azure-backend/src/familyCircle.js
+          grep -Fq 'shareUrl' azure-backend/src/familyCircle.js
           grep -Fq 'android:scheme="bestnikahbredge"' app/src/main/AndroidManifest.xml
           grep -Fq 'android:host="circle"' app/src/main/AndroidManifest.xml
           grep -Fq 'Intent.ACTION_SEND' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
           grep -Fq 'Share Invite on WhatsApp / SMS' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+          grep -Fq 'lastInviteShareUrl' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
           grep -Fq 'pendingInvite' app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
 
       - name: Verify owner and family controls
