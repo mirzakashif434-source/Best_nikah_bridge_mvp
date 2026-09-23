@@ -65,14 +65,14 @@ jobs:
           grep -Fq 'require("./featureParity")' azure-backend/src/index.js
           grep -Fq 'verifyAzureExternalIdToken' azure-backend/src/auth.js
           grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
-          grep -Fq 'route:"auth/azure/me"' azure-backend/src/azureExternalAuth.js
-          grep -Fq 'route:"profile"' azure-backend/src/profile.js
-          grep -Fq 'route:"blocks"' azure-backend/src/blocks.js
-          grep -Fq 'route:"admin/verifications"' azure-backend/src/verification.js
-          grep -Fq 'route:"help/ask"' azure-backend/src/helpLine.js
-          grep -Fq 'route:"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
-          grep -Fq 'route:"premium/plans"' azure-backend/src/premiumPlans.js
-          grep -Fq 'route:"community/messages"' azure-backend/src/community.js
+          grep -Eq 'route:[[:space:]]*"auth/azure/me"' azure-backend/src/azureExternalAuth.js
+          grep -Eq 'route:[[:space:]]*"profile"' azure-backend/src/profile.js
+          grep -Eq 'route:[[:space:]]*"blocks"' azure-backend/src/blocks.js
+          grep -Eq 'route:[[:space:]]*"admin/verifications"' azure-backend/src/verification.js
+          grep -Eq 'route:[[:space:]]*"help/ask"' azure-backend/src/helpLine.js
+          grep -Eq 'route:[[:space:]]*"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Eq 'route:[[:space:]]*"premium/plans"' azure-backend/src/premiumPlans.js
+          grep -Eq 'route:[[:space:]]*"community/messages"' azure-backend/src/community.js
           grep -Fq 'getProfilePhotosContainer' azure-backend/src/photos.js
           grep -Fq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
           for route in 'likes' 'entitlements/free-boost' 'connections/{connectionId}/nikah-promise' 'compatibility/living' 'compatibility/living/share' 'connections/{connectionId}/health-check'; do
@@ -94,7 +94,11 @@ jobs:
           grep -Fq 'AzureApiClient.get("/admin/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           grep -Fq 'AzureApiClient.get("/admin/verifications"' app/src/main/java/com/nikahbridge/VerificationAdminActivity.java
           grep -Fq 'AzureApiClient.get("/blocks"' app/src/main/java/com/nikahbridge/BlockedMembersActivity.java
+          grep -Fq 'AUTH_TIMEOUT_MS=12000L' app/src/main/java/com/nikahbridge/AzureApiClient.java
+          grep -Fq 'AZURE_AUTH_TIMEOUT' app/src/main/java/com/nikahbridge/AzureApiClient.java
+          grep -Fq 'AtomicBoolean' app/src/main/java/com/nikahbridge/AzureApiClient.java
           echo "SIX ANDROID CUTOVER SCREENS: PASS"
+          echo "AZURE API CLIENT TIMEOUT GUARD: PASS"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
