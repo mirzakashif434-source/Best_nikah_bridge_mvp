@@ -88,3 +88,54 @@ app.http("whoLikedYou",{
     }
   })
 });
+
+
+app.http("premiumAdvancedFiltersGet",{
+  methods:["GET"],authLevel:"anonymous",route:"premium/advanced-filters",
+  handler:requireAuth(async(request,context,authUser)=>{
+    try{
+      const {user,capabilities}=await accessForAuth(authUser);
+      if(!capabilities.advancedMatching) return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};
+      const r=await query(
+        "SELECT countries,cities,education_levels,family_involvement FROM partner_preferences WHERE user_id=$1 LIMIT 1",
+        [user.id]
+      );
+      return {status:200,jsonBody:{ok:true,filters:r.rows[0]||{countries:[],cities:[],education_levels:[],family_involvement:null}}};
+    }catch(e){
+      context.error("PREMIUM_ADVANCED_FILTERS_GET_FAILED",e);
+      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"PREMIUM_ADVANCED_FILTERS_GET_FAILED"}};
+    }
+  })
+});
+
+app.http("premiumAdvancedFiltersSave",{
+  methods:["PATCH"],authLevel:"anonymous",route:"premium/advanced-filters",
+  handler:requireAuth(async(request,context,authUser)=>{
+    try{
+      const {user,capabilities}=await accessForAuth(authUser);
+      if(!capabilities.advancedMatching) return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};
+      const b=await request.json();
+      const cleanList=(v)=>Array.isArray(v)?v.map(x=>String(x||"").trim().slice(0,120)).filter(Boolean).slice(0,30):[];
+      const countries=cleanList(b?.countries);
+      const cities=cleanList(b?.cities);
+      const education=cleanList(b?.educationLevels);
+      const family=String(b?.familyInvolvement||"").trim().slice(0,120)||null;
+      const r=await query(
+        `INSERT INTO partner_preferences(user_id,countries,cities,education_levels,family_involvement)
+         VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT(user_id) DO UPDATE SET
+           countries=EXCLUDED.countries,
+           cities=EXCLUDED.cities,
+           education_levels=EXCLUDED.education_levels,
+           family_involvement=EXCLUDED.family_involvement,
+           updated_at=now()
+         RETURNING countries,cities,education_levels,family_involvement`,
+        [user.id,countries,cities,education,family]
+      );
+      return {status:200,jsonBody:{ok:true,filters:r.rows[0]}};
+    }catch(e){
+      context.error("PREMIUM_ADVANCED_FILTERS_SAVE_FAILED",e);
+      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"PREMIUM_ADVANCED_FILTERS_SAVE_FAILED"}};
+    }
+  })
+});
