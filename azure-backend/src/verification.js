@@ -6,7 +6,9 @@ const { getVerificationDocumentsContainer } = require("./storage");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 const ALLOWED_TYPES=new Set(["image/jpeg","image/png","application/pdf"]);
+const SELFIE_TYPES=new Set(["image/jpeg","image/png"]);
 const MAX_BYTES=8*1024*1024;
+const MAX_SELFIE_BYTES=4*1024*1024;
 
 async function ensureUser(user){
   const email=text(user.email,320).toLowerCase();
@@ -22,6 +24,20 @@ async function ensureUser(user){
   return r.rows[0];
 }
 
+async function storeVerificationFile(me,file,verificationType,maxBytes,allowedTypes){
+  if(!file||typeof file.arrayBuffer!=="function"){const e=new Error("DOCUMENT_REQUIRED");e.statusCode=400;throw e;}
+  const contentType=text(file.type,100).toLowerCase();
+  if(!allowedTypes.has(contentType)){const e=new Error("UNSUPPORTED_DOCUMENT_TYPE");e.statusCode=400;throw e;}
+  const bytes=Buffer.from(await file.arrayBuffer());
+  if(bytes.length===0||bytes.length>maxBytes){const e=new Error("DOCUMENT_SIZE_INVALID");e.statusCode=400;throw e;}
+  const ext=contentType==="application/pdf"?"pdf":contentType==="image/png"?"png":"jpg";
+  const key=me.id+"/"+verificationType+"/"+crypto.randomUUID()+"."+ext;
+  const blob=getVerificationDocumentsContainer().getBlockBlobClient(key);
+  await blob.uploadData(bytes,{blobHTTPHeaders:{blobContentType:contentType,blobCacheControl:"no-store"}});
+  const r=await query("INSERT INTO verifications(user_id,verification_type,status,provider,document_blob_key,document_content_type,submitted_at) VALUES($1,$2,'pending','azure-private-storage',$3,$4,now()) RETURNING id,verification_type,status,submitted_at",[me.id,verificationType,key,contentType]);
+  return r.rows[0];
+}
+
 app.http("verificationSubmit",{
   methods:["POST"],authLevel:"anonymous",route:"verification/identity",
   handler:requireAuth(async(request,context,user)=>{
@@ -30,20 +46,23 @@ app.http("verificationSubmit",{
       if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
       const form=await request.formData();
       const documentType=text(form.get("documentType"),30).toLowerCase();
-      const file=form.get("document");
       if(!["identity","manual"].includes(documentType)) return {status:400,jsonBody:{ok:false,error:"INVALID_VERIFICATION_TYPE"}};
-      if(!file||typeof file.arrayBuffer!=="function") return {status:400,jsonBody:{ok:false,error:"DOCUMENT_REQUIRED"}};
-      const contentType=text(file.type,100).toLowerCase();
-      if(!ALLOWED_TYPES.has(contentType)) return {status:400,jsonBody:{ok:false,error:"UNSUPPORTED_DOCUMENT_TYPE"}};
-      const bytes=Buffer.from(await file.arrayBuffer());
-      if(bytes.length===0||bytes.length>MAX_BYTES) return {status:400,jsonBody:{ok:false,error:"DOCUMENT_SIZE_INVALID"}};
-      const ext=contentType==="application/pdf"?"pdf":contentType==="image/png"?"png":"jpg";
-      const key=me.id+"/"+crypto.randomUUID()+"."+ext;
-      const blob=getVerificationDocumentsContainer().getBlockBlobClient(key);
-      await blob.uploadData(bytes,{blobHTTPHeaders:{blobContentType:contentType,blobCacheControl:"no-store"}});
-      const r=await query("INSERT INTO verifications(user_id,verification_type,status,provider,document_blob_key,document_content_type,submitted_at) VALUES($1,$2,'pending','azure-private-storage',$3,$4,now()) RETURNING id,verification_type,status,submitted_at",[me.id,documentType,key,contentType]);
-      return {status:201,jsonBody:{ok:true,verification:r.rows[0]}};
-    }catch(e){context.error("VERIFICATION_SUBMIT_FAILED",e);return {status:500,jsonBody:{ok:false,error:"VERIFICATION_SUBMIT_FAILED"}};}
+      const verification=await storeVerificationFile(me,form.get("document"),documentType,MAX_BYTES,ALLOWED_TYPES);
+      return {status:201,jsonBody:{ok:true,verification}};
+    }catch(e){context.error("VERIFICATION_SUBMIT_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"VERIFICATION_SUBMIT_FAILED"}};}
+  })
+});
+
+app.http("verificationSelfieSubmit",{
+  methods:["POST"],authLevel:"anonymous",route:"verification/selfie",
+  handler:requireAuth(async(request,context,user)=>{
+    try{
+      const me=await ensureUser(user);
+      if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      const form=await request.formData();
+      const verification=await storeVerificationFile(me,form.get("selfie"),"selfie",MAX_SELFIE_BYTES,SELFIE_TYPES);
+      return {status:201,jsonBody:{ok:true,verification,automatedLiveness:false,reviewRequired:true}};
+    }catch(e){context.error("VERIFICATION_SELFIE_SUBMIT_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"VERIFICATION_SELFIE_SUBMIT_FAILED"}};}
   })
 });
 
@@ -58,9 +77,9 @@ app.http("verificationStatus",{
   })
 });
 
-
 async function requireVerificationAdmin(user){
-  const r=await query("SELECT id,role,status FROM users WHERE firebase_uid=$1 LIMIT 1",[user.uid]);
+  const subject=(user.azure_subject||"").trim();
+  const r=await query("SELECT id,role,status FROM users WHERE (azure_subject=$1 OR firebase_uid=$2) LIMIT 1",[subject,user.uid]);
   const me=r.rows[0];
   if(!me || me.status!=="active"){const e=new Error("USER_NOT_ACTIVE");e.statusCode=403;throw e;}
   if(!["admin","moderator"].includes(me.role)){const e=new Error("ADMIN_REQUIRED");e.statusCode=403;throw e;}
