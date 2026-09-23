@@ -27,7 +27,9 @@ public class SafeCommunicationActivity extends Activity {
         conversationId=input("Conversation ID from a real mutual connection");message=input("Write a respectful message");
         Button send=btn("Send Secure Azure Message",true);root.addView(send,new LinearLayout.LayoutParams(-1,dp(62)));send.setOnClickListener(v->send());
         Button load=btn("Load Recent Messages",false);root.addView(load,new LinearLayout.LayoutParams(-1,dp(62)));load.setOnClickListener(v->loadMessages());
-        status=txt("Status: waiting",15,false);root.addView(status);history=txt("",15,false);root.addView(history);
+        status=txt("Status: waiting",15,false);root.addView(status);
+        root.addView(txt("Recent secure Azure messages",15,true));
+        history=txt("",15,false);LanguageManager.protectUserContent(history);root.addView(history);
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
     }
 
@@ -61,7 +63,7 @@ public class SafeCommunicationActivity extends Activity {
         AzureApiClient.get("/conversations/"+id+"/messages",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
-                    JSONArray a=new JSONObject(body).optJSONArray("messages");StringBuilder out=new StringBuilder("Recent secure Azure messages:\n\n");
+                    JSONArray a=new JSONObject(body).optJSONArray("messages");StringBuilder out=new StringBuilder();
                     if(a==null||a.length()==0)out.append("No messages yet.");
                     else for(int i=0;i<a.length();i++){JSONObject m=a.optJSONObject(i);out.append(m.optString("sender_user_id","Member")).append(": ").append(m.optString("body","")).append("\n\n");}
                     history.setText(out.toString());status.setText("Status: real Azure conversation history loaded");
