@@ -46,7 +46,7 @@ public class AzureExternalAuthActivity extends Activity {
         TextView title = new TextView(this);
         title.setText("Microsoft / Azure Sign in");
         title.setTextSize(25);
-        title.setTextColor(Color.rgb(30,45,41));
+        title.setTextColor(Premium2030Ui.TEXT);
         root.addView(title);
 
         status = new TextView(this);
