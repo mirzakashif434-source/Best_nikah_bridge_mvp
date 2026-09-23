@@ -81,7 +81,7 @@ public class CommunityChatActivity extends Activity {
     }
     private void reportAzureMessage(JSONObject d){
         final String[] reasons={"Spam / repeated promotion","Scam / money request","Harassment / abuse","Inappropriate content","Private contact details","Other"};
-        new AlertDialog.Builder(this).setTitle("Report community message").setItems(reasons,(dialog,which)->{
+        LanguageManager.dialog(this).setTitle("Report community message").setItems(reasons,(dialog,which)->{
             try{JSONObject b=new JSONObject();b.put("messageId",d.optString("id"));b.put("reportedUid",d.optString("author_uid"));b.put("reason",reasons[which]);AzureApiClient.post("/community/reports",b.toString(),new AzureApiClient.Callback(){public void ok(int code,String body){toast("Report sent securely to Azure moderation.");}public void err(String message){toast("Report could not be submitted.");}});}catch(Exception e){toast("Report could not be submitted.");}
         }).show();
     }
@@ -89,13 +89,13 @@ public class CommunityChatActivity extends Activity {
         if(uid.isEmpty())return;try{JSONObject b=new JSONObject();b.put("userId",uid);AzureApiClient.post("/community/mutes",b.toString(),new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.add(uid);loadAzureCommunity();toast(name+" muted in Azure Community Chat.");}public void err(String message){toast("Mute could not be saved.");}});}catch(Exception e){toast("Mute could not be saved.");}
     }
     private void blockAzureUser(String uid,String name){
-        if(uid.isEmpty())return;new AlertDialog.Builder(this).setTitle("Block "+name+"?").setMessage("This is a real Azure safety action and blocks the member.").setNegativeButton("Cancel",null).setPositiveButton("Block",(dialog,which)->{try{JSONObject b=new JSONObject();b.put("userId",uid);AzureApiClient.post("/blocks",b.toString(),new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.add(uid);loadAzureCommunity();toast("Member blocked securely in Azure.");}public void err(String message){toast("Block failed: "+message);}});}catch(Exception e){toast("Block failed.");}}).show();
+        if(uid.isEmpty())return;LanguageManager.dialog(this).setTitle("Block "+name+"?").setMessage("This is a real Azure safety action and blocks the member.").setNegativeButton("Cancel",null).setPositiveButton("Block",(dialog,which)->{try{JSONObject b=new JSONObject();b.put("userId",uid);AzureApiClient.post("/blocks",b.toString(),new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.add(uid);loadAzureCommunity();toast("Member blocked securely in Azure.");}public void err(String message){toast("Block failed: "+message);}});}catch(Exception e){toast("Block failed.");}}).show();
     }
-    private void showSafetyAzure(){new AlertDialog.Builder(this).setTitle("My Chat Safety").setItems(new String[]{"Refresh my safety settings","Unmute a member"},(d,w)->{if(w==0){loadAzureMutes();toast("Azure safety settings refreshed.");}else showAzureUnmute();}).show();}
+    private void showSafetyAzure(){LanguageManager.dialog(this).setTitle("My Chat Safety").setItems(new String[]{"Refresh my safety settings","Unmute a member"},(d,w)->{if(w==0){loadAzureMutes();toast("Azure safety settings refreshed.");}else showAzureUnmute();}).show();}
     private void showAzureUnmute(){
         if(mutedUids.isEmpty()){toast("No muted members.");return;}String[] ids=mutedUids.toArray(new String[0]);
-        new AlertDialog.Builder(this).setTitle("Select member to unmute").setItems(ids,(d,w)->{String id=ids[w];AzureApiClient.delete("/community/mutes/"+id,"",new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.remove(id);loadAzureCommunity();toast("Member unmuted in Azure.");}public void err(String message){toast("Unmute failed.");}});}).show();
+        LanguageManager.dialog(this).setTitle("Select member to unmute").setItems(ids,(d,w)->{String id=ids[w];AzureApiClient.delete("/community/mutes/"+id,"",new AzureApiClient.Callback(){public void ok(int code,String body){mutedUids.remove(id);loadAzureCommunity();toast("Member unmuted in Azure.");}public void err(String message){toast("Unmute failed.");}});}).show();
     }
 
-    private void toast(String value){Toast.makeText(this,value,Toast.LENGTH_LONG).show();}
+    private void toast(String value){LanguageManager.toast(this,value,Toast.LENGTH_LONG).show();}
 }
