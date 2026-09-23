@@ -85,8 +85,8 @@ public class BlockedMembersActivity extends Activity {
     private void unblock(String userId,LinearLayout row,Button button){
         button.setEnabled(false);button.setText("Unblocking…");
         AzureApiClient.delete("/blocks/"+userId,"{}",new AzureApiClient.Callback(){
-            @Override public void ok(int code,String body){runOnUiThread(()->{list.removeView(row);Toast.makeText(BlockedMembersActivity.this,"Member unblocked securely in Azure.",Toast.LENGTH_LONG).show();status.setText("Status: real Azure block removed");});}
-            @Override public void err(String message){runOnUiThread(()->{button.setEnabled(true);button.setText("Unblock");Toast.makeText(BlockedMembersActivity.this,"Unblock failed: "+message,Toast.LENGTH_LONG).show();});}
+            @Override public void ok(int code,String body){runOnUiThread(()->{list.removeView(row);LanguageManager.toast(BlockedMembersActivity.this,"Member unblocked securely in Azure.",Toast.LENGTH_LONG).show();status.setText("Status: real Azure block removed");});}
+            @Override public void err(String message){runOnUiThread(()->{button.setEnabled(true);button.setText("Unblock");LanguageManager.toast(BlockedMembersActivity.this,"Unblock failed: "+message,Toast.LENGTH_LONG).show();});}
         });
     }
 }
