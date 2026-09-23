@@ -57,3 +57,6 @@ require("./ownerEarnings");
 require("./featureParity");
 
 require("./settings");
+
+// Production 14-language UI translation service.
+require("./localization");
