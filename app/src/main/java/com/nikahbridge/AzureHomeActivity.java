@@ -372,12 +372,25 @@ public class AzureHomeActivity extends Activity {
         AzureApiClient.get("/privacy",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
-                    JSONObject p=new JSONObject(body).optJSONObject("privacy");
-                    if(p==null){out.setText("Privacy settings are ready.");return;}
-                    discover.setChecked(p.optBoolean("profile_discoverable",true));
-                    city.setChecked(p.optBoolean("show_city",true));
-                    photo.setChecked(p.optBoolean("show_photo_to_matches",true));
-                    out.setText("Current privacy settings loaded.");
+                    JSONObject response=new JSONObject(body);
+                    JSONObject p=response.optJSONObject("privacy");
+                    if(p==null){
+                        Object raw=response.opt("privacy");
+                        if(raw instanceof String){
+                            String value=((String)raw).trim();
+                            if(!value.isEmpty()&&!"null".equalsIgnoreCase(value)){
+                                try{p=new JSONObject(value);}catch(Exception ignored){}
+                            }
+                        }
+                    }
+                    if(p==null){
+                        out.setText("Privacy settings are ready.");
+                        return;
+                    }
+                    discover.setChecked(p.optBoolean("profile_discoverable",false));
+                    city.setChecked(p.optBoolean("show_city",false));
+                    photo.setChecked(p.optBoolean("show_photo_to_matches",false));
+                    out.setText("Current privacy settings loaded securely.");
                 }catch(Exception e){out.setText("Privacy settings could not be displayed.");}
             });}
             public void err(String m){runOnUiThread(()->out.setText("Privacy unavailable: "+m));}
@@ -386,7 +399,10 @@ public class AzureHomeActivity extends Activity {
         save.setOnClickListener(v->{try{
             JSONObject b=new JSONObject();b.put("profileDiscoverable",discover.isChecked());b.put("showCity",city.isChecked());b.put("showPhotoToMatches",photo.isChecked());
             AzureApiClient.patch("/privacy",b.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String body){runOnUiThread(()->toast("Privacy controls saved in Azure."));}
+                public void ok(int code,String body){runOnUiThread(()->{
+                    out.setText("Privacy controls saved securely.");
+                    toast("Privacy controls saved in Azure.");
+                });}
                 public void err(String m){runOnUiThread(()->toast("Privacy save failed: "+m));}
             });
         }catch(Exception e){toast("Privacy data invalid.");}});
