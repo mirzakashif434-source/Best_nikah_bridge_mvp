@@ -26,7 +26,7 @@ final class AzureApiClient {
         c=(HttpURLConnection)new URL(BASE+path).openConnection();
         c.setRequestMethod("GET");c.setConnectTimeout(15000);c.setReadTimeout(25000);
         c.setRequestProperty("Authorization","Bearer "+token);
-        c.setRequestProperty("Accept","image/*");
+        c.setRequestProperty("Accept","image/*"); c.setRequestProperty("X-App-Language",LanguageManager.currentCode());
         int code=c.getResponseCode();
         InputStream in=code>=400?c.getErrorStream():c.getInputStream();
         if(code>=200&&code<300){
@@ -57,6 +57,7 @@ final class AzureApiClient {
         c.setConnectTimeout(20000); c.setReadTimeout(30000);
         c.setRequestProperty("Authorization","Bearer "+token);
         c.setRequestProperty("Accept","application/json");
+        c.setRequestProperty("X-App-Language",LanguageManager.currentCode());
         c.setRequestProperty("Content-Type","multipart/form-data; boundary="+boundary);
         try(DataOutputStream o=new DataOutputStream(c.getOutputStream())){
           if(names!=null) for(int i=0;i<names.length;i++){
@@ -80,6 +81,7 @@ final class AzureApiClient {
         c.setRequestMethod(method); c.setConnectTimeout(15000); c.setReadTimeout(25000);
         c.setRequestProperty("Authorization","Bearer "+token);
         c.setRequestProperty("Accept","application/json");
+        c.setRequestProperty("X-App-Language",LanguageManager.currentCode());
         if(body!=null){
           c.setDoOutput(true); c.setRequestProperty("Content-Type",contentType);
           try(OutputStream o=c.getOutputStream()){o.write(body.getBytes(StandardCharsets.UTF_8));}
