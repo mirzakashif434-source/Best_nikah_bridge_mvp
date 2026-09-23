@@ -52,8 +52,29 @@ public class SafeCommunicationActivity extends Activity {
         try{
             JSONObject j=new JSONObject().put("body",body);status.setText("Status: sending securely through Azure…");
             AzureApiClient.post("/conversations/"+id+"/messages",j.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String response){runOnUiThread(()->{message.setText("");status.setText("Status: Azure message sent");loadMessages();});}
-                public void err(String m){runOnUiThread(()->status.setText("Status: not sent — "+m));}
+                public void ok(int code,String response){runOnUiThread(()->{
+                    message.setText("");
+                    try{
+                        JSONObject o=new JSONObject(response);
+                        if(o.optBoolean("waitingForReply",false)){
+                            status.setText("Status: 2 messages sent — now wait for her reply");
+                            LanguageManager.dialog(SafeCommunicationActivity.this)
+                                .setTitle("Please wait for her reply")
+                                .setMessage("You have sent 2 messages. You cannot send another message until she replies. Once she replies, regular chat will open for both of you.")
+                                .setPositiveButton("OK",null).show();
+                        }else status.setText("Status: Azure message sent");
+                    }catch(Exception e){status.setText("Status: Azure message sent");}
+                    loadMessages();
+                });}
+                public void err(String m){runOnUiThread(()->{
+                    if(m!=null&&m.contains("WAIT_FOR_HER_REPLY")){
+                        status.setText("Status: waiting for her reply");
+                        LanguageManager.dialog(SafeCommunicationActivity.this)
+                            .setTitle("Message paused")
+                            .setMessage("You already sent 2 messages. Please wait for her reply. Your next message will be available after she replies.")
+                            .setPositiveButton("OK",null).show();
+                    }else status.setText("Status: not sent — "+m);
+                });}
             });
         }catch(Exception e){status.setText("Status: invalid message");}
     }
