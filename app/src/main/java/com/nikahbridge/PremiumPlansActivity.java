@@ -56,7 +56,7 @@ public class PremiumPlansActivity extends Activity {
         root.addView(Premium2030Ui.title(this,"Go Premium"));
         root.addView(Premium2030Ui.subtitle(this,"Unlock more opportunities for your halal journey."));
         root.addView(Premium2030Ui.heroLine(this,"20 • 40 • 60 SAR — Real Google Play Billing"));
-        add("Real Google Play purchases only. No demo plans, fake balances, or simulated payments.", 14, false);
+        add("Real Google Play purchases only. Premium access is granted only after verified Play purchase confirmation.", 14, false);
         add("The final price and payment screen are supplied by Google Play for your country.", 14, false);
         status = new TextView(this);
         status.setTextSize(15);
