@@ -21,7 +21,7 @@ public class PostVerificationFeatureHubActivity extends Activity {
         ScrollView s=new ScrollView(this);s.setFillViewport(true);s.setBackgroundColor(light);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(24),dp(20),dp(32));s.addView(root);setContentView(s);
         TextView h=text("Best Nikah Bridge",29,true);h.setGravity(Gravity.CENTER);root.addView(h);
         root.addView(text("Verified member feature hub",19,true));
-        root.addView(text("After identity verification, your real production tools are available here. These buttons open the existing Firebase-backed activities. No demo members, fake results or placeholder actions are used.",15,false));
+        root.addView(text("After identity verification, your real production tools are available here. These buttons open the existing Azure-backed activities. No demo members, fake results or placeholder actions are used.",15,false));
         root.addView(text("💎 Marriage Planning",20,true));
         button("💎 Nikah Blueprint",NikahBlueprintActivity.class,true);
         button("🔥 Future Life Simulation",FutureLifeSimulationActivity.class,true);
