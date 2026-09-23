@@ -76,6 +76,7 @@ public class AzureHomeActivity extends Activity {
 
         Button profile=button("My Real Azure Profile",true);
         Button matches=button("Real Compatibility Matches",true);
+        Button seriousPlus=button("Serious Nikah Plus",true);
         Button interests=button("Mutual Interests",true);
         Button family=button("Family / Wali Connect",true);
         Button privacy=button("Privacy Controls",true);
@@ -88,6 +89,7 @@ public class AzureHomeActivity extends Activity {
 
         profile.setOnClickListener(v->profile());
         matches.setOnClickListener(v->matches());
+        seriousPlus.setOnClickListener(v->startActivity(new Intent(this,SeriousNikahPlusActivity.class)));
         interests.setOnClickListener(v->interests());
         family.setOnClickListener(v->familyWali());
         privacy.setOnClickListener(v->privacy());
