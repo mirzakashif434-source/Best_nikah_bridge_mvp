@@ -64,6 +64,9 @@ public class GenderFilteredMatchesActivity extends Activity {
                         Button interest=Premium2030Ui.primary(GenderFilteredMatchesActivity.this,"Send Interest");
                         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(54));lp.setMargins(0,dp(8),0,0);card.addView(interest,lp);
                         interest.setOnClickListener(v->sendInterest(receiverId,displayName,interest));
+                        Button familySuggest=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"Suggest to Family Circle");
+                        LinearLayout.LayoutParams flp=new LinearLayout.LayoutParams(-1,dp(52));flp.setMargins(0,dp(6),0,0);card.addView(familySuggest,flp);
+                        familySuggest.setOnClickListener(v->suggestToFamilyCircle(receiverId,familySuggest));
                         root.addView(card);
                     }
                 }catch(Exception e){root.addView(Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,"Azure matches could not be read."));}
@@ -71,6 +74,18 @@ public class GenderFilteredMatchesActivity extends Activity {
             public void err(String message){runOnUiThread(()->root.addView(Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,"Could not load real Azure matches: "+message)));}
         });
     }
+    private void suggestToFamilyCircle(String receiverId,Button button){
+        if(receiverId==null||receiverId.trim().isEmpty()){LanguageManager.toast(this,"This profile cannot be suggested yet.",Toast.LENGTH_LONG).show();return;}
+        try{
+            JSONObject body=new JSONObject().put("suggestedUserId",receiverId).put("note","");
+            button.setEnabled(false);button.setText("Suggesting…");
+            AzureApiClient.post("/family-circle/suggestions",body.toString(),new AzureApiClient.Callback(){
+                public void ok(int code,String response){runOnUiThread(()->{button.setText("Suggested to Family Circle");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Match suggestion sent to Family Circle.",Toast.LENGTH_SHORT).show();});}
+                public void err(String message){runOnUiThread(()->{button.setEnabled(true);button.setText("Suggest to Family Circle");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Family Circle suggestion could not be sent.",Toast.LENGTH_LONG).show();});}
+            });
+        }catch(Exception e){button.setEnabled(true);button.setText("Suggest to Family Circle");}
+    }
+
     private void sendInterest(String receiverId,String name,Button button){
         if(receiverId==null||receiverId.trim().isEmpty()){LanguageManager.toast(this,"This match cannot receive an interest yet.",Toast.LENGTH_LONG).show();return;}
         try{
