@@ -2,6 +2,8 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.content.Context;
+import android.util.Base64;
+import org.json.JSONObject;
 
 import com.microsoft.identity.client.AcquireTokenParameters;
 import com.microsoft.identity.client.AcquireTokenSilentParameters;
@@ -52,8 +54,11 @@ final class AzureAuthManager {
         // from restarting authentication/navigation.
         synchronized (AzureAuthManager.class) {
             if (cachedAccessToken != null && !cachedAccessToken.trim().isEmpty()) {
-                callback.ok(cachedAccessToken);
-                return;
+                if (isTokenUsable(cachedAccessToken)) {
+                    callback.ok(cachedAccessToken);
+                    return;
+                }
+                cachedAccessToken = null;
             }
         }
 
@@ -247,6 +252,19 @@ final class AzureAuthManager {
                 .build();
 
         app.acquireToken(parameters);
+    }
+
+    private static boolean isTokenUsable(String token) {
+        try {
+            String[] parts = token.split("\\.");
+            if (parts.length < 2) return false;
+            String json = new String(Base64.decode(parts[1], Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING), java.nio.charset.StandardCharsets.UTF_8);
+            long exp = new JSONObject(json).optLong("exp", 0L);
+            long now = System.currentTimeMillis() / 1000L;
+            return exp > now + 60L;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private static String safe(String value) {
