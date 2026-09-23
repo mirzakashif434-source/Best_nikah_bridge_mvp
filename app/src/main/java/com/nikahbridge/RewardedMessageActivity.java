@@ -73,7 +73,12 @@ public class RewardedMessageActivity extends Activity {
                     runOnUiThread(() -> status.setText("Could not load secure Azure rewarded-ad configuration."));
                 }
             }
-            @Override public void err(String message) { runOnUiThread(() -> status.setText("Azure rewarded configuration unavailable.")); }
+            @Override public void err(String message) { runOnUiThread(() -> {
+                if(message!=null&&message.contains("PREMIUM_AD_FREE")){
+                    status.setText("Serious Nikah Plus is ad-free. Rewarded ads are disabled for your paid plan.");
+                    watch.setEnabled(false);
+                }else status.setText("Azure rewarded configuration unavailable.");
+            }); }
         });
     }
 
