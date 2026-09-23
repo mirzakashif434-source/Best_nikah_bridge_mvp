@@ -13,7 +13,7 @@ import org.json.JSONObject;
 /** Real timeline matching using Azure match results and stated marriage timelines. */
 public class MarriageTimelineMatchingActivity extends Activity {
     private LinearLayout root;
-    private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
+    private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
     @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void render(){
