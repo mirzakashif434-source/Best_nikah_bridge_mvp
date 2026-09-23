@@ -61,7 +61,7 @@ public class OwnerLiveAnalyticsActivity extends Activity {
     }
 
     private void clearDynamic(){
-        while(root.getChildCount()>7)root.removeViewAt(4);
+        while(root.getChildCount()>7)root.removeViewAt(7);
     }
 
     private String money(double v){return String.format(java.util.Locale.US,"%.2f",v);}
