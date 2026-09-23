@@ -122,7 +122,9 @@ final class Premium2030Ui {
     }
 
     static void addButton(LinearLayout root,Button b){
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(root.getContext(),58));
+        b.setMinHeight(dp(root.getContext(),58));
+        b.setPadding(dp(root.getContext(),14),dp(root.getContext(),10),dp(root.getContext(),14),dp(root.getContext(),10));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
         lp.setMargins(0,dp(root.getContext(),5),0,dp(root.getContext(),5));
         root.addView(b,lp);
     }
