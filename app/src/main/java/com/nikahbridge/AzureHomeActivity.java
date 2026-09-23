@@ -46,7 +46,11 @@ public class AzureHomeActivity extends Activity {
         // below the status bar and above the Android navigation/gesture area.
         ViewCompat.setOnApplyWindowInsetsListener(s,(v,insets)->{
             Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(bars.left,bars.top,bars.right,bars.bottom);
+            // Keep the scroll container edge-to-edge safe, but put the bottom inset
+            // on the content root so the final action button can never sit under
+            // Android's navigation/gesture area.
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(18),dp(20),dp(18),dp(32)+bars.bottom);
             return insets;
         });
         ViewCompat.requestApplyInsets(s);
