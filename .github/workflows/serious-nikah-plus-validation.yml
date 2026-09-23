@@ -1,0 +1,139 @@
+name: Serious Nikah Plus Production Validation
+
+on:
+  push:
+    branches: [serious-nikah-plus-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
+
+      - name: Verify Serious Nikah Plus tier engine
+        run: |
+          set -euo pipefail
+          grep -Fq 'premium_basic_20' azure-backend/src/premiumAccess.js
+          grep -Fq 'premium_plus_40' azure-backend/src/premiumAccess.js
+          grep -Fq 'premium_vip_60' azure-backend/src/premiumAccess.js
+          grep -Fq 'familyCircleLimit:vip?10:plus?7:basic?4:2' azure-backend/src/premiumAccess.js
+          grep -Fq 'aiNikahAssistant:vip' azure-backend/src/premiumAccess.js
+          grep -Fq 'advancedMatching:plus' azure-backend/src/premiumAccess.js
+          grep -Fq 'priorityVisibility:vip' azure-backend/src/premiumAccess.js
+
+      - name: Verify real conversion and interest limits
+        run: |
+          set -euo pipefail
+          grep -Eq 'route:[[:space:]]*"premium/serious-plus-summary"' azure-backend/src/seriousNikahPlus.js
+          grep -Eq 'route:[[:space:]]*"premium/who-liked-you"' azure-backend/src/seriousNikahPlus.js
+          grep -Fq "i.receiver_user_id=\$1 AND i.status='pending'" azure-backend/src/seriousNikahPlus.js
+          grep -Fq 'FREE_DAILY_INTEREST_LIMIT' azure-backend/src/interests.js
+          grep -Fq 'limit=3' azure-backend/src/interests.js
+          ! grep -RniE 'fake like|fake interest|random interest|Math\.random.*interest' azure-backend/src app/src/main/java
+
+      - name: Verify bill-control premium gates
+        run: |
+          set -euo pipefail
+          grep -Fq 'PREMIUM_VIP_REQUIRED' azure-backend/src/aiNikahAssistant.js
+          grep -Fq 'PREMIUM_PLUS_REQUIRED' azure-backend/src/aiCompatibility.js
+          grep -Fq 'PREMIUM_PLUS_REQUIRED' azure-backend/src/matchDetail.js
+          grep -Fq 'PREMIUM_AD_FREE' azure-backend/src/rewardedAds.js
+          grep -Fq 'Serious Nikah Plus is ad-free' app/src/main/java/com/nikahbridge/RewardedMessageActivity.java
+
+      - name: Verify Family Circle tier limits
+        run: |
+          set -euo pipefail
+          grep -Fq 'capabilitiesFor(ownerPremium).familyCircleLimit' azure-backend/src/familyCircle.js
+          grep -Fq 'FAMILY_CIRCLE_MEMBER_LIMIT' azure-backend/src/familyCircle.js
+          grep -Fq 'Circle member limit:' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+
+      - name: Verify advanced premium filters
+        run: |
+          set -euo pipefail
+          grep -Fq 'profiles ADD COLUMN IF NOT EXISTS education' azure-backend/database/schema.sql
+          grep -Fq 'partner_preferences ADD COLUMN IF NOT EXISTS education_levels' azure-backend/database/schema.sql
+          grep -Eq 'route:[[:space:]]*"premium/advanced-filters"' azure-backend/src/seriousNikahPlus.js
+          grep -Fq 'wantedEducation' azure-backend/src/matches.js
+          grep -Fq 'wantedFamily' azure-backend/src/matches.js
+          test -f app/src/main/java/com/nikahbridge/AdvancedMatchFiltersActivity.java
+          grep -Fq 'Open Advanced Match Filters' app/src/main/java/com/nikahbridge/SeriousNikahPlusActivity.java
+
+      - name: Verify premium discovery and profile priority
+        run: |
+          set -euo pipefail
+          grep -Fq "pe.plan_key='premium_vip_60'" azure-backend/src/matches.js
+          grep -Fq 'whyWeMatched:viewerCaps.whyWeMatched?reasons:[]' azure-backend/src/matches.js
+          grep -Fq 'advancedLocked:!viewerCaps.advancedMatching' azure-backend/src/matches.js
+
+      - name: Verify Android conversion UX
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/nikahbridge/SeriousNikahPlusActivity.java
+          test -f app/src/main/java/com/nikahbridge/PremiumFeatureGate.java
+          grep -Fq 'Serious Nikah Plus' app/src/main/java/com/nikahbridge/AzureHomeActivity.java
+          grep -Fq '20 SAR Basic' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq '40 SAR Plus' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq '60 SAR VIP' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'Daily free interest limit reached' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+
+      - name: Verify free core remains available
+        run: |
+          set -euo pipefail
+          grep -Fq 'Free members keep basic matching' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'Privacy Control Center' app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
+          grep -Fq 'Safe Communication' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+          grep -Fq 'Family / Wali Connect' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
+
+      - name: No demo mock or local endpoints
+        run: |
+          set -euo pipefail
+          ! grep -RniE 'MockData|sample member|fake match|fake balance|demo purchase|localhost|10\.0\.2\.2' app/src/main azure-backend/src --exclude='*.md'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production release signing secret
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed Serious Nikah Plus production AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
