@@ -33,7 +33,9 @@ app.http("matchDetail",{
         SELECT u.id,u.firebase_uid,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.marriage_intention,
                p.readiness_score,p.profile_completed,p.is_visible,
                pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
-               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences
+               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,
+               EXISTS(SELECT 1 FROM verifications v WHERE v.user_id=u.id AND v.status='approved') AS identity_verified,
+               EXISTS(SELECT 1 FROM photos ph WHERE ph.user_id=u.id AND ph.moderation_status='approved') AS photo_present
         FROM users u
         JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
@@ -90,6 +92,8 @@ app.http("matchDetail",{
         marriageIntention:c.marriage_intention,
         marriageTimeline:c.preferred_marriage_timeline,
         readinessScore:c.readiness_score,
+        identityVerified:Boolean(c.identity_verified),
+        photoPresent:Boolean(c.photo_present),
         compatibilityScore:score,
         whyWeMatched:reasons
       }}};
