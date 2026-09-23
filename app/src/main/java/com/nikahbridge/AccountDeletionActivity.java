@@ -32,21 +32,21 @@ public class AccountDeletionActivity extends Activity {
         del.setOnClickListener(v->confirmDelete());
         out.setOnClickListener(v->AzureAuthManager.removeCurrentAccount(this,ok->runOnUiThread(()->{
             if(ok){startActivity(new Intent(this,WelcomeActivity.class));finish();}
-            else Toast.makeText(this,"Azure sign out failed. Please try again.",Toast.LENGTH_LONG).show();
+            else LanguageManager.toast(this,"Azure sign out failed. Please try again.",Toast.LENGTH_LONG).show();
         })));
         back.setOnClickListener(v->finish());
     }
 
     private void confirmDelete(){
-        new AlertDialog.Builder(this).setTitle("Permanent deletion")
+        LanguageManager.dialog(this).setTitle("Permanent deletion")
             .setMessage("This permanently deletes your Azure account data. Continue?")
             .setNegativeButton("Cancel",null)
             .setPositiveButton("DELETE",(d,w)->AzureApiClient.delete("/account",null,new AzureApiClient.Callback(){
                 public void ok(int c,String s){runOnUiThread(()->AzureAuthManager.removeCurrentAccount(AccountDeletionActivity.this,ignored->runOnUiThread(()->{
-                    Toast.makeText(AccountDeletionActivity.this,"Account deleted permanently.",Toast.LENGTH_LONG).show();
+                    LanguageManager.toast(AccountDeletionActivity.this,"Account deleted permanently.",Toast.LENGTH_LONG).show();
                     startActivity(new Intent(AccountDeletionActivity.this,WelcomeActivity.class));finish();
                 })));}
-                public void err(String e){runOnUiThread(()->Toast.makeText(AccountDeletionActivity.this,"Azure deletion failed. Nothing was confirmed.",Toast.LENGTH_LONG).show());}
+                public void err(String e){runOnUiThread(()->LanguageManager.toast(AccountDeletionActivity.this,"Azure deletion failed. Nothing was confirmed.",Toast.LENGTH_LONG).show());}
             })).show();
     }
 }
