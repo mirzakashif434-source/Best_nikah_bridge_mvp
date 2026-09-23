@@ -91,6 +91,13 @@ jobs:
           assert "dynamic.removeAllViews()" in owner, "Owner analytics refresh container missing"
           assert "Open Owner Wallet / Payout" in owner, "Owner payout navigation missing"
 
+          numeric_typeface=[]
+          for p in root.glob("*.java"):
+              text=p.read_text(encoding="utf-8")
+              if re.search(r"setTypeface\([^,]+,\s*1\s*\)",text):
+                  numeric_typeface.append(p.name)
+          assert not numeric_typeface, "Numeric typeface constants remain: "+", ".join(numeric_typeface)
+
           print("UI AUDIT PASS:",len(activities),"activities")
           PY
 
