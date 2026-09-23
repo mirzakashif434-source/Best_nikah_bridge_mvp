@@ -32,10 +32,10 @@ public class NikahMediatorActivity extends Activity {
     }
 
     private void mediate(){
-        if(!AzureAuthManager.hasAccount(this)){Toast.makeText(this,"Azure sign in required.",Toast.LENGTH_LONG).show();return;}
+        if(!AzureAuthManager.hasAccount(this)){LanguageManager.toast(this,"Azure sign in required.",Toast.LENGTH_LONG).show();return;}
         String a=mySide.getText().toString().trim(),b=otherSide.getText().toString().trim();
-        if(a.length()<20||b.length()<20){Toast.makeText(this,"Please provide both perspectives with enough detail.",Toast.LENGTH_LONG).show();return;}
-        if(!consent.isChecked()){Toast.makeText(this,"Permission is required.",Toast.LENGTH_LONG).show();return;}
+        if(a.length()<20||b.length()<20){LanguageManager.toast(this,"Please provide both perspectives with enough detail.",Toast.LENGTH_LONG).show();return;}
+        if(!consent.isChecked()){LanguageManager.toast(this,"Permission is required.",Toast.LENGTH_LONG).show();return;}
         run.setEnabled(false);result.setText("Azure AI is reviewing both perspectives…");
         String prompt="Treat both perspectives fairly. Return neutral summaries, shared ground, unresolved issues, five practical questions and a calm next step. Do not declare a winner or invent facts.\n\nPerspective A:\n"+a+"\n\nPerspective B:\n"+b;
         try{
@@ -50,7 +50,7 @@ public class NikahMediatorActivity extends Activity {
     private void save(String a,String b,String out){
         try{
             JSONObject v=new JSONObject().put("perspectiveA",a).put("perspectiveB",b).put("lastResult",out);
-            AzureApiClient.put("/settings/nikah_mediator_last",v.toString(),new AzureApiClient.Callback(){public void ok(int c,String x){}public void err(String m){runOnUiThread(()->Toast.makeText(NikahMediatorActivity.this,"Mediation completed, but private Azure history could not be saved.",Toast.LENGTH_LONG).show());}});
+            AzureApiClient.put("/settings/nikah_mediator_last",v.toString(),new AzureApiClient.Callback(){public void ok(int c,String x){}public void err(String m){runOnUiThread(()->LanguageManager.toast(NikahMediatorActivity.this,"Mediation completed, but private Azure history could not be saved.",Toast.LENGTH_LONG).show());}});
         }catch(Exception ignored){}
     }
 }
