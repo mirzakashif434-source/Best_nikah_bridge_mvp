@@ -70,13 +70,13 @@ public class GenderFilteredMatchesActivity extends Activity {
         });
     }
     private void sendInterest(String receiverId,String name,Button button){
-        if(receiverId==null||receiverId.trim().isEmpty()){Toast.makeText(this,"This match cannot receive an interest yet.",Toast.LENGTH_LONG).show();return;}
+        if(receiverId==null||receiverId.trim().isEmpty()){LanguageManager.toast(this,"This match cannot receive an interest yet.",Toast.LENGTH_LONG).show();return;}
         try{
             JSONObject body=new JSONObject().put("receiverUserId",receiverId);
             button.setEnabled(false);button.setText("Sending…");
             AzureApiClient.post("/interests",body.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String response){runOnUiThread(()->{button.setText("Interest Sent");Toast.makeText(GenderFilteredMatchesActivity.this,"Interest sent to "+name,Toast.LENGTH_SHORT).show();});}
-                public void err(String message){runOnUiThread(()->{button.setEnabled(true);button.setText("Send Interest");Toast.makeText(GenderFilteredMatchesActivity.this,"Interest could not be sent: "+message,Toast.LENGTH_LONG).show();});}
+                public void ok(int code,String response){runOnUiThread(()->{button.setText("Interest Sent");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Interest sent to "+name,Toast.LENGTH_SHORT).show();});}
+                public void err(String message){runOnUiThread(()->{button.setEnabled(true);button.setText("Send Interest");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Interest could not be sent: "+message,Toast.LENGTH_LONG).show();});}
             });
         }catch(Exception e){button.setEnabled(true);button.setText("Send Interest");}
     }
