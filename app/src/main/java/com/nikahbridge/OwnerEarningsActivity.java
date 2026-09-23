@@ -27,7 +27,7 @@ public class OwnerEarningsActivity extends Activity {
         TextView t=new TextView(this);
         t.setText(text);t.setTextSize(size);t.setTextColor(bold?dark:gray);
         t.setPadding(dp(8),dp(10),dp(8),dp(10));
-        if(bold)t.setTypeface(null,1);
+        if(bold)t.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
         root.addView(t);
     }
 
