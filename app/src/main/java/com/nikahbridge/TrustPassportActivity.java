@@ -53,5 +53,5 @@ public class TrustPassportActivity extends Activity {
         });
     }
     private void addEvidence(String label,String value,boolean positive){TextView t=txt((positive?"✓ ":"• ")+label+"\n"+value,16,true);t.setPadding(dp(10),dp(12),dp(10),dp(12));root.addView(t);}
-    private void toast(String x){Toast.makeText(this,x,Toast.LENGTH_LONG).show();}
+    private void toast(String x){LanguageManager.toast(this,x,Toast.LENGTH_LONG).show();}
 }
