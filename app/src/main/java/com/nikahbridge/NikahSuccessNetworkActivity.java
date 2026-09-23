@@ -1,6 +1,7 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -8,12 +9,15 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 /** Real opt-in Azure Nikah Success Network. No fabricated stories, mentors, counts or outcomes. */
 public class NikahSuccessNetworkActivity extends Activity {
-    private LinearLayout root,mentorList;private TextView status;private EditText story;private CheckBox completed,shareStory,mentorOptIn;
+    private LinearLayout root,mentorList;private TextView status;private EditText story;private CheckBox completed,shareStory,mentorOptIn;private Button mentorsButton,saveButton;
     private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
 
     @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();load();}
@@ -23,7 +27,14 @@ public class NikahSuccessNetworkActivity extends Activity {
     private EditText area(String hint){EditText e=new EditText(this);e.setHint(hint);e.setTextSize(16);e.setGravity(Gravity.TOP|Gravity.START);e.setMinHeight(dp(120));e.setPadding(dp(14),dp(10),dp(14),dp(10));GradientDrawable g=new GradientDrawable();g.setColor(Color.WHITE);g.setCornerRadius(dp(14));g.setStroke(dp(1),Color.rgb(205,215,211));e.setBackground(g);return e;}
 
     private void render(){
-        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(light);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(24),dp(20),dp(32));sc.addView(root);setContentView(sc);
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setClipToPadding(false);sc.setBackgroundColor(light);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(24),dp(20),dp(32));root.setBackgroundColor(light);sc.addView(root);setContentView(sc);
+        ViewCompat.setOnApplyWindowInsetsListener(sc,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(20),dp(24),dp(20),dp(32)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(sc);
         root.addView(txt("❤️ Nikah Success Network",28,true));root.addView(txt("A voluntary post-Nikah network backed by real Azure account records. Participation is optional.",15,false));
         status=txt("Checking your real Azure account…",17,true);root.addView(status);
         completed=new CheckBox(this);completed.setText("My Nikah has genuinely been completed");root.addView(completed);
@@ -31,14 +42,30 @@ public class NikahSuccessNetworkActivity extends Activity {
         story=area("Optional story. Do not include names, phone numbers, addresses or financial/private details.");root.addView(story,new LinearLayout.LayoutParams(-1,dp(130)));story.setVisibility(View.GONE);
         shareStory.setOnCheckedChangeListener((b,c)->story.setVisibility(c?View.VISIBLE:View.GONE));
         mentorOptIn=new CheckBox(this);mentorOptIn.setText("I am willing to offer voluntary peer mentorship");root.addView(mentorOptIn);
-        Button save=btn("Save My Real Network Choice",true);root.addView(save,new LinearLayout.LayoutParams(-1,dp(62)));save.setOnClickListener(v->save());
+        saveButton=btn("Save My Real Network Choice",true);root.addView(saveButton,new LinearLayout.LayoutParams(-1,dp(62)));saveButton.setOnClickListener(v->save());
         root.addView(txt("Story sharing remains private/pending until a real moderation/publication flow approves it. Peer mentorship is not professional, legal or religious advice.",13,false));
-        Button mentors=btn("Find Available Peer Mentors",false);root.addView(mentors,new LinearLayout.LayoutParams(-1,dp(62)));mentors.setOnClickListener(v->findMentors());
+        mentorsButton=btn("Find Available Peer Mentors",false);root.addView(mentorsButton,new LinearLayout.LayoutParams(-1,dp(62)));mentorsButton.setOnClickListener(v->findMentors());
         mentorList=new LinearLayout(this);mentorList.setOrientation(LinearLayout.VERTICAL);root.addView(mentorList);
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
     }
 
+    private boolean authError(String message){
+        if(message==null) return false;
+        return message.contains("AZURE_SIGN_IN_REQUIRED") || message.contains("AZURE_INTERACTION_REQUIRED") || message.contains("AZURE_AUTH");
+    }
+
+    private void showSignInRecovery(String action){
+        status.setText("Azure sign in is required.");
+        LanguageManager.dialog(this)
+            .setTitle("Sign in required")
+            .setMessage("Your Azure session expired. Sign in again to "+action+".")
+            .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+            .setNegativeButton("Not now",null)
+            .show();
+    }
+
     private void load(){
+        if(!AzureAuthManager.hasAccount(this)){showSignInRecovery("load your real Nikah Success Network");return;}
         AzureApiClient.get("/settings/nikah_success_network",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
@@ -47,39 +74,43 @@ public class NikahSuccessNetworkActivity extends Activity {
                     status.setText(completed.isChecked()?"Your Azure account records Nikah completed.":"Your Nikah outcome is not marked completed.");
                 }catch(Exception e){status.setText("Azure network status could not be read.");}
             });}
-            public void err(String m){runOnUiThread(()->status.setText("Could not load Azure network status."));}
+            public void err(String m){runOnUiThread(()->{if(authError(m))showSignInRecovery("load your real Nikah Success Network");else status.setText("Could not load Azure network status.");});}
         });
     }
 
     private void save(){
+        if(!AzureAuthManager.hasAccount(this)){showSignInRecovery("save your real network choice");return;}
         if(shareStory.isChecked()&&!completed.isChecked()){toast("A success story can only be saved after you confirm a genuine completed Nikah.");return;}
         String text=story.getText().toString().trim();if(shareStory.isChecked()&&text.length()<20){toast("Please write a meaningful short story or turn story sharing off.");return;}
         try{
             JSONObject v=new JSONObject().put("nikahCompleted",completed.isChecked()).put("mentorOptIn",mentorOptIn.isChecked()).put("shareStory",shareStory.isChecked()).put("successStory",shareStory.isChecked()?text:"").put("storyStatus",shareStory.isChecked()?"pending_review":"private");
             AzureApiClient.put("/settings/nikah_success_network",v.toString(),new AzureApiClient.Callback(){
                 public void ok(int c,String b){runOnUiThread(()->{status.setText(completed.isChecked()?"Nikah completed is recorded in Azure.":"Your network choice is recorded in Azure.");toast("Your real network choice was saved securely.");});}
-                public void err(String m){runOnUiThread(()->toast("Could not save Azure network choice: "+m));}
+                public void err(String m){runOnUiThread(()->{if(authError(m))showSignInRecovery("save your real network choice");else toast("Could not save your network choice. Please try again.");});}
             });
         }catch(Exception e){toast("Network choice is invalid.");}
     }
 
     private void findMentors(){
-        status.setText("Checking real Azure peer mentors…");mentorList.removeAllViews();
+        if(!AzureAuthManager.hasAccount(this)){showSignInRecovery("find real peer mentors");return;}
+        status.setText("Checking real Azure peer mentors…");mentorList.removeAllViews();mentorsButton.setEnabled(false);mentorsButton.setText("Checking real mentors…");
         AzureApiClient.get("/success-network/mentors",new AzureApiClient.Callback(){
             public void ok(int c,String b){runOnUiThread(()->{
+                mentorsButton.setEnabled(true);mentorsButton.setText("Find Available Peer Mentors");
                 try{
                     JSONArray a=new JSONObject(b).optJSONArray("mentors");if(a==null||a.length()==0){status.setText("No opted-in real peer mentors are currently available.");return;}
                     status.setText("Available real Azure peer mentors");
                     for(int i=0;i<a.length();i++){JSONObject m=a.optJSONObject(i);String id=m.optString("userId",""),name=m.optString("displayName","Peer mentor");Button req=btn("Request support from "+name,false);req.setOnClickListener(v->requestMentor(id));mentorList.addView(req,new LinearLayout.LayoutParams(-1,dp(58)));}
                 }catch(Exception e){status.setText("Azure mentor list could not be read.");}
             });}
-            public void err(String m){runOnUiThread(()->status.setText("Peer mentor service is unavailable."));}
+            public void err(String m){runOnUiThread(()->{mentorsButton.setEnabled(true);mentorsButton.setText("Find Available Peer Mentors");if(authError(m))showSignInRecovery("find real peer mentors");else status.setText("Peer mentor service is unavailable.");});}
         });
     }
     private void requestMentor(String id){
+        if(!AzureAuthManager.hasAccount(this)){showSignInRecovery("request peer mentorship");return;}
         try{
             JSONObject b=new JSONObject().put("mentorUserId",id);
-            AzureApiClient.post("/success-network/mentor-requests",b.toString(),new AzureApiClient.Callback(){public void ok(int c,String x){runOnUiThread(()->toast("Real Azure mentorship request submitted."));}public void err(String m){runOnUiThread(()->toast("Mentorship request failed: "+m));}});
+            AzureApiClient.post("/success-network/mentor-requests",b.toString(),new AzureApiClient.Callback(){public void ok(int c,String x){runOnUiThread(()->toast("Real Azure mentorship request submitted."));}public void err(String m){runOnUiThread(()->{if(authError(m))showSignInRecovery("request peer mentorship");else toast("Mentorship request could not be sent. Please try again.");});}});
         }catch(Exception e){toast("Invalid mentor request.");}
     }
     private void toast(String s){LanguageManager.toast(this,s,Toast.LENGTH_LONG).show();}
