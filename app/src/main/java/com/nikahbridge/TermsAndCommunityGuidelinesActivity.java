@@ -37,14 +37,14 @@ public class TermsAndCommunityGuidelinesActivity extends Activity {
     }
 
     private void saveAcceptance(){
-        if(!agree.isChecked()){Toast.makeText(this,"Please read and accept the Terms & Community Guidelines.",Toast.LENGTH_LONG).show();return;}
+        if(!agree.isChecked()){LanguageManager.toast(this,"Please read and accept the Terms & Community Guidelines.",Toast.LENGTH_LONG).show();return;}
         accept.setEnabled(false);accept.setText("Saving securely…");
         AzureApiClient.post("/terms/accept","{}",new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){
-                runOnUiThread(()->{setResult(RESULT_OK);Toast.makeText(TermsAndCommunityGuidelinesActivity.this,"Terms accepted. Azure has saved your acceptance.",Toast.LENGTH_LONG).show();finish();});
+                runOnUiThread(()->{setResult(RESULT_OK);LanguageManager.toast(TermsAndCommunityGuidelinesActivity.this,"Terms accepted. Azure has saved your acceptance.",Toast.LENGTH_LONG).show();finish();});
             }
             @Override public void err(String message){
-                runOnUiThread(()->{accept.setEnabled(true);accept.setText("Accept & Continue");Toast.makeText(TermsAndCommunityGuidelinesActivity.this,"Could not save acceptance: "+message,Toast.LENGTH_LONG).show();});
+                runOnUiThread(()->{accept.setEnabled(true);accept.setText("Accept & Continue");LanguageManager.toast(TermsAndCommunityGuidelinesActivity.this,"Could not save acceptance: "+message,Toast.LENGTH_LONG).show();});
             }
         });
     }
