@@ -57,6 +57,7 @@ require("./wallet");
 require("./helpLine");
 
 require("./ownerEarnings");
+require("./ownerAnalytics");
 require("./featureParity");
 
 require("./settings");
