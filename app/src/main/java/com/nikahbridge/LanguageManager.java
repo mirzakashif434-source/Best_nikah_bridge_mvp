@@ -1,6 +1,7 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
@@ -10,6 +11,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -96,6 +98,40 @@ public final class LanguageManager {
         int i=currentIndex(c);if(i==0)return english;
         String[] a=T.get(english);
         return a!=null&&i-1<a.length?a[i-1]:english;
+    }
+
+    /** Localized AlertDialog builder. Chained .show() automatically translates the dialog window, including list items and buttons. */
+    public static AlertDialog.Builder dialog(Context context){
+        return new LocalizedDialogBuilder(context);
+    }
+
+    private static final class LocalizedDialogBuilder extends AlertDialog.Builder{
+        private final Context context;
+        LocalizedDialogBuilder(Context c){super(c);context=c;}
+        @Override public AlertDialog show(){
+            AlertDialog d=super.show();
+            if(d.getWindow()!=null){
+                View root=d.getWindow().getDecorView();
+                localizeTree(context,root);
+                root.getViewTreeObserver().addOnGlobalLayoutListener(()->{
+                    if(d.isShowing())localizeTree(context,root);
+                });
+            }
+            return d;
+        }
+    }
+
+    /** Drop-in Toast.makeText replacement. Translation is resolved before the toast is shown. */
+    public static Toast toast(Context context,CharSequence text,int duration){
+        return new DeferredToast(context,text==null?"":text.toString(),duration);
+    }
+
+    private static final class DeferredToast extends Toast{
+        private final Context context; private final String source; private final int duration;
+        DeferredToast(Context c,String s,int d){super(c.getApplicationContext());context=c.getApplicationContext();source=s;duration=d;}
+        @Override public void show(){
+            requestTranslation(context,source,translated->Toast.makeText(context,translated,duration).show());
+        }
     }
 
     /** Mark member/user-generated text so automatic UI localization never sends it for translation. */
