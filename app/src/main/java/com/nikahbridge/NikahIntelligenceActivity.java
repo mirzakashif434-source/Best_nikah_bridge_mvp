@@ -64,5 +64,5 @@ public class NikahIntelligenceActivity extends Activity {
     }
     private String v(EditText e){return e.getText().toString().trim();}
     private void calculate(){int filled=0;EditText[] a={country,city,timeline,family,children,career,living,deen,dealbreakers};for(EditText e:a)if(!v(e).isEmpty())filled++;int pct=Math.round(filled*100f/9);score.setText("Nikah Readiness: "+pct+"/100 — "+(pct>=80?"Strong preparation record":pct>=50?"A few important areas remain":"Start by completing your Marriage Blueprint"));}
-    private void toast(String x){Toast.makeText(this,x,Toast.LENGTH_LONG).show();}
+    private void toast(String x){LanguageManager.toast(this,x,Toast.LENGTH_LONG).show();}
 }
