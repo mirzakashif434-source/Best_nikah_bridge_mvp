@@ -48,6 +48,11 @@ app.http("matches",{
                ) AS premium_priority,
                COALESCE(up.last_seen_at >= now()-interval '2 minutes',false) AS is_online,
                up.last_seen_at,
+               EXISTS(
+                 SELECT 1 FROM profile_boost_claims pbc
+                 WHERE pbc.user_id=u.id
+                   AND pbc.claimed_at>now()-interval '30 minutes'
+               ) AS boost_active,
                (SELECT ph.id FROM photos ph WHERE ph.user_id=u.id AND ph.moderation_status='approved' ORDER BY ph.created_at ASC LIMIT 1) AS photo_id
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
@@ -99,12 +104,13 @@ app.http("matches",{
           premiumPriority:Boolean(c.premium_priority),
           isOnline:Boolean(c.is_online),
           lastSeenAt:c.last_seen_at||null,
-          rankingScore:score+(c.premium_priority?3:0),
+          boostActive:Boolean(c.boost_active),
+          rankingScore:score+(c.boost_active?8:0)+(c.premium_priority?3:0),
           photoId:c.show_photo_to_matches===true?c.photo_id:null,
           photoBlurred:!(c.show_photo_to_matches===true&&c.photo_id)
         });
       }
-      matches.sort((a,b)=>(Number(b.isOnline)-Number(a.isOnline)) || b.rankingScore-a.rankingScore || b.compatibilityScore-a.compatibilityScore);
+      matches.sort((a,b)=>(Number(b.isOnline)-Number(a.isOnline)) || (Number(b.boostActive)-Number(a.boostActive)) || b.rankingScore-a.rankingScore || b.compatibilityScore-a.compatibilityScore);
       return {status:200,jsonBody:{ok:true,count:matches.length,premium:viewerPremium.active,capabilities:viewerCaps,matches:matches.slice(0,50).map(({rankingScore,...m})=>m)}};
     }catch(error){
       context.error("MATCHES_FAILED",error);
