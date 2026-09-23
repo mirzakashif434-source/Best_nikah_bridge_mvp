@@ -1,5 +1,5 @@
 const { app } = require("@azure/functions");
-const { query } = require("./db");
+const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
@@ -67,20 +67,83 @@ app.http("messagesList",{
 app.http("messageCreate",{
   methods:["POST"],authLevel:"anonymous",route:"conversations/{conversationId}/messages",
   handler:requireAuth(async(request,context,user)=>{
+    const client=await getPool().connect();
     try{
       const me=await ensureUser(user);
       const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
-      const c=await getConversationForUser(id,me.id);
-      if(!c)return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};
-      if(c.status!=="mutual")return {status:403,jsonBody:{ok:false,error:"CHAT_NOT_AVAILABLE"}};
       const b=await request.json();
       const body=text(b.body,4000);
       if(!body)return {status:400,jsonBody:{ok:false,error:"MESSAGE_REQUIRED"}};
-      const r=await query(
+
+      await client.query("BEGIN");
+      const conv=await client.query(
+        `SELECT c.id,c.user_a_id,c.user_b_id,c.status,
+                pa.gender AS user_a_gender,pb.gender AS user_b_gender
+           FROM conversations c
+           LEFT JOIN profiles pa ON pa.user_id=c.user_a_id
+           LEFT JOIN profiles pb ON pb.user_id=c.user_b_id
+          WHERE c.id=$1 AND (c.user_a_id=$2 OR c.user_b_id=$2)
+          FOR UPDATE`,
+        [id,me.id]
+      );
+      const row=conv.rows[0];
+      if(!row){await client.query("ROLLBACK");return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};}
+      if(row.status!=="mutual"){await client.query("ROLLBACK");return {status:403,jsonBody:{ok:false,error:"CHAT_NOT_AVAILABLE"}};}
+
+      const otherId=row.user_a_id===me.id?row.user_b_id:row.user_a_id;
+      const blocked=await client.query(
+        "SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",
+        [me.id,otherId]
+      );
+      if(blocked.rows[0]){await client.query("ROLLBACK");return {status:403,jsonBody:{ok:false,error:"USER_BLOCKED"}};}
+
+      const myGender=String(row.user_a_id===me.id?row.user_a_gender:row.user_b_gender||"").toLowerCase();
+      const otherGender=String(row.user_a_id===me.id?row.user_b_gender:row.user_a_gender||"").toLowerCase();
+      let waitingForReply=false,remainingBeforeReply=null;
+
+      if(myGender==="male"&&otherGender==="female"){
+        const femaleReply=await client.query(
+          "SELECT 1 FROM messages WHERE conversation_id=$1 AND sender_user_id=$2 LIMIT 1",
+          [id,otherId]
+        );
+        if(!femaleReply.rows[0]){
+          const sent=await client.query(
+            "SELECT count(*)::int AS count FROM messages WHERE conversation_id=$1 AND sender_user_id=$2",
+            [id,me.id]
+          );
+          const used=Number(sent.rows[0]?.count||0);
+          if(used>=2){
+            await client.query("ROLLBACK");
+            return {status:429,jsonBody:{
+              ok:false,
+              error:"WAIT_FOR_HER_REPLY",
+              warning:"You have already sent 2 messages. Please wait for her reply before sending another.",
+              sentBeforeReply:used,
+              remainingBeforeReply:0
+            }};
+          }
+          remainingBeforeReply=Math.max(0,1-used);
+          waitingForReply=used+1>=2;
+        }
+      }
+
+      const r=await client.query(
         "INSERT INTO messages(conversation_id,sender_user_id,body) VALUES($1,$2,$3) RETURNING id,conversation_id,sender_user_id,body,created_at,read_at",
-        [id,me.id,body]);
-      return {status:201,jsonBody:{ok:true,message:r.rows[0]}};
-    }catch(e){context.error("MESSAGE_CREATE_FAILED",e);return {status:500,jsonBody:{ok:false,error:"MESSAGE_CREATE_FAILED"}};}
+        [id,me.id,body]
+      );
+      await client.query("COMMIT");
+      return {status:201,jsonBody:{
+        ok:true,
+        message:r.rows[0],
+        waitingForReply,
+        remainingBeforeReply,
+        warning:waitingForReply?"You have sent 2 messages. Please wait for her reply before sending another.":null
+      }};
+    }catch(e){
+      await client.query("ROLLBACK").catch(()=>{});
+      context.error("MESSAGE_CREATE_FAILED",e);
+      return {status:500,jsonBody:{ok:false,error:"MESSAGE_CREATE_FAILED"}};
+    }finally{client.release();}
   })
 });
 
