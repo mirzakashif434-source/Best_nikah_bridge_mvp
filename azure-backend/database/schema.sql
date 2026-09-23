@@ -744,3 +744,14 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS education TEXT;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS family_involvement TEXT;
 ALTER TABLE partner_preferences ADD COLUMN IF NOT EXISTS education_levels TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE partner_preferences ADD COLUMN IF NOT EXISTS family_involvement TEXT;
+
+
+-- Boost quota ledger: additive history used for Free/Basic/Plus/VIP limits.
+CREATE TABLE IF NOT EXISTS profile_boost_claims (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  plan_key TEXT,
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_profile_boost_claims_user_claimed
+  ON profile_boost_claims(user_id, claimed_at DESC);
