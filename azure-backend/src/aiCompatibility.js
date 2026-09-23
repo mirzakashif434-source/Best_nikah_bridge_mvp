@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { requireAuth } = require("./auth");
+const { accessForAuth, premiumRequired } = require("./premiumAccess");
 
 const credential = new DefaultAzureCredential();
 const MAX = 8000;
@@ -26,5 +27,5 @@ const mediatorInstruction="You are an impartial Nikah discussion assistant. Comp
 
 const futureInstruction="You are a Nikah preparation comparison assistant. Compare two people's answers to marriage scenarios. Do not predict the future or calculate a fake compatibility percentage. Return: 1) clear agreement areas, 2) expectation differences, 3) issues to discuss before marriage, 4) five practical questions, 5) a neutral next step. Never issue binding religious/legal/medical advice or a marriage verdict. Do not invent facts. For threats, abuse, coercion, fraud or immediate danger, prioritize safety and appropriate human/family/professional help.";
 
-app.http("aiNikahMediator",{methods:["POST"],authLevel:"anonymous",route:"ai/nikah-mediator",handler:requireAuth(async(req)=>{try{return await runAzureAI(await req.json(),mediatorInstruction,responseLanguage(req));}catch(e){return {status:500,jsonBody:{ok:false,error:"AI_MEDIATOR_FAILED"}};}})});
-app.http("aiFutureLife",{methods:["POST"],authLevel:"anonymous",route:"ai/future-life",handler:requireAuth(async(req)=>{try{return await runAzureAI(await req.json(),futureInstruction,responseLanguage(req));}catch(e){return {status:500,jsonBody:{ok:false,error:"AI_FUTURE_LIFE_FAILED"}};}})});
+app.http("aiNikahMediator",{methods:["POST"],authLevel:"anonymous",route:"ai/nikah-mediator",handler:requireAuth(async(req,context,user)=>{try{const a=await accessForAuth(user);const locked=premiumRequired(a.premium);if(locked)return locked;return await runAzureAI(await req.json(),mediatorInstruction,responseLanguage(req));}catch(e){return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"AI_MEDIATOR_FAILED"}};}})});
+app.http("aiFutureLife",{methods:["POST"],authLevel:"anonymous",route:"ai/future-life",handler:requireAuth(async(req,context,user)=>{try{const a=await accessForAuth(user);const locked=premiumRequired(a.premium);if(locked)return locked;return await runAzureAI(await req.json(),futureInstruction,responseLanguage(req));}catch(e){return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"AI_FUTURE_LIFE_FAILED"}};}})});
