@@ -39,13 +39,13 @@ public class WelcomeActivity extends Activity {
     private void place(View v,int x,int y,int w,int h){FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(w,h);p.leftMargin=x;p.topMargin=y;v.setLayoutParams(p);}
     private void showLanguageDialog(){
         new AlertDialog.Builder(this)
-            .setTitle("Choose Your Language")
+            .setTitle(LanguageManager.tr(this,"Choose Your Language"))
             .setSingleChoiceItems(LanguageManager.NAMES,LanguageManager.currentIndex(this),(d,which)->{
                 LanguageManager.select(this,which);
                 d.dismiss();
                 recreate();
             })
-            .setNegativeButton("Cancel",null)
+            .setNegativeButton(LanguageManager.tr(this,"Cancel"),null)
             .show();
     }
     private void openAzure(){startActivity(new Intent(this,AzureExternalAuthActivity.class));}
