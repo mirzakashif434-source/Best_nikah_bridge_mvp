@@ -30,7 +30,7 @@ public class PremiumPlansActivity extends Activity {
         t.setTextSize(size);
         t.setTextColor(bold ? Premium2030Ui.TEXT : Premium2030Ui.MUTED);
         t.setPadding(8,10,8,10);
-        if (bold) t.setTypeface(null, 1);
+        if (bold) t.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
         root.addView(t);
     }
 
