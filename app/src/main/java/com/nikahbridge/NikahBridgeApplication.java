@@ -22,7 +22,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 /** Additive navigation helper. Existing screens and flows are preserved. */
 public class NikahBridgeApplication extends Application implements Application.ActivityLifecycleCallbacks {
-    private static final int BACK_TAG=0x4E42424B, COMMUNITY_TAG=0x4E42434D, REWARD_TAG=0x4E425257, PREMIUM_TAG=0x4E425050, BLUEPRINT_TAG=0x4E424250, MEDIATOR_TAG=0x4E424D44, SUCCESS_NETWORK_TAG=0x4E42534E, FUTURE_SIM_TAG=0x4E424653, LOCALIZER_TAG=0x4E424C47, INSETS_TAG=0x4E42494E;
+    private static final int BACK_TAG=0x4E42424B, COMMUNITY_TAG=0x4E42434D, REWARD_TAG=0x4E425257, PREMIUM_TAG=0x4E425050, BLUEPRINT_TAG=0x4E424250, MEDIATOR_TAG=0x4E424D44, SUCCESS_NETWORK_TAG=0x4E42534E, FUTURE_SIM_TAG=0x4E424653, LOCALIZER_TAG=0x4E424C47, INSETS_TAG=0x4E42494E, CONTROL_TAG=0x4E424354;
     private ConsentInformation consentInformation; private boolean privacyConsentStarted;
     @Override public void onCreate(){super.onCreate();LanguageManager.init(this);registerActivityLifecycleCallbacks(this); MobileAds.initialize(this,status->{}); AzureAuthManager.initialize(this,()->{},message->android.util.Log.w("BestNikahBridge","Azure auth initialization: "+message));}
     private void initializePrivacyConsent(Activity a){if(privacyConsentStarted||a==null||a.isFinishing())return;privacyConsentStarted=true;consentInformation=UserMessagingPlatform.getConsentInformation(getApplicationContext());ConsentRequestParameters p=new ConsentRequestParameters.Builder().build();consentInformation.requestConsentInfoUpdate(a,p,()->UserMessagingPlatform.loadAndShowConsentFormIfRequired(a,e->{if(e!=null)android.util.Log.w("BestNikahBridge","UMP consent form: "+e.getMessage());}),e->android.util.Log.w("BestNikahBridge","UMP consent update: "+e.getMessage()));}
@@ -53,6 +53,30 @@ public class NikahBridgeApplication extends Application implements Application.A
         ViewCompat.requestApplyInsets(root);
     }
 
+    private void normalizeControls(Activity a){
+        View root=a.findViewById(android.R.id.content);
+        if(root!=null)normalizeControlTree(a,root);
+    }
+    private void normalizeControlTree(Activity a,View v){
+        if(v instanceof Button){
+            if(v.getTag(CONTROL_TAG)==null){
+                Button b=(Button)v;
+                b.setMinHeight(dp(a,56));
+                b.setMinimumHeight(dp(a,56));
+                b.setPadding(Math.max(b.getPaddingLeft(),dp(a,12)),Math.max(b.getPaddingTop(),dp(a,8)),Math.max(b.getPaddingRight(),dp(a,12)),Math.max(b.getPaddingBottom(),dp(a,8)));
+                ViewGroup.LayoutParams lp=b.getLayoutParams();
+                if(lp!=null&&lp.height>0&&lp.height<=dp(a,80)){lp.height=ViewGroup.LayoutParams.WRAP_CONTENT;b.setLayoutParams(lp);}
+                b.setTag(CONTROL_TAG,Boolean.TRUE);
+            }
+        }else if(v instanceof EditText){
+            ((EditText)v).setMinHeight(dp(a,56));
+        }
+        if(v instanceof ViewGroup){
+            ViewGroup g=(ViewGroup)v;
+            for(int i=0;i<g.getChildCount();i++)normalizeControlTree(a,g.getChildAt(i));
+        }
+    }
+
     private void attachLocalization(Activity a){
         ViewGroup root=a.findViewById(android.R.id.content);
         if(root==null)return;
@@ -60,13 +84,17 @@ public class NikahBridgeApplication extends Application implements Application.A
         if(root.getTag(LOCALIZER_TAG)!=null)return;
         root.setTag(LOCALIZER_TAG,Boolean.TRUE);
         root.getViewTreeObserver().addOnGlobalLayoutListener(()->{
-            if(!a.isFinishing()&&!a.isDestroyed())LanguageManager.localizeTree(a,root);
+            if(!a.isFinishing()&&!a.isDestroyed()){
+                LanguageManager.localizeTree(a,root);
+                normalizeControls(a);
+            }
         });
     }
     @Override public void onActivityResumed(Activity a){
         LanguageManager.apply(a);
         initializePrivacyConsent(a);
         applySafeInsets(a);
+        normalizeControls(a);
         attachLocalization(a);
     }
     @Override public void onActivityCreated(Activity a,Bundle s){} @Override public void onActivityStarted(Activity a){} @Override public void onActivityPaused(Activity a){} @Override public void onActivityStopped(Activity a){} @Override public void onActivitySaveInstanceState(Activity a,Bundle s){} @Override public void onActivityDestroyed(Activity a){}
