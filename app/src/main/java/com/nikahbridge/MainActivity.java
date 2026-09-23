@@ -24,7 +24,7 @@ public class MainActivity extends Activity {
                 finish();
             }),
             message->runOnUiThread(()->{
-                Toast.makeText(this,"Azure authentication setup failed. Please try again.",Toast.LENGTH_LONG).show();
+                LanguageManager.toast(this,"Azure authentication setup failed. Please try again.",Toast.LENGTH_LONG).show();
                 startActivity(new Intent(this,AzureExternalAuthActivity.class));
                 finish();
             })
