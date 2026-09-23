@@ -1,0 +1,85 @@
+name: Live Match Actions Validation
+
+on:
+  push:
+    branches: [live-match-actions-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate backend syntax
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js')"
+
+      - name: Verify four live match actions
+        run: |
+          set -euo pipefail
+          grep -Fq '"✅"' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq '"❎"' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq '"↩️"' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq '"💬"' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq 'hiddenCards' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq 'Upgrade to use Back' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq 'Upgrade to Message' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+
+      - name: Verify message premium and mutual safety
+        run: |
+          set -euo pipefail
+          grep -Fq 'matchMessageAccess' azure-backend/src/matches.js
+          grep -Fq 'PREMIUM_REQUIRED_FOR_MATCH_MESSAGE' azure-backend/src/matches.js
+          grep -Fq 'MUTUAL_CHAT_REQUIRED' azure-backend/src/matches.js
+          grep -Fq "status='mutual'" azure-backend/src/matches.js
+          grep -Fq 'WAIT_FOR_HER_REPLY' azure-backend/src/chat.js
+          grep -Fq 'getStringExtra("conversationId")' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+
+      - name: Preserve 20 likes rolling 24h
+        run: |
+          set -euo pipefail
+          grep -Fq 'ROLLING_24H_LIKE_LIMIT_REACHED' azure-backend/src/featureParity.js
+          grep -Fq 'count>=20' azure-backend/src/featureParity.js
+          grep -Fq "created_at>now()-interval '24 hours'" azure-backend/src/featureParity.js
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed production AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
