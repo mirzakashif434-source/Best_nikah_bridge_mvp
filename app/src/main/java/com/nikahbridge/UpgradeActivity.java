@@ -85,7 +85,7 @@ public class UpgradeActivity extends Activity {
         upgrade.setOnClickListener(v -> {
             // Payment provider hook: connect this productKey to Google Play Billing.
             // Never report success locally; backend must verify the Play purchase first.
-            Toast.makeText(this, "Secure Google Play payment setup is required for plan " + productKey + ".", Toast.LENGTH_LONG).show();
+            LanguageManager.toast(this, "Secure Google Play payment setup is required for plan " + productKey + ".", Toast.LENGTH_LONG).show();
         });
     }
 }
