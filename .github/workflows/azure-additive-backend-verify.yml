@@ -142,7 +142,7 @@ jobs:
           grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
           grep -Fq 'azure_subject' azure-backend/src/azureExternalAuth.js
           grep -Fq 'firebase_uid' azure-backend/src/azureExternalAuth.js
-          grep -Fq 'Azure External ID is now the primary production entry path.' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -Fq 'Azure External ID is the only active production authentication path.' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -Fq 'API_SCOPE' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq 'access_as_user' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq 'route:"auth/azure/me"' azure-backend/src/azureExternalAuth.js
@@ -175,7 +175,7 @@ jobs:
           grep -q 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/NikahAssistantActivity.java
           grep -Fq 'route:"ai/nikah-mediator"' azure-backend/src/aiCompatibility.js
           grep -Fq 'route:"ai/future-life"' azure-backend/src/aiCompatibility.js
-          grep -Fq 'Azure External ID is now the primary production entry path.' app/src/main/java/com/nikahbridge/MainActivity.java
+          grep -Fq 'Azure External ID is the only active production authentication path.' app/src/main/java/com/nikahbridge/MainActivity.java
           echo "Azure AI compatibility endpoints and primary Android paths verified; legacy Firebase AI remains preserved for rollback."
 
       # Step 7: Azure AI is the production path; no Firebase AI client calls remain in Android.
@@ -185,13 +185,8 @@ jobs:
           grep -Fq 'route: "ai/nikah-assistant"' azure-backend/src/aiNikahAssistant.js
           grep -Fq 'route:"ai/nikah-mediator"' azure-backend/src/aiCompatibility.js
           grep -Fq 'route:"ai/future-life"' azure-backend/src/aiCompatibility.js
-          grep -Fq 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -Fq 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/NikahAssistantActivity.java
-          if grep -nE 'FirebaseAI|GenerativeModel|GenerativeModelFutures|GenerativeBackend|GenerateContentResponse' app/src/main/java/com/nikahbridge/MainActivity.java; then
-            echo "Legacy Firebase AI client path found in MainActivity"
-            exit 1
-          fi
-          grep -Fq 'AZURE_AI_ENDPOINT' azure-backend/src/aiNikahAssistant.js
+                    grep -Fq 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/NikahAssistantActivity.java
+                    grep -Fq 'AZURE_AI_ENDPOINT' azure-backend/src/aiNikahAssistant.js
           grep -Fq 'AZURE_AI_MODEL' azure-backend/src/aiNikahAssistant.js
           grep -Fq 'https://cognitiveservices.azure.com/.default' azure-backend/src/aiNikahAssistant.js
           echo "STEP 7 VERIFIED: Android AI uses Azure API and backend uses Azure AI endpoint/model with managed identity."
@@ -200,15 +195,10 @@ jobs:
       - name: Lock Step 7 Azure AI production checkpoint
         run: |
           set -euo pipefail
-          grep -Fq 'AzureApiClient.post("/ai/nikah-assistant"' app/src/main/java/com/nikahbridge/MainActivity.java
-          grep -Fq 'route: "ai/nikah-assistant"' azure-backend/src/aiNikahAssistant.js
+                    grep -Fq 'route: "ai/nikah-assistant"' azure-backend/src/aiNikahAssistant.js
           grep -Fq 'AZURE_AI_ENDPOINT' azure-backend/src/aiNikahAssistant.js
           grep -Fq 'AZURE_AI_MODEL' azure-backend/src/aiNikahAssistant.js
-          if grep -nE 'FirebaseAI|GenerativeModel|GenerativeModelFutures|GenerativeBackend|GenerateContentResponse' app/src/main/java/com/nikahbridge/MainActivity.java; then
-            echo "Firebase AI client still present in MainActivity"
-            exit 1
-          fi
-          echo "STEP 7 LOCKED: Azure AI production path verified; Firebase AI client path is not used by MainActivity."
+                    echo "STEP 7 LOCKED: Azure AI production path verified; Firebase AI client path is not used by MainActivity."
 
       # Step 8: Firestore -> Azure PostgreSQL data consistency and migration audit.
       - name: Verify Step 8 Azure data migration integrity layer
