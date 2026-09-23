@@ -798,6 +798,11 @@ CREATE TABLE IF NOT EXISTS photo_verification_sets (
 CREATE INDEX IF NOT EXISTS idx_photo_verification_sets_user_status
   ON photo_verification_sets(user_id,status,created_at DESC);
 
+ALTER TABLE photos DROP CONSTRAINT IF EXISTS photos_verification_set_fk;
+ALTER TABLE photos ADD CONSTRAINT photos_verification_set_fk
+  FOREIGN KEY (verification_set_id) REFERENCES photo_verification_sets(id) ON DELETE CASCADE;
+
+ALTER TABLE photos DROP CONSTRAINT IF EXISTS photos_verification_slot_check;
 ALTER TABLE photos
   ADD CONSTRAINT photos_verification_slot_check
   CHECK (verification_slot IS NULL OR verification_slot BETWEEN 1 AND 4);
