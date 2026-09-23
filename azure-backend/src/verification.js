@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
 const { getVerificationDocumentsContainer } = require("./storage");
+const { requireAdultProfile } = require("./ageGate");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 const ALLOWED_TYPES=new Set(["image/jpeg","image/png","application/pdf"]);
@@ -44,6 +45,7 @@ app.http("verificationSubmit",{
     try{
       const me=await ensureUser(user);
       if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      await requireAdultProfile(me.id);
       const form=await request.formData();
       const documentType=text(form.get("documentType"),30).toLowerCase();
       if(!["identity","manual"].includes(documentType)) return {status:400,jsonBody:{ok:false,error:"INVALID_VERIFICATION_TYPE"}};
@@ -59,6 +61,7 @@ app.http("verificationSelfieSubmit",{
     try{
       const me=await ensureUser(user);
       if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      await requireAdultProfile(me.id);
       const form=await request.formData();
       const verification=await storeVerificationFile(me,form.get("selfie"),"selfie",MAX_SELFIE_BYTES,SELFIE_TYPES);
       return {status:201,jsonBody:{ok:true,verification,automatedLiveness:false,reviewRequired:true}};
