@@ -1,7 +1,7 @@
 const { app } = require("@azure/functions");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { requireAuth } = require("./auth");
-const { accessForAuth, premiumRequired } = require("./premiumAccess");
+const { accessForAuth } = require("./premiumAccess");
 
 const credential = new DefaultAzureCredential();
 const MAX_MESSAGE = 4000;
@@ -20,8 +20,7 @@ app.http("aiNikahAssistant", {
   handler: requireAuth(async (request, context, user) => {
     try {
       const access=await accessForAuth(user);
-      const locked=premiumRequired(access.premium);
-      if(locked) return locked;
+      if(!access.capabilities.aiNikahAssistant) return {status:402,jsonBody:{ok:false,error:"PREMIUM_VIP_REQUIRED",locked:true}};
       const endpoint = (process.env.AZURE_AI_ENDPOINT || "").trim().replace(/\/$/, "");
       const model = (process.env.AZURE_AI_MODEL || "").trim();
       if (!endpoint || !model) {
