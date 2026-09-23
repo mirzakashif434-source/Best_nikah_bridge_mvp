@@ -210,7 +210,22 @@ public class AzureHomeActivity extends Activity {
         base(); title("Mutual Interests");
         TextView out=text("Loading secure interests…",15,false);root.addView(out);
         AzureApiClient.get("/interests",new AzureApiClient.Callback(){
-            public void ok(int code,String body){runOnUiThread(()->out.setText(body));}
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("interests");
+                    if(a==null||a.length()==0){out.setText("No interests yet.");return;}
+                    StringBuilder s=new StringBuilder();
+                    for(int i=0;i<Math.min(a.length(),100);i++){
+                        JSONObject x=a.optJSONObject(i);if(x==null)continue;
+                        s.append(x.optString("direction","").equals("received")?"Received from: ":"Sent to: ")
+                         .append(x.optString("display_name","Member"))
+                         .append("\nStatus: ").append(x.optString("status","pending"))
+                         .append("\nCountry/City: ").append(x.optString("country","")).append(" ").append(x.optString("city",""))
+                         .append("\n\n");
+                    }
+                    out.setText(s.toString());
+                }catch(Exception e){out.setText("Interests could not be displayed.");}
+            });}
             public void err(String m){runOnUiThread(()->out.setText("Interests unavailable: "+m));}
         });
         EditText uid=input("Real recipient user ID");
@@ -265,7 +280,23 @@ public class AzureHomeActivity extends Activity {
 
     private void loadFamilyLinks(TextView out){
         AzureApiClient.get("/family-links",new AzureApiClient.Callback(){
-            public void ok(int code,String body){runOnUiThread(()->out.setText("Azure Family/Wali data:\n"+body));}
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("familyLinks");
+                    if(a==null||a.length()==0){out.setText("No Family/Wali connection yet.");return;}
+                    StringBuilder s=new StringBuilder();
+                    for(int i=0;i<a.length();i++){
+                        JSONObject x=a.optJSONObject(i);if(x==null)continue;
+                        s.append(x.optString("wali_name","Wali"))
+                         .append("\nStatus: ").append(x.optString("status","pending"));
+                        String email=x.optString("wali_email",""),phone=x.optString("wali_phone_e164","");
+                        if(!email.isEmpty())s.append("\nEmail: ").append(email);
+                        if(!phone.isEmpty())s.append("\nPhone: ").append(phone);
+                        s.append("\nLink ID: ").append(x.optString("id","")).append("\n\n");
+                    }
+                    out.setText(s.toString());
+                }catch(Exception e){out.setText("Family/Wali data could not be displayed.");}
+            });}
             public void err(String m){runOnUiThread(()->out.setText("Family/Wali unavailable: "+m));}
         });
     }
@@ -273,13 +304,22 @@ public class AzureHomeActivity extends Activity {
     private void privacy(){
         base(); title("Privacy Controls");
         TextView out=text("Loading real privacy settings…",15,false);root.addView(out);
-        AzureApiClient.get("/privacy",new AzureApiClient.Callback(){
-            public void ok(int code,String body){runOnUiThread(()->out.setText(body));}
-            public void err(String m){runOnUiThread(()->out.setText("Privacy unavailable: "+m));}
-        });
         CheckBox discover=new CheckBox(this);discover.setText("Profile discoverable");root.addView(discover);
         CheckBox city=new CheckBox(this);city.setText("Show city");root.addView(city);
         CheckBox photo=new CheckBox(this);photo.setText("Show photo to matches");root.addView(photo);
+        AzureApiClient.get("/privacy",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONObject p=new JSONObject(body).optJSONObject("privacy");
+                    if(p==null){out.setText("Privacy settings are ready.");return;}
+                    discover.setChecked(p.optBoolean("profile_discoverable",true));
+                    city.setChecked(p.optBoolean("show_city",true));
+                    photo.setChecked(p.optBoolean("show_photo_to_matches",true));
+                    out.setText("Current privacy settings loaded.");
+                }catch(Exception e){out.setText("Privacy settings could not be displayed.");}
+            });}
+            public void err(String m){runOnUiThread(()->out.setText("Privacy unavailable: "+m));}
+        });
         Button save=button("Save Privacy Controls",true);
         save.setOnClickListener(v->{try{
             JSONObject b=new JSONObject();b.put("profileDiscoverable",discover.isChecked());b.put("showCity",city.isChecked());b.put("showPhotoToMatches",photo.isChecked());
@@ -295,7 +335,23 @@ public class AzureHomeActivity extends Activity {
         base(); title("Real Verification");
         TextView out=text("Loading Azure verification status…",15,false);root.addView(out);
         AzureApiClient.get("/verification",new AzureApiClient.Callback(){
-            public void ok(int code,String body){runOnUiThread(()->out.setText(body));}
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONObject o=new JSONObject(body);
+                    JSONArray a=o.optJSONArray("verifications");
+                    if(a==null)a=o.optJSONArray("items");
+                    if(a==null||a.length()==0){out.setText("No verification submission yet.");return;}
+                    StringBuilder s=new StringBuilder();
+                    for(int i=0;i<a.length();i++){
+                        JSONObject x=a.optJSONObject(i);if(x==null)continue;
+                        s.append("Type: ").append(x.optString("type",x.optString("verification_type","Verification")))
+                         .append("\nStatus: ").append(x.optString("status","pending"))
+                         .append("\nSubmitted: ").append(x.optString("created_at",x.optString("submitted_at","")))
+                         .append("\n\n");
+                    }
+                    out.setText(s.toString());
+                }catch(Exception e){out.setText("Verification status could not be displayed.");}
+            });}
             public void err(String m){runOnUiThread(()->out.setText("Verification unavailable: "+m));}
         });
         Button back=button("Back",false);back.setOnClickListener(v->home());
@@ -305,7 +361,21 @@ public class AzureHomeActivity extends Activity {
         base(); title("Safety Reports");
         TextView out=text("Loading your real Azure safety reports…",15,false);root.addView(out);
         AzureApiClient.get("/safety/reports/mine",new AzureApiClient.Callback(){
-            public void ok(int code,String body){runOnUiThread(()->out.setText(body));}
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("reports");
+                    if(a==null||a.length()==0){out.setText("No safety reports submitted.");return;}
+                    StringBuilder s=new StringBuilder();
+                    for(int i=0;i<a.length();i++){
+                        JSONObject x=a.optJSONObject(i);if(x==null)continue;
+                        s.append("Reason: ").append(x.optString("reason",""))
+                         .append("\nStatus: ").append(x.optString("status","pending"))
+                         .append("\nDate: ").append(x.optString("created_at",""))
+                         .append("\n\n");
+                    }
+                    out.setText(s.toString());
+                }catch(Exception e){out.setText("Safety reports could not be displayed.");}
+            });}
             public void err(String m){runOnUiThread(()->out.setText("Safety data unavailable: "+m));}
         });
         Button report=button("Create Safety Report",true);
