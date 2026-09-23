@@ -2,11 +2,7 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -14,14 +10,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 /**
- * Production feature hub.
- * Azure External ID + Azure Functions + PostgreSQL + Azure Blob Storage are the
- * production data path. No demo users, fake balances, fake rewards, or sample matches.
+ * Production feature hub with the locked premium 2030 visual system.
+ * Azure behavior is preserved; this class changes presentation/navigation only.
  */
 public class ProductionMainActivity extends Activity {
     private LinearLayout root;
     private boolean urdu=false;
-    private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(90,105,100),light=Color.rgb(247,250,249);
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
@@ -34,49 +28,139 @@ public class ProductionMainActivity extends Activity {
         home();
     }
 
-    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+    private int dp(int v){return Premium2030Ui.dp(this,v);}
+
     private void base(){
-        ScrollView s=new ScrollView(this);s.setFillViewport(true);s.setBackgroundColor(light);
-        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(22),dp(20),dp(30));
-        s.addView(root);setContentView(s);
+        ScrollView s=new ScrollView(this);
+        s.setFillViewport(true);
+        s.setVerticalScrollBarEnabled(false);
+        s.setBackgroundColor(Premium2030Ui.CREAM);
+
+        root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18),dp(20),dp(18),dp(32));
+        s.addView(root);
+        setContentView(s);
     }
-    private TextView text(String x,int size,boolean bold){
-        TextView v=new TextView(this);v.setText(x);v.setTextSize(size);v.setTextColor(bold?dark:gray);v.setPadding(dp(6),dp(8),dp(6),dp(10));
-        if(bold)v.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return v;
-    }
-    private void title(String x){TextView v=text(x,27,true);v.setGravity(Gravity.CENTER);root.addView(v);}
-    private Button button(String label,boolean filled){
-        Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(16);b.setTextColor(filled?Color.WHITE:green);
-        GradientDrawable g=new GradientDrawable();g.setColor(filled?green:Color.WHITE);g.setCornerRadius(dp(18));if(!filled)g.setStroke(dp(2),green);b.setBackground(g);
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(62));lp.setMargins(0,dp(5),0,dp(5));root.addView(b,lp);return b;
-    }
+
+    private void addButton(Button b){Premium2030Ui.addButton(root,b);}
     private void open(Class<?> cls){startActivity(new Intent(this,cls));}
 
-    private void home(){
-        base();title(urdu?"بہترین نکاح برج":"Best Nikah Bridge");
-        root.addView(text(urdu?"Production features Azure سے منسلک ہیں۔ کوئی demo data نہیں۔":"Production feature hub — Azure External ID, Azure API, PostgreSQL and Azure Storage. No demo data.",15,false));
+    private LinearLayout featureCard(String title,String body,String chip){
+        LinearLayout card=Premium2030Ui.card(this);
+        TextView c=Premium2030Ui.chip(this,chip);
+        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-2,-2);
+        card.addView(c,cp);
+        card.addView(Premium2030Ui.section(this,title));
+        TextView desc=Premium2030Ui.subtitle(this,body);
+        desc.setGravity(android.view.Gravity.START);
+        desc.setPadding(0,0,0,dp(8));
+        card.addView(desc);
+        root.addView(card);
+        return card;
+    }
 
-        Button lang=button(urdu?"English":"اردو / Urdu",false);
+    private void addCardAction(String title,String body,String chip,String buttonLabel,Class<?> target,boolean primary){
+        LinearLayout card=featureCard(title,body,chip);
+        Button b=primary?Premium2030Ui.primary(this,buttonLabel):Premium2030Ui.secondary(this,buttonLabel);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(56));
+        card.addView(b,lp);
+        b.setOnClickListener(v->open(target));
+    }
+
+    private void home(){
+        base();
+
+        root.addView(Premium2030Ui.title(this,urdu?"بیسٹ نکاح برج":"Best Nikah Bridge"));
+        root.addView(Premium2030Ui.subtitle(this,urdu
+            ?"ایمان • خاندان • اعتماد • بہتر مستقبل"
+            :"Faith • Family • Trust • A Brighter Tomorrow"));
+
+        root.addView(Premium2030Ui.heroLine(this,urdu
+            ?"سنجیدہ نکاح، محفوظ رابطے، مضبوط خاندان"
+            :"Serious Nikah • Safe Connections • Stronger Families"));
+
+        LinearLayout quick=Premium2030Ui.card(this);
+        quick.addView(Premium2030Ui.section(this,urdu?"آپ کا نکاح سفر":"Your Nikah Journey"));
+        TextView q=Premium2030Ui.subtitle(this,urdu
+            ?"اصل پروفائل، حقیقی میچز، فیملی/ولی اور پرائیویسی — سب Azure پر محفوظ۔"
+            :"Real profile, real matching, Wali support and privacy — securely powered by Azure.");
+        q.setGravity(android.view.Gravity.START);
+        q.setPadding(0,0,0,dp(8));
+        quick.addView(q);
+        Button profile=Premium2030Ui.primary(this,urdu?"میرا پروفائل":"My Real Profile");
+        quick.addView(profile,new LinearLayout.LayoutParams(-1,dp(56)));
+        profile.setOnClickListener(v->open(AzureHomeActivity.class));
+        root.addView(quick);
+
+        addCardAction("Discover Matches",
+            "Real compatibility matching with privacy, reciprocal preferences and safety rules.",
+            "MEANINGFUL MATCHES","Open Matches",GenderFilteredMatchesActivity.class,true);
+
+        addCardAction("Family / Wali Connect",
+            "Invite and manage real Wali or family involvement for a more trusted halal journey.",
+            "FAMILY FIRST","Open Wali Connect",FamilyBridge2Activity.class,true);
+
+        addCardAction("Identity Verification",
+            "Submit your real verification privately to Azure and track authorized review status.",
+            "TRUST & SAFETY","Open Verification",IdentityVerificationActivity.class,false);
+
+        addCardAction("Privacy Control Center",
+            "Control discoverability, city visibility and profile-photo access.",
+            "YOUR PRIVACY","Manage Privacy",PrivacyControlCenterActivity.class,false);
+
+        addCardAction("Premium 20 / 40 / 60",
+            "Real Google Play purchases verified by Azure. No fake payment or demo subscription.",
+            "GO PREMIUM","View Premium Plans",PremiumPlansActivity.class,true);
+
+        addCardAction("AI Nikah Assistant",
+            "Use Azure AI for profile guidance, serious questions and nikah preparation.",
+            "AZURE AI","Open AI Assistant",NikahAssistantActivity.class,false);
+
+        addCardAction("Owner Wallet",
+            "Track verified Google Play earnings and real Google payout records to Al Rajhi.",
+            "OWNER","Open Owner Wallet",OwnerEarningsActivity.class,false);
+
+        addCardAction("Help & Safety",
+            "Access help, reports, blocked members and community guidance.",
+            "SAFE COMMUNITY","Open Help Line",HelpLineActivity.class,false);
+
+        LinearLayout tools=Premium2030Ui.card(this);
+        tools.addView(Premium2030Ui.section(this,"More Controls"));
+
+        Button photo=Premium2030Ui.secondary(this,"Real Profile Photo");
+        Button reward=Premium2030Ui.secondary(this,"Rewarded Message Credits");
+        Button blocked=Premium2030Ui.secondary(this,"Blocked Members");
+        Button admin=Premium2030Ui.secondary(this,"Admin Verification Review");
+        Button terms=Premium2030Ui.secondary(this,"Terms & Community Guidelines");
+        for(Button b:new Button[]{photo,reward,blocked,admin,terms}){
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(54));
+            lp.setMargins(0,dp(3),0,dp(3));
+            tools.addView(b,lp);
+        }
+        photo.setOnClickListener(v->open(ProfilePhotoActivity.class));
+        reward.setOnClickListener(v->open(RewardedMessageActivity.class));
+        blocked.setOnClickListener(v->open(BlockedMembersActivity.class));
+        admin.setOnClickListener(v->open(VerificationAdminActivity.class));
+        terms.setOnClickListener(v->open(TermsAndCommunityGuidelinesActivity.class));
+        root.addView(tools);
+
+        Button lang=Premium2030Ui.secondary(this,urdu?"English":"اردو / Urdu");
+        addButton(lang);
         lang.setOnClickListener(v->{urdu=!urdu;home();});
 
-        Button profile=button("My Real Azure Profile",true);profile.setOnClickListener(v->open(AzureHomeActivity.class));
-        Button photo=button("Real Profile Photo",true);photo.setOnClickListener(v->open(ProfilePhotoActivity.class));
-        Button family=button("Family / Wali Connect",true);family.setOnClickListener(v->open(FamilyBridge2Activity.class));
-        Button premium=button("Premium 20 / 40 / 60 SAR",true);premium.setOnClickListener(v->open(PremiumPlansActivity.class));
-        Button reward=button("Rewarded Message Credits",true);reward.setOnClickListener(v->open(RewardedMessageActivity.class));
-        Button privacy=button("Privacy Control Center",false);privacy.setOnClickListener(v->open(PrivacyControlCenterActivity.class));
-        Button blocked=button("Blocked Members",false);blocked.setOnClickListener(v->open(BlockedMembersActivity.class));
-        Button verify=button("Identity Verification",false);verify.setOnClickListener(v->open(IdentityVerificationActivity.class));
-        Button help=button("Help Line",false);help.setOnClickListener(v->open(HelpLineActivity.class));
-        Button owner=button("Owner Earnings",false);owner.setOnClickListener(v->open(OwnerEarningsActivity.class));
-        Button admin=button("Admin Verification Review",false);admin.setOnClickListener(v->open(VerificationAdminActivity.class));
-        Button terms=button("Terms & Community Guidelines",false);terms.setOnClickListener(v->open(TermsAndCommunityGuidelinesActivity.class));
-
-        root.addView(text("All server-side actions above use authenticated Azure production APIs. Access-controlled admin screens remain protected by Azure backend roles.",14,false));
-        Button out=button("Sign out of Azure",false);
+        Button out=Premium2030Ui.secondary(this,"Sign out of Azure");
+        addButton(out);
         out.setOnClickListener(v->AzureAuthManager.removeCurrentAccount(this,ok->runOnUiThread(()->{
-            if(ok){startActivity(new Intent(ProductionMainActivity.this,AzureExternalAuthActivity.class));finish();}
-            else Toast.makeText(this,"Azure sign out failed. Please try again.",Toast.LENGTH_LONG).show();
+            if(ok){
+                startActivity(new Intent(ProductionMainActivity.this,AzureExternalAuthActivity.class));
+                finish();
+            }else{
+                Toast.makeText(this,"Azure sign out failed. Please try again.",Toast.LENGTH_LONG).show();
+            }
         })));
+
+        root.addView(Premium2030Ui.subtitle(this,
+            "Real people • Real intentions • Family stronger together • Halal today, brighter tomorrow"));
     }
 }
