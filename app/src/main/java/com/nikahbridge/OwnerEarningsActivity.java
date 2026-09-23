@@ -82,17 +82,21 @@ public class OwnerEarningsActivity extends Activity {
     }
 
     private void loadAzure(){
-        if(!AzureAuthManager.hasAccount(this)){
-            summary.setText("Please sign in with Azure as an admin.");
-            return;
-        }
         summary.setText("Loading secure Azure Owner Wallet…");
         AzureApiClient.get("/admin/owner/earnings",new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){
                 runOnUiThread(()->summary.setText(formatDashboard(body)));
             }
             @Override public void err(String message){
-                runOnUiThread(()->summary.setText("Owner Wallet unavailable: "+message));
+                runOnUiThread(()->{
+                    if(message!=null&&message.contains("ADMIN_REQUIRED")){
+                        summary.setText("Owner access is not enabled for this Azure account.");
+                    }else if(message!=null&&(message.contains("AZURE_AUTH")||message.contains("401"))){
+                        summary.setText("Azure session needs sign-in again.");
+                    }else{
+                        summary.setText("Owner Wallet unavailable: "+message);
+                    }
+                });
             }
         });
     }
