@@ -683,3 +683,57 @@ CREATE TABLE IF NOT EXISTS free_boost_claims (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   claimed_at TIMESTAMPTZ NOT NULL
 );
+
+
+-- Family Nikah Circle: additive viral family-network feature.
+CREATE TABLE IF NOT EXISTS family_circles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT 'My Nikah Circle',
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','closed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_family_circles_owner_active
+  ON family_circles(owner_user_id) WHERE status='active';
+
+CREATE TABLE IF NOT EXISTS family_circle_invites (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  circle_id UUID NOT NULL REFERENCES family_circles(id) ON DELETE CASCADE,
+  invited_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,
+  role TEXT NOT NULL DEFAULT 'family' CHECK (role IN ('wali','parent','sibling','family','trusted')),
+  max_uses SMALLINT NOT NULL DEFAULT 5 CHECK (max_uses BETWEEN 1 AND 20),
+  use_count SMALLINT NOT NULL DEFAULT 0 CHECK (use_count >= 0),
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_family_circle_invites_circle ON family_circle_invites(circle_id,created_at DESC);
+
+CREATE TABLE IF NOT EXISTS family_circle_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  circle_id UUID NOT NULL REFERENCES family_circles(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('owner','wali','parent','sibling','family','trusted')),
+  can_suggest_matches BOOLEAN NOT NULL DEFAULT TRUE,
+  can_view_progress BOOLEAN NOT NULL DEFAULT TRUE,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  removed_at TIMESTAMPTZ,
+  UNIQUE(circle_id,user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_family_circle_members_user ON family_circle_members(user_id,joined_at DESC);
+
+CREATE TABLE IF NOT EXISTS family_match_suggestions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  circle_id UUID NOT NULL REFERENCES family_circles(id) ON DELETE CASCADE,
+  suggested_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  suggested_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','viewed','accepted','declined')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  responded_at TIMESTAMPTZ,
+  CHECK (suggested_by_user_id <> suggested_user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_family_match_suggestions_circle_status
+  ON family_match_suggestions(circle_id,status,created_at DESC);
