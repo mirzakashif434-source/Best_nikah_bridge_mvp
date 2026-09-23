@@ -2,6 +2,8 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.net.Uri;
+import android.view.View;
 import android.widget.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -30,6 +32,18 @@ public class GenderFilteredMatchesActivity extends Activity {
                         final String receiverId=m.optString("userId","");
                         final String displayName=m.optString("displayName","Member");
                         LinearLayout card=Premium2030Ui.card(GenderFilteredMatchesActivity.this);
+                        FrameLayout photoFrame=new FrameLayout(GenderFilteredMatchesActivity.this);
+                        PrivacyPhotoView privateView=new PrivacyPhotoView(GenderFilteredMatchesActivity.this);
+                        ImageView photo=new ImageView(GenderFilteredMatchesActivity.this);photo.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                        photoFrame.addView(privateView,new FrameLayout.LayoutParams(-1,dp(230)));
+                        photoFrame.addView(photo,new FrameLayout.LayoutParams(-1,dp(230)));
+                        card.addView(photoFrame,new LinearLayout.LayoutParams(-1,dp(230)));
+                        String photoId=m.optString("photoId","");
+                        boolean blurred=m.optBoolean("photoBlurred",photoId.isEmpty());
+                        if(!blurred&&!photoId.isEmpty()&&!receiverId.isEmpty()){
+                            String path="/matches/"+Uri.encode(receiverId)+"/photos/"+Uri.encode(photoId)+"/content";
+                            ProfilePhotoLoader.loadAzure(path,photo,()->photo.setVisibility(View.INVISIBLE));
+                        }else photo.setVisibility(View.INVISIBLE);
                         card.addView(Premium2030Ui.chip(GenderFilteredMatchesActivity.this,"REAL MATCH"));
                         card.addView(Premium2030Ui.section(GenderFilteredMatchesActivity.this,displayName+" • "+m.optInt("age",0)));
                         StringBuilder details=new StringBuilder();
