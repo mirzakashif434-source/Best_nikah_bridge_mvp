@@ -11,6 +11,7 @@ import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ScrollView;
 import android.graphics.Color;
 
 
@@ -42,7 +43,7 @@ public class ProfilePhotoActivity extends Activity {
         root.setPadding(dp(24), dp(24), dp(24), dp(32));
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setBackgroundColor(Color.rgb(247,250,249));
-        setContentView(root);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(root,new ScrollView.LayoutParams(-1,-2));setContentView(scroll);
 
         TextView title = new TextView(this);
         title.setText("Real Profile Photo");
@@ -59,7 +60,7 @@ public class ProfilePhotoActivity extends Activity {
 
         preview = new ImageView(this);
         preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        root.addView(preview, new LinearLayout.LayoutParams(-1, dp(420)));
+        root.addView(preview, new LinearLayout.LayoutParams(-1, dp(320)));
 
         Button choose = new Button(this);
         choose.setText("Choose Real Photo");
