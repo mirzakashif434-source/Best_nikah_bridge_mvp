@@ -36,7 +36,9 @@ public class OwnerEarningsActivity extends Activity {
         b.setText(text);b.setAllCaps(false);b.setTextSize(16);
         b.setTextColor(filled?Color.WHITE:green);
         b.setBackgroundColor(filled?green:Color.WHITE);
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(62));
+        b.setMinHeight(dp(58));
+        b.setPadding(dp(14),dp(10),dp(14),dp(10));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
         lp.setMargins(0,dp(5),0,dp(5));
         root.addView(b,lp);
         return b;
