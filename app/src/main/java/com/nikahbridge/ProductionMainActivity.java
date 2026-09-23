@@ -16,6 +16,8 @@ import android.widget.Toast;
 public class ProductionMainActivity extends Activity {
     private LinearLayout root;
     private boolean urdu=false;
+    private boolean ownerAuthorized=false;
+    private boolean adminAuthorized=false;
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
@@ -26,6 +28,18 @@ public class ProductionMainActivity extends Activity {
             return;
         }
         home();
+        checkPrivilegedAccess();
+    }
+
+    private void checkPrivilegedAccess(){
+        AzureApiClient.get("/admin/owner/live-analytics",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{if(!ownerAuthorized){ownerAuthorized=true;home();}});}
+            public void err(String message){}
+        });
+        AzureApiClient.get("/admin/verifications",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{if(!adminAuthorized){adminAuthorized=true;home();}});}
+            public void err(String message){}
+        });
     }
 
     private int dp(int v){return Premium2030Ui.dp(this,v);}
@@ -121,13 +135,15 @@ public class ProductionMainActivity extends Activity {
             "Use Azure AI for profile guidance, serious questions and nikah preparation.",
             "AZURE AI","Open AI Assistant",NikahAssistantActivity.class,false);
 
-        addCardAction("Owner Live Analytics",
-            "See real users, online activity, verification, likes, messages, upgrades, premium tiers, revenue and payout status in one private admin dashboard.",
-            "OWNER LIVE","Open Owner Dashboard",OwnerLiveAnalyticsActivity.class,true);
+        if(ownerAuthorized){
+            addCardAction("Owner Live Analytics",
+                "See real users, online activity, verification, likes, messages, upgrades, premium tiers, revenue and payout status in one private admin dashboard.",
+                "OWNER LIVE","Open Owner Dashboard",OwnerLiveAnalyticsActivity.class,true);
 
-        addCardAction("Owner Wallet",
-            "Track verified Google Play earnings and real Google payout records to Al Rajhi.",
-            "OWNER","Open Owner Wallet",OwnerEarningsActivity.class,false);
+            addCardAction("Owner Wallet",
+                "Track verified Google Play earnings and real Google payout records to Al Rajhi.",
+                "OWNER","Open Owner Wallet",OwnerEarningsActivity.class,false);
+        }
 
         addCardAction("Help & Safety",
             "Access help, reports, blocked members and community guidance.",
@@ -159,6 +175,7 @@ public class ProductionMainActivity extends Activity {
         successNetwork.setOnClickListener(v->open(NikahSuccessNetworkActivity.class));
         futureSimulation.setOnClickListener(v->open(FutureLifeSimulationActivity.class));
         blocked.setOnClickListener(v->open(BlockedMembersActivity.class));
+        admin.setVisibility(adminAuthorized?android.view.View.VISIBLE:android.view.View.GONE);
         admin.setOnClickListener(v->open(VerificationAdminActivity.class));
         terms.setOnClickListener(v->open(TermsAndCommunityGuidelinesActivity.class));
         root.addView(tools);
