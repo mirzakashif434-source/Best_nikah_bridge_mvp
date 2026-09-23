@@ -1,0 +1,86 @@
+name: Live Presence And Likes Validation
+
+on:
+  push:
+    branches: [live-presence-likes-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
+
+      - name: Verify rolling 24 hour like limit
+        run: |
+          set -euo pipefail
+          grep -Fq "created_at>now()-interval '24 hours'" azure-backend/src/featureParity.js
+          grep -Fq 'ROLLING_24H_LIKE_LIMIT_REACHED' azure-backend/src/featureParity.js
+          grep -Fq 'count>=20' azure-backend/src/featureParity.js
+          grep -Fq 'pg_advisory_xact_lock' azure-backend/src/featureParity.js
+          grep -Fq 'CREATE TABLE IF NOT EXISTS like_events' azure-backend/database/schema.sql
+
+      - name: Verify real online presence
+        run: |
+          set -euo pipefail
+          grep -Fq 'presenceHeartbeatAzure' azure-backend/src/featureParity.js
+          grep -Fq 'route:"presence/heartbeat"' azure-backend/src/featureParity.js
+          grep -Fq 'CREATE TABLE IF NOT EXISTS user_presence' azure-backend/database/schema.sql
+          grep -Fq "last_seen_at >= now()-interval '2 minutes'" azure-backend/src/matches.js
+          grep -Fq 'Number(b.isOnline)-Number(a.isOnline)' azure-backend/src/matches.js
+
+      - name: Verify Android live UX
+        run: |
+          set -euo pipefail
+          grep -Fq '🟢 ONLINE' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq 'presenceHeartbeat' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq '60000' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq '♡ Like' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq '24-hour like limit reached' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed production AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
