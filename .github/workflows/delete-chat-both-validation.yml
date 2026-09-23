@@ -1,0 +1,92 @@
+name: Delete Chat For Both Production Validation
+
+on:
+  push:
+    branches: [delete-chat-both-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
+
+      - name: Verify delete chat for both backend
+        run: |
+          set -euo pipefail
+          grep -Fq 'conversationDeleteForBoth' azure-backend/src/chat.js
+          grep -Eq 'route:[[:space:]]*"conversations/\{conversationId\}"' azure-backend/src/chat.js
+          grep -Fq 'DELETE FROM conversations WHERE id=$1' azure-backend/src/chat.js
+          grep -Fq 'deletedForBoth:true' azure-backend/src/chat.js
+          grep -Fq 'FOR UPDATE' azure-backend/src/chat.js
+          grep -Fq 'conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE' azure-backend/database/schema.sql
+
+      - name: Verify delete chat Android UX
+        run: |
+          set -euo pipefail
+          grep -Fq 'Delete Chat for Both' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+          grep -Fq 'Delete this chat for both?' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+          grep -Fq 'Chat deleted for both.' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+          grep -Fq 'conversationId.setText("")' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+          grep -Fq 'history.setText("")' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+          grep -Fq 'loadConversations();' app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+
+      - name: Preserve reply gate and mutual-only safety
+        run: |
+          set -euo pipefail
+          grep -Fq 'WAIT_FOR_HER_REPLY' azure-backend/src/chat.js
+          grep -Fq 'c.status!=="mutual"' azure-backend/src/chat.js
+          grep -Fq 'USER_BLOCKED' azure-backend/src/chat.js
+
+      - name: No demo mock or local endpoints
+        run: |
+          set -euo pipefail
+          ! grep -RniE 'MockData|sample member|fake match|fake balance|demo purchase|localhost|10\.0\.2\.2' app/src/main azure-backend/src --exclude='*.md'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production release signing secret
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed delete-chat production AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
