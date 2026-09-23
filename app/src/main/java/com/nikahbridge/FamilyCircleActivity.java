@@ -14,7 +14,7 @@ public class FamilyCircleActivity extends Activity {
     private TextView status;
     private Spinner role;
     private EditText suggestedUser,note;
-    private String lastInviteLink,myRole="";
+    private String lastInviteLink,lastInviteShareUrl,myRole="";
 
     public static void savePendingInvite(android.content.Context c,String token){
         if(token!=null&&!token.trim().isEmpty())c.getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString(KEY,token.trim()).apply();
@@ -138,7 +138,7 @@ public class FamilyCircleActivity extends Activity {
             JSONObject b=new JSONObject().put("role",String.valueOf(role.getSelectedItem())).put("maxUses",5).put("expiresDays",7);
             status.setText("Status: creating secure invite…");
             AzureApiClient.post("/family-circle/invites",b.toString(),new AzureApiClient.Callback(){
-                public void ok(int c,String s){runOnUiThread(()->{try{lastInviteLink=new JSONObject(s).optString("deepLink","");status.setText(lastInviteLink.isEmpty()?"Status: invite created":"Status: invite ready to share");}catch(Exception e){status.setText("Status: invite created");}});}
+                public void ok(int c,String s){runOnUiThread(()->{try{JSONObject j=new JSONObject(s);lastInviteLink=j.optString("deepLink","");lastInviteShareUrl=j.optString("shareUrl",lastInviteLink);status.setText(lastInviteShareUrl.isEmpty()?"Status: invite created":"Status: invite ready to share");}catch(Exception e){status.setText("Status: invite created");}});}
                 public void err(String e){runOnUiThread(()->status.setText("Status: invite creation failed")); }
             });
         }catch(Exception e){status.setText("Status: invite request error");}
@@ -184,8 +184,9 @@ public class FamilyCircleActivity extends Activity {
     }
 
     private void shareInvite(){
-        if(lastInviteLink==null||lastInviteLink.trim().isEmpty()){status.setText("Status: create an invite first");return;}
-        String text="Join my private Best Nikah Family Circle. Open this secure invite in Best Nikah Bredge:\n"+lastInviteLink;
+        String share=(lastInviteShareUrl==null||lastInviteShareUrl.trim().isEmpty())?lastInviteLink:lastInviteShareUrl;
+        if(share==null||share.trim().isEmpty()){status.setText("Status: create an invite first");return;}
+        String text="Join my private Best Nikah Family Circle. Open this secure invite:\n"+share;
         Intent send=new Intent(Intent.ACTION_SEND);send.setType("text/plain");send.putExtra(Intent.EXTRA_TEXT,text);
         startActivity(Intent.createChooser(send,"Share Family Circle Invite"));
     }
