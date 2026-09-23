@@ -32,6 +32,7 @@ require("./family");
 require("./familyCircle");
 require("./verification");
 require("./photos");
+require("./photoVerification");
 require("./community");
 require("./terms");
 require("./safety");
