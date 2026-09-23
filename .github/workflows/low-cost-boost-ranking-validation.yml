@@ -1,0 +1,82 @@
+name: Low Cost Boost Ranking Validation
+
+on:
+  push:
+    branches: [low-cost-boost-ranking-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
+
+      - name: Verify database-only boost ranking
+        run: |
+          set -euo pipefail
+          grep -Fq "pbc.claimed_at>now()-interval '30 minutes'" azure-backend/src/matches.js
+          grep -Fq 'AS boost_active' azure-backend/src/matches.js
+          grep -Fq 'boostActive:Boolean(c.boost_active)' azure-backend/src/matches.js
+          grep -Fq 'Number(b.boostActive)-Number(a.boostActive)' azure-backend/src/matches.js
+          grep -Fq 'profile_boost_claims' azure-backend/src/matches.js
+
+      - name: Verify boost does not call AI
+        run: |
+          set -euo pipefail
+          ! grep -nE 'aiNikahAssistant|aiCompatibility|openai|contentSafety|AZURE_OPENAI' azure-backend/src/matches.js
+          ! grep -nE 'aiNikahAssistant|aiCompatibility|openai|contentSafety|AZURE_OPENAI' azure-backend/src/featureParity.js
+
+      - name: Preserve boost quotas
+        run: |
+          set -euo pipefail
+          grep -Fq 'plan==="premium_plus_40"?4:plan==="premium_basic_20"?2:1' azure-backend/src/featureParity.js
+          grep -Fq 'plan==="premium_vip_60"' azure-backend/src/featureParity.js
+          grep -Fq 'BOOST_MONTHLY_LIMIT_REACHED' azure-backend/src/featureParity.js
+          grep -Fq 'BOOST_NOT_AVAILABLE_YET' azure-backend/src/featureParity.js
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed production AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
