@@ -5,6 +5,8 @@ const { requireAuth } = require("./auth");
 const credential = new DefaultAzureCredential();
 const MAX_MESSAGE = 4000;
 const MAX_MESSAGES = 20;
+const LANGUAGE_NAMES={en:"English",ur:"Urdu",ar:"Arabic",bn:"Bengali",hi:"Hindi",tr:"Turkish",id:"Indonesian",ms:"Malay",pa:"Punjabi",fa:"Persian (Farsi)",fr:"French",de:"German",es:"Spanish",it:"Italian"};
+function responseLanguage(request){const code=(request.headers.get("x-app-language")||"en").trim().toLowerCase();return LANGUAGE_NAMES[code]||"English";}
 
 function clean(v){
   return typeof v === "string" ? v.trim().slice(0, MAX_MESSAGE) : "";
@@ -22,6 +24,7 @@ app.http("aiNikahAssistant", {
         return { status: 503, jsonBody: { ok: false, error: "AI_SERVICE_NOT_CONFIGURED" } };
       }
 
+      const targetLanguage=responseLanguage(request);
       const body = await request.json();
       const input = Array.isArray(body?.messages) ? body.messages : [];
       if (!input.length || input.length > MAX_MESSAGES) {
@@ -58,7 +61,8 @@ app.http("aiNikahAssistant", {
                 "and general nikah planning. Do not make decisions for the user, do not claim " +
                 "to be a scholar, lawyer, doctor, or imam, and advise the user to consult a " +
                 "qualified local professional for religious, legal, medical, or safety matters. " +
-                "Never ask for passwords, identity documents, payment card details, or other secrets."
+                "Never ask for passwords, identity documents, payment card details, or other secrets. " +
+                "Respond in " + targetLanguage + " unless the user explicitly asks for another language."
             },
             ...messages
           ],
