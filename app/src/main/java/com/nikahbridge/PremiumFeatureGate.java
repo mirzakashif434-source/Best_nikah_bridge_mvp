@@ -10,7 +10,12 @@ public final class PremiumFeatureGate {
 
     public static void require(Activity a,String feature,String requiredPlan,Runnable allowed){
         if(!AzureAuthManager.hasAccount(a)){
-            a.startActivity(new Intent(a,AzureExternalAuthActivity.class));
+            LanguageManager.dialog(a)
+                .setTitle("Sign in required")
+                .setMessage("Sign in with Azure first so the app can verify your real account and premium access before opening this feature.")
+                .setPositiveButton("Sign in",(d,w)->a.startActivity(new Intent(a,AzureExternalAuthActivity.class)))
+                .setNegativeButton("Not now",null)
+                .show();
             return;
         }
         AzureApiClient.get("/premium/serious-plus-summary",new AzureApiClient.Callback(){
