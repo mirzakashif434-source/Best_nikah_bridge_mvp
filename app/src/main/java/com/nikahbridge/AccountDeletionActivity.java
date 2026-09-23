@@ -10,7 +10,7 @@ import android.widget.*;
 
 public class AccountDeletionActivity extends Activity {
     private LinearLayout root;
-    private final int dark=Color.rgb(30,45,41),gray=Color.rgb(95,108,103);
+    private final int dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED;
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
