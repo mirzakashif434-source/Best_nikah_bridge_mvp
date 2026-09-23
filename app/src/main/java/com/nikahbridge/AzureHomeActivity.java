@@ -60,7 +60,7 @@ public class AzureHomeActivity extends Activity {
         root.addView(e,lp);
         return e;
     }
-    private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_LONG).show();}
+    private void toast(String s){LanguageManager.toast(this,s,Toast.LENGTH_LONG).show();}
     private String valueOrEmpty(JSONObject o,String key){
         if(o==null || !o.has(key) || o.isNull(key)) return "";
         return o.optString(key,"");
@@ -335,7 +335,7 @@ public class AzureHomeActivity extends Activity {
     }
 
     private void deleteAccount(){
-        new AlertDialog.Builder(this)
+        LanguageManager.dialog(this)
             .setTitle("Delete Azure account data permanently?")
             .setMessage("This permanently removes your app profile, photos, verification documents and related records from Azure storage/database. Your Azure External ID sign-in identity is not deleted by this app endpoint.")
             .setPositiveButton("Delete", (d,w)->{
@@ -343,7 +343,7 @@ public class AzureHomeActivity extends Activity {
                     public void ok(int code,String body){
                         runOnUiThread(()->{
                             AzureAuthManager.removeCurrentAccount(AzureHomeActivity.this,ok->{
-                                Toast.makeText(AzureHomeActivity.this,"Azure account data deleted.",Toast.LENGTH_LONG).show();
+                                LanguageManager.toast(AzureHomeActivity.this,"Azure account data deleted.",Toast.LENGTH_LONG).show();
                                 startActivity(new Intent(AzureHomeActivity.this,WelcomeActivity.class));
                                 finish();
                             });
@@ -355,7 +355,7 @@ public class AzureHomeActivity extends Activity {
     }
 
     private void signOut(){
-        new AlertDialog.Builder(this).setTitle("Sign out of Azure").setMessage("This removes the Azure account from this app's MSAL cache. Your account and Azure data are not deleted.").setPositiveButton("Sign out",(d,w)->{
+        LanguageManager.dialog(this).setTitle("Sign out of Azure").setMessage("This removes the Azure account from this app's MSAL cache. Your account and Azure data are not deleted.").setPositiveButton("Sign out",(d,w)->{
             AzureAuthManager.removeCurrentAccount(this,ok->{startActivity(new Intent(this,WelcomeActivity.class));finish();});
         }).setNegativeButton("Cancel",null).show();
     }
