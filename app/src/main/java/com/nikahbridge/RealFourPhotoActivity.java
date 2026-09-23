@@ -3,6 +3,9 @@ package com.nikahbridge;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import androidx.core.content.FileProvider;
+import java.io.File;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -21,7 +24,7 @@ public class RealFourPhotoActivity extends Activity {
     private TextView status;
     private ImageView[] previews=new ImageView[4];
     private final ArrayList<Uri> galleryUris=new ArrayList<>();
-    private Bitmap cameraBitmap;
+    private Uri cameraUri;
     private String verificationSetId="";
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 
@@ -84,13 +87,21 @@ public class RealFourPhotoActivity extends Activity {
     }
 
     private void takeCameraPhoto(){
-        Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if(i.resolveActivity(getPackageManager())==null){status.setText("Status: camera is unavailable.");return;}
-        startActivityForResult(i,CAMERA_FIRST);
+        try{
+            File dir=new File(getCacheDir(),"verification-camera");
+            if(!dir.exists()&&!dir.mkdirs()){status.setText("Status: camera storage is unavailable.");return;}
+            File file=File.createTempFile("main-photo-", ".jpg", dir);
+            cameraUri=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",file);
+            Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            if(i.resolveActivity(getPackageManager())==null){status.setText("Status: camera is unavailable.");return;}
+            i.putExtra(MediaStore.EXTRA_OUTPUT,cameraUri);
+            i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivityForResult(i,CAMERA_FIRST);
+        }catch(Exception e){status.setText("Status: camera could not start.");}
     }
 
     private void chooseRemainingPhotos(){
-        if(cameraBitmap==null||verificationSetId.isEmpty()){status.setText("Status: take Photo 1 with the camera first.");return;}
+        if(cameraUri==null||verificationSetId.isEmpty()){status.setText("Status: take Photo 1 with the camera first.");return;}
         Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("image/*");i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);i.addCategory(Intent.CATEGORY_OPENABLE);
         startActivityForResult(i,GALLERY_REMAINING);
     }
@@ -98,10 +109,10 @@ public class RealFourPhotoActivity extends Activity {
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
         super.onActivityResult(requestCode,resultCode,data);
         if(resultCode!=RESULT_OK||data==null)return;
-        if(requestCode==CAMERA_FIRST&&data.getExtras()!=null&&data.getExtras().get("data") instanceof Bitmap){
-            cameraBitmap=(Bitmap)data.getExtras().get("data");previews[0].setImageBitmap(cameraBitmap);galleryUris.clear();
+        if(requestCode==CAMERA_FIRST&&cameraUri!=null){
+            previews[0].setImageURI(cameraUri);galleryUris.clear();
             for(int i=1;i<4;i++)previews[i].setImageDrawable(null);
-            status.setText("Status: main camera photo captured. Now choose exactly 3 gallery photos of the same person.");
+            status.setText("Status: full-resolution main camera photo captured. Now choose exactly 3 gallery photos of the same person.");
             return;
         }
         if(requestCode==GALLERY_REMAINING){
@@ -118,22 +129,41 @@ public class RealFourPhotoActivity extends Activity {
 
     private void uploadAll(){
         if(verificationSetId.isEmpty()){status.setText("Status: start again with Photo 1.");return;}
-        if(cameraBitmap==null){status.setText("Status: Photo 1 camera image is required.");return;}
+        if(cameraUri==null){status.setText("Status: Photo 1 camera image is required.");return;}
         if(galleryUris.size()!=3){status.setText("Status: exactly 3 gallery photos are required.");return;}
         status.setText("Status: securely uploading 4 photos to Azure…");
-        ByteArrayOutputStream out=new ByteArrayOutputStream();cameraBitmap.compress(Bitmap.CompressFormat.JPEG,92,out);
-        uploadSlot(1,out.toByteArray(),"camera",()->uploadGallery(0));
+        try{
+            byte[] bytes=readImageBytes(cameraUri,true);
+            if(bytes==null){status.setText("Status: main camera photo could not be prepared.");return;}
+            uploadSlot(1,bytes,"camera",()->uploadGallery(0));
+        }catch(Exception e){status.setText("Status: main camera photo could not be prepared.");}
     }
 
     private void uploadGallery(int index){
         if(index>=3){submitSet();return;}
         try{
-            Uri uri=galleryUris.get(index);InputStream in=getContentResolver().openInputStream(uri);
-            if(in==null){status.setText("Status: could not read gallery Photo "+(index+2)+".");return;}
-            ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buffer=new byte[8192];int total=0,n;
-            while((n=in.read(buffer))!=-1){total+=n;if(total>MAX_BYTES){in.close();status.setText("Status: Photo "+(index+2)+" is larger than 4 MB.");return;}out.write(buffer,0,n);}
-            in.close();uploadSlot(index+2,out.toByteArray(),"gallery",()->uploadGallery(index+1));
+            Uri uri=galleryUris.get(index);
+            byte[] bytes=readImageBytes(uri,false);
+            if(bytes==null){status.setText("Status: Photo "+(index+2)+" is larger than 4 MB or could not be read.");return;}
+            uploadSlot(index+2,bytes,"gallery",()->uploadGallery(index+1));
         }catch(Exception e){status.setText("Status: gallery Photo "+(index+2)+" could not be prepared.");}
+    }
+
+    private byte[] readImageBytes(Uri uri,boolean allowCompress)throws Exception{
+        InputStream in=getContentResolver().openInputStream(uri);
+        if(in==null)return null;
+        ByteArrayOutputStream raw=new ByteArrayOutputStream();byte[] buffer=new byte[8192];int n,total=0;
+        while((n=in.read(buffer))!=-1){total+=n;if(total>12*1024*1024){in.close();return null;}raw.write(buffer,0,n);}
+        in.close();
+        byte[] bytes=raw.toByteArray();
+        if(bytes.length<=MAX_BYTES)return bytes;
+        if(!allowCompress)return null;
+        Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);
+        if(bitmap==null)return null;
+        int w=bitmap.getWidth(),h=bitmap.getHeight(),max=Math.max(w,h);
+        if(max>2048){float s=2048f/max;Bitmap scaled=Bitmap.createScaledBitmap(bitmap,Math.max(1,Math.round(w*s)),Math.max(1,Math.round(h*s)),true);if(scaled!=bitmap)bitmap.recycle();bitmap=scaled;}
+        for(int q=92;q>=60;q-=8){ByteArrayOutputStream out=new ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,q,out);if(out.size()<=MAX_BYTES){bitmap.recycle();return out.toByteArray();}}
+        bitmap.recycle();return null;
     }
 
     private void uploadSlot(int slot,byte[] bytes,String source,Runnable next){
