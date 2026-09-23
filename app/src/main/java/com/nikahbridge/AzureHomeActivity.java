@@ -109,6 +109,8 @@ public class AzureHomeActivity extends Activity {
         EditText gender=input("Gender: male or female");
         EditText country=input("Country");
         EditText city=input("City");
+        EditText education=input("Education");
+        EditText familyInvolvement=input("Family involvement style");
         EditText bio=input("Short bio");
         AzureApiClient.get("/profile",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
@@ -121,6 +123,8 @@ public class AzureHomeActivity extends Activity {
                     gender.setText(valueOrEmpty(p,"gender"));
                     country.setText(valueOrEmpty(p,"country"));
                     city.setText(valueOrEmpty(p,"city"));
+                    education.setText(valueOrEmpty(p,"education"));
+                    familyInvolvement.setText(valueOrEmpty(p,"family_involvement"));
                     bio.setText(valueOrEmpty(p,"bio"));
                 }catch(Exception e){status.setText("Profile response could not be read.");}
             });}
@@ -153,6 +157,8 @@ public class AzureHomeActivity extends Activity {
                 b.put("gender",profileGender);
                 b.put("country",country.getText().toString().trim());
                 b.put("city",city.getText().toString().trim());
+                b.put("education",education.getText().toString().trim());
+                b.put("familyInvolvement",familyInvolvement.getText().toString().trim());
                 b.put("bio",bio.getText().toString().trim());
                 b.put("profileCompleted",true); b.put("isVisible",true);
                 AzureApiClient.put("/profile",b.toString(),new AzureApiClient.Callback(){
