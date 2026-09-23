@@ -44,6 +44,7 @@ app.http("privacyUpdate",{
         [me.id,profileDiscoverable,showCity,showPhotoToMatches]
       );
       await query("UPDATE profiles SET is_visible=$2,updated_at=now() WHERE user_id=$1",[me.id,profileDiscoverable]);
+      await query("UPDATE photos SET visibility=$2 WHERE user_id=$1 AND moderation_status='approved'",[me.id,showPhotoToMatches?"matches":"private"]);
       return {status:200,jsonBody:{ok:true,privacy:r.rows[0]}};
     }catch(e){context.error("PRIVACY_UPDATE_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"PRIVACY_UPDATE_FAILED"}};}
   })
