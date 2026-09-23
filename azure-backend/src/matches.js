@@ -34,8 +34,10 @@ app.http("matches",{
 
       const m=me.rows[0];
       const candidates=await query(`
-        SELECT u.id,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
-               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city
+        SELECT u.id,u.azure_subject,u.firebase_uid,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
+               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city,
+               COALESCE(ps.show_photo_to_matches,true) AS show_photo_to_matches,
+               (SELECT ph.id FROM photos ph WHERE ph.user_id=u.id AND ph.moderation_status='approved' ORDER BY ph.created_at ASC LIMIT 1) AS photo_id
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
@@ -69,7 +71,9 @@ app.http("matches",{
           userId:c.azure_subject||c.firebase_uid||null,displayName:c.display_name,age:c.age,gender:c.gender,
           country:c.country,city:c.show_city===false?null:c.city,marriageIntention:c.marriage_intention,
           marriageTimeline:c.preferred_marriage_timeline,readinessScore:c.readiness_score,
-          compatibilityScore:score,whyWeMatched:reasons
+          compatibilityScore:score,whyWeMatched:reasons,
+          photoId:c.show_photo_to_matches===true?c.photo_id:null,
+          photoBlurred:!(c.show_photo_to_matches===true&&c.photo_id)
         });
       }
       matches.sort((a,b)=>b.compatibilityScore-a.compatibilityScore);
