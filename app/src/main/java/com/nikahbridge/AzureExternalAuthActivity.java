@@ -44,23 +44,23 @@ public class AzureExternalAuthActivity extends Activity {
         root.setPadding(32, 40, 32, 32);
 
         TextView title = new TextView(this);
-        title.setText("Microsoft / Azure Sign in");
+        title.setText(LanguageManager.tr(this,"Microsoft / Azure Sign in"));
         title.setTextSize(25);
         title.setTextColor(Premium2030Ui.TEXT);
         root.addView(title);
 
         status = new TextView(this);
-        status.setText("Connecting to Microsoft Entra External ID…");
+        status.setText(LanguageManager.tr(this,"Connecting to Microsoft Entra External ID…"));
         status.setTextSize(16);
         root.addView(status);
 
         Button signIn = new Button(this);
-        signIn.setText("Continue with Microsoft / Azure");
+        signIn.setText(LanguageManager.tr(this,"Continue with Microsoft / Azure"));
         signIn.setEnabled(false);
         root.addView(signIn);
 
         Button back = new Button(this);
-        back.setText("Back");
+        back.setText(LanguageManager.tr(this,"Back"));
         root.addView(back);
         back.setOnClickListener(v -> finish());
 
@@ -73,7 +73,7 @@ public class AzureExternalAuthActivity extends Activity {
                     @Override public void onCreated(IMultipleAccountPublicClientApplication application) {
                         msal = application;
                         signIn.setEnabled(true);
-                        status.setText("Azure External ID is ready. Sign in or create your real account.");
+                        status.setText(LanguageManager.tr(this,"Azure External ID is ready. Sign in or create your real account."));
                         signIn.setOnClickListener(v -> acquireTokenInteractive());
                     }
                     @Override public void onError(MsalException exception) {
@@ -98,7 +98,7 @@ public class AzureExternalAuthActivity extends Activity {
                         status.setText("Azure sign-in failed: " + safe(exception.getMessage()));
                     }
                     @Override public void onCancel() {
-                        status.setText("Azure sign-in cancelled.");
+                        status.setText(LanguageManager.tr(this,"Azure sign-in cancelled."));
                     }
                 })
                 .build();
