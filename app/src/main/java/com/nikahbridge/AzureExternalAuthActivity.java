@@ -9,6 +9,9 @@ import android.widget.ScrollView;
 import android.widget.Toast;
 import android.graphics.Color;
 import android.content.Intent;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.microsoft.identity.client.AuthenticationCallback;
 import com.microsoft.identity.client.IAuthenticationResult;
@@ -43,9 +46,12 @@ public class AzureExternalAuthActivity extends Activity {
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
+        scroll.setClipToPadding(false);
+        scroll.setBackgroundColor(Premium2030Ui.CREAM);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(22), dp(28), dp(22), dp(28));
+        root.setBackgroundColor(Premium2030Ui.CREAM);
         scroll.addView(root);
 
         TextView title = new TextView(this);
@@ -59,17 +65,22 @@ public class AzureExternalAuthActivity extends Activity {
         status.setTextSize(16);
         root.addView(status);
 
-        Button signIn = new Button(this);
-        signIn.setText(LanguageManager.tr(AzureExternalAuthActivity.this,"Continue with Microsoft / Azure"));
+        Button signIn = Premium2030Ui.primary(this,LanguageManager.tr(AzureExternalAuthActivity.this,"Continue with Microsoft / Azure"));
         signIn.setEnabled(false);
-        root.addView(signIn);
+        Premium2030Ui.addButton(root,signIn);
 
-        Button back = new Button(this);
-        back.setText(LanguageManager.tr(AzureExternalAuthActivity.this,"Back"));
-        root.addView(back);
+        Button back = Premium2030Ui.secondary(this,LanguageManager.tr(AzureExternalAuthActivity.this,"Back"));
+        Premium2030Ui.addButton(root,back);
         back.setOnClickListener(v -> finish());
 
         setContentView(scroll);
+        ViewCompat.setOnApplyWindowInsetsListener(scroll,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(22),dp(28),dp(22),dp(28)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(scroll);
 
         PublicClientApplication.createMultipleAccountPublicClientApplication(
                 this,
