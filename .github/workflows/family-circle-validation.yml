@@ -116,3 +116,5 @@ jobs:
           ./gradlew :app:bundleRelease --stacktrace
           test -s app/build/outputs/bundle/release/app-release.aab
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
+
+# production family circle gate
