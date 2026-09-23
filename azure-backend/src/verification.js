@@ -57,3 +57,54 @@ app.http("verificationStatus",{
     }catch(e){context.error("VERIFICATION_STATUS_FAILED",e);return {status:500,jsonBody:{ok:false,error:"VERIFICATION_STATUS_FAILED"}};}
   })
 });
+
+
+async function requireVerificationAdmin(user){
+  const r=await query("SELECT id,role,status FROM users WHERE firebase_uid=$1 LIMIT 1",[user.uid]);
+  const me=r.rows[0];
+  if(!me || me.status!=="active"){const e=new Error("USER_NOT_ACTIVE");e.statusCode=403;throw e;}
+  if(!["admin","moderator"].includes(me.role)){const e=new Error("ADMIN_REQUIRED");e.statusCode=403;throw e;}
+  return me;
+}
+
+app.http("verificationAdminList",{
+  methods:["GET"],authLevel:"anonymous",route:"admin/verifications",
+  handler:requireAuth(async(request,context,user)=>{
+    try{
+      await requireVerificationAdmin(user);
+      const r=await query(
+        `SELECT v.id,v.verification_type,v.status,v.provider,v.document_content_type,v.submitted_at,v.created_at,
+                u.id AS user_id,u.email,p.display_name
+         FROM verifications v
+         JOIN users u ON u.id=v.user_id
+         LEFT JOIN profiles p ON p.user_id=u.id
+         WHERE v.status='pending'
+         ORDER BY COALESCE(v.submitted_at,v.created_at) ASC
+         LIMIT 200`
+      );
+      return {status:200,jsonBody:{ok:true,items:r.rows}};
+    }catch(e){context.error("VERIFICATION_ADMIN_LIST_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"VERIFICATION_ADMIN_LIST_FAILED"}};}
+  })
+});
+
+app.http("verificationAdminReview",{
+  methods:["PATCH"],authLevel:"anonymous",route:"admin/verifications/{verificationId}",
+  handler:requireAuth(async(request,context,user)=>{
+    try{
+      const admin=await requireVerificationAdmin(user);
+      const id=request.params?.verificationId||context.triggerMetadata?.verificationId;
+      const body=await request.json();
+      const decision=text(body?.decision,20).toLowerCase();
+      if(!["approved","rejected"].includes(decision)) return {status:400,jsonBody:{ok:false,error:"INVALID_VERIFICATION_DECISION"}};
+      const r=await query(
+        `UPDATE verifications
+         SET status=$2,reviewed_at=now(),provider=COALESCE(provider,'azure-admin-review')
+         WHERE id=$1 AND status='pending'
+         RETURNING id,user_id,verification_type,status,reviewed_at`,
+        [id,decision]
+      );
+      if(!r.rows[0]) return {status:404,jsonBody:{ok:false,error:"VERIFICATION_NOT_FOUND_OR_ALREADY_REVIEWED"}};
+      return {status:200,jsonBody:{ok:true,verification:r.rows[0],reviewedBy:admin.id}};
+    }catch(e){context.error("VERIFICATION_ADMIN_REVIEW_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"VERIFICATION_ADMIN_REVIEW_FAILED"}};}
+  })
+});
