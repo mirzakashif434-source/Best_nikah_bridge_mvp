@@ -13,6 +13,11 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.ScrollView;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 
 
@@ -36,6 +41,18 @@ public class ProfilePhotoActivity extends Activity {
 
     private int dp(int value) { return (int)(value * getResources().getDisplayMetrics().density + 0.5f); }
 
+    private Button styledButton(String label, boolean primary, LinearLayout parent) {
+        Button b = primary ? Premium2030Ui.primary(this,label) : Premium2030Ui.secondary(this,label);
+        b.setAllCaps(false);
+        b.setTextSize(16);
+        b.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+        lp.setMargins(0,dp(6),0,dp(6));
+        b.setMinHeight(dp(62));
+        parent.addView(b,lp);
+        return b;
+    }
+
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         LinearLayout root = new LinearLayout(this);
@@ -43,7 +60,15 @@ public class ProfilePhotoActivity extends Activity {
         root.setPadding(dp(24), dp(24), dp(24), dp(32));
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setBackgroundColor(Color.rgb(247,250,249));
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(root,new ScrollView.LayoutParams(-1,-2));setContentView(scroll);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);scroll.setBackgroundColor(Color.rgb(247,250,249));
+        scroll.addView(root,new ScrollView.LayoutParams(-1,-2));setContentView(scroll);
+        ViewCompat.setOnApplyWindowInsetsListener(scroll,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(24),dp(24),dp(24),dp(32)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(scroll);
 
         TextView title = new TextView(this);
         title.setText("Real Profile Photo");
@@ -62,32 +87,17 @@ public class ProfilePhotoActivity extends Activity {
         preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
         root.addView(preview, new LinearLayout.LayoutParams(-1, dp(320)));
 
-        Button choose = new Button(this);
-        choose.setText("Choose Real Photo");
-        choose.setTextColor(Color.rgb(18,103,82));
-        root.addView(choose, new LinearLayout.LayoutParams(-1, dp(62)));
+        Button choose = styledButton("Choose Real Photo", true, root);
 
-        Button upload = new Button(this);
-        upload.setText("Upload to Azure Securely");
-        upload.setTextColor(Color.rgb(18,103,82));
-        root.addView(upload, new LinearLayout.LayoutParams(-1, dp(62)));
+        Button upload = styledButton("Upload to Azure Securely", true, root);
 
-        Button four = new Button(this);
-        four.setText("Camera-First 4 Photos");
-        four.setTextColor(Color.rgb(18,103,82));
-        root.addView(four, new LinearLayout.LayoutParams(-1, dp(62)));
+        Button four = styledButton("Camera-First 4 Photos", false, root);
         four.setOnClickListener(v -> startActivity(new Intent(this, RealFourPhotoActivity.class)));
 
-        Button genderMatches = new Button(this);
-        genderMatches.setText("View Gender-Filtered Nikah Matches");
-        genderMatches.setTextColor(Color.rgb(18,103,82));
-        root.addView(genderMatches, new LinearLayout.LayoutParams(-1, dp(62)));
+        Button genderMatches = styledButton("View Gender-Filtered Nikah Matches", false, root);
         genderMatches.setOnClickListener(v -> startActivity(new Intent(this, GenderFilteredMatchesActivity.class)));
 
-        Button back = new Button(this);
-        back.setText("Back");
-        back.setTextColor(Color.rgb(18,103,82));
-        root.addView(back, new LinearLayout.LayoutParams(-1, dp(62)));
+        Button back = styledButton("Back", false, root);
 
         choose.setOnClickListener(v -> requireTermsBeforePhotoAction(this::pickImage));
         upload.setOnClickListener(v -> requireTermsBeforePhotoAction(this::uploadImageAzure));
