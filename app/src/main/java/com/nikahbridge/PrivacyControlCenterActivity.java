@@ -1,13 +1,34 @@
 package com.nikahbridge;
 
-import android.app.Activity;import android.os.Bundle;import android.graphics.Color;import android.graphics.Typeface;import android.graphics.drawable.GradientDrawable;import android.widget.*;import org.json.JSONObject;
+import android.app.Activity;
+import android.os.Bundle;
+import android.widget.*;
+import org.json.JSONObject;
 
 public class PrivacyControlCenterActivity extends Activity{
- LinearLayout root;Switch discoverable,city;TextView status;final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95);
- public void onCreate(Bundle b){super.onCreate(b);render();load();}
- TextView txt(String s,int z,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(z);t.setTextColor(bold?dark:gray);t.setPadding(6,8,6,10);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
- Button btn(String s,boolean fill){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextColor(fill?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(fill?green:Color.WHITE);g.setCornerRadius(18);if(!fill)g.setStroke(2,green);b.setBackground(g);root.addView(b,new LinearLayout.LayoutParams(-1,62));return b;}
- void render(){ScrollView sc=new ScrollView(this);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(20,22,20,30);sc.addView(root);setContentView(sc);root.addView(txt("Privacy Control Center",27,true));root.addView(txt("Your real privacy settings are stored in Azure PostgreSQL.",15,false));discoverable=new Switch(this);discoverable.setText("Show my profile in matching");root.addView(discoverable);city=new Switch(this);city.setText("Show my city on my public profile");root.addView(city);Button save=btn("Save Privacy Controls",true);save.setOnClickListener(v->save());Button refresh=btn("Refresh",false);refresh.setOnClickListener(v->load());Button back=btn("Back",false);back.setOnClickListener(v->finish());status=txt("Status: loading…",15,false);root.addView(status);}
+ LinearLayout root;Switch discoverable,city;TextView status;
+ public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();load();}
+ int dp(int v){return Premium2030Ui.dp(this,v);}
+ Button btn(String s,boolean primary){Button b=primary?Premium2030Ui.primary(this,s):Premium2030Ui.secondary(this,s);Premium2030Ui.addButton(root,b);return b;}
+ void addSwitch(String label,Switch sw){
+   LinearLayout card=Premium2030Ui.card(this);
+   sw.setText(label);sw.setTextSize(16);sw.setTextColor(Premium2030Ui.TEXT);
+   card.addView(sw,new LinearLayout.LayoutParams(-1,dp(54)));root.addView(card);
+ }
+ void render(){
+   ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(Premium2030Ui.CREAM);
+   root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(20),dp(18),dp(30));sc.addView(root);setContentView(sc);
+   root.addView(Premium2030Ui.title(this,"Privacy Control Center"));
+   root.addView(Premium2030Ui.subtitle(this,"Your privacy. Your choice. Securely stored in Azure."));
+   root.addView(Premium2030Ui.heroLine(this,"Private by design • Serious by intention"));
+   discoverable=new Switch(this);city=new Switch(this);
+   addSwitch("Show my profile in matching",discoverable);
+   addSwitch("Show my city on my public profile",city);
+   Button save=btn("Save Privacy Controls",true);save.setOnClickListener(v->save());
+   Button refresh=btn("Refresh",false);refresh.setOnClickListener(v->load());
+   status=Premium2030Ui.subtitle(this,"Status: loading…");status.setGravity(android.view.Gravity.START);root.addView(status);
+   Button back=btn("Back",false);back.setOnClickListener(v->finish());
+ }
  void load(){AzureApiClient.get("/privacy",new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->{try{JSONObject p=new JSONObject(s).getJSONObject("privacy");discoverable.setChecked(p.optBoolean("profile_discoverable",true));city.setChecked(p.optBoolean("show_city",true));status.setText("Status: Azure privacy loaded");}catch(Exception e){status.setText("Status: Azure response error");}});}public void err(String e){runOnUiThread(()->status.setText("Status: Azure privacy unavailable"));}});}
  void save(){try{JSONObject b=new JSONObject().put("profileDiscoverable",discoverable.isChecked()).put("showCity",city.isChecked()).put("showPhotoToMatches",true);AzureApiClient.patch("/privacy",b.toString(),new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->status.setText("Status: saved in Azure"));}public void err(String e){runOnUiThread(()->status.setText("Status: Azure save failed"));}});}catch(Exception e){status.setText("Status: request error");}}
 }
