@@ -1,7 +1,7 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
-const { entitlementForUser } = require("./premiumAccess");
+const { entitlementForUser, capabilitiesFor } = require("./premiumAccess");
 
 function norm(v){return typeof v==="string"?v.toLowerCase().replace(/[\\/,_-]+/g," ").trim():"";}
 function overlap(a,b){
@@ -35,6 +35,7 @@ app.http("matches",{
 
       const m=me.rows[0];
       const viewerPremium=await entitlementForUser(m.id);
+      const viewerCaps=capabilitiesFor(viewerPremium);
       const candidates=await query(`
         SELECT u.id,u.azure_subject,u.firebase_uid,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city,
@@ -76,19 +77,19 @@ app.http("matches",{
         matches.push({
           userId:c.azure_subject||c.firebase_uid||null,displayName:c.display_name,age:c.age,gender:c.gender,
           country:c.country,city:c.show_city===false?null:c.city,marriageIntention:c.marriage_intention,
-          marriageTimeline:viewerPremium.active?c.preferred_marriage_timeline:null,
-          readinessScore:viewerPremium.active?c.readiness_score:null,
+          marriageTimeline:viewerCaps.marriageTimeline?c.preferred_marriage_timeline:null,
+          readinessScore:viewerCaps.advancedMatching?c.readiness_score:null,
           compatibilityScore:score,
-          whyWeMatched:viewerPremium.active?reasons:[],
-          advancedLocked:!viewerPremium.active,
+          whyWeMatched:viewerCaps.whyWeMatched?reasons:[],
+          advancedLocked:!viewerCaps.advancedMatching,
           premiumPriority:Boolean(c.premium_priority),
-          rankingScore:score+(c.premium_priority?3:0),
+          rankingScore:score+(viewerCaps.priorityVisibility&&c.premium_priority?3:0),
           photoId:c.show_photo_to_matches===true?c.photo_id:null,
           photoBlurred:!(c.show_photo_to_matches===true&&c.photo_id)
         });
       }
       matches.sort((a,b)=>b.rankingScore-a.rankingScore || b.compatibilityScore-a.compatibilityScore);
-      return {status:200,jsonBody:{ok:true,count:matches.length,premium:viewerPremium.active,matches:matches.slice(0,50).map(({rankingScore,...m})=>m)}};
+      return {status:200,jsonBody:{ok:true,count:matches.length,premium:viewerPremium.active,capabilities:viewerCaps,matches:matches.slice(0,50).map(({rankingScore,...m})=>m)}};
     }catch(error){
       context.error("MATCHES_FAILED",error);
       return {status:500,jsonBody:{ok:false,error:"MATCHES_FAILED"}};
