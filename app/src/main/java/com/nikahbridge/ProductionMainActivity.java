@@ -109,8 +109,12 @@ public class ProductionMainActivity extends Activity {
             "Control discoverability, city visibility and profile-photo access.",
             "YOUR PRIVACY","Manage Privacy",PrivacyControlCenterActivity.class,false);
 
+        addCardAction("Serious Nikah Plus",
+            "See real incoming-interest count, unlock Who Liked You, advanced matching, AI and larger Family Circle.",
+            "SERIOUS PLUS","Open Serious Nikah Plus",SeriousNikahPlusActivity.class,true);
+
         addCardAction("Premium 20 / 40 / 60",
-            "Real Google Play purchases verified by Azure. No fake payment or demo subscription.",
+            "Real Google Play purchases verified by Azure. Free core stays usable; paid tiers unlock stronger tools.",
             "GO PREMIUM","View Premium Plans",PremiumPlansActivity.class,true);
 
         addCardAction("AI Nikah Assistant",
