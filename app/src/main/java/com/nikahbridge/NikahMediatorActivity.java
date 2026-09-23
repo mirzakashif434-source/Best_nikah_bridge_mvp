@@ -12,7 +12,7 @@ import org.json.JSONObject;
 /** Real Azure AI Nikah Mediator with private Azure session storage. */
 public class NikahMediatorActivity extends Activity {
     private EditText mySide,otherSide;private CheckBox consent;private TextView result;private Button run;
-    private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
+    private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
 
     @Override protected void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
