@@ -2,26 +2,70 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.lang.ref.WeakReference;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
-/** Production global language preference and shared UI localization layer. */
+/** Production 14-language UI localization: offline critical pack + authenticated Azure translation + local cache. */
 public final class LanguageManager {
-    public static final String[] NAMES={"English","اردو","العربية","বাংলা","हिन्दी","Türkçe","Bahasa Indonesia","Melayu","ਪੰਜਾਬੀ","فارسی","Français","Deutsch","Español","Italiano"};
+    public static final String[] NAMES={
+        "English","اردو","العربية","বাংলা","हिन्दी","Türkçe",
+        "Bahasa Indonesia","Melayu","ਪੰਜਾਬੀ","فارسی","Français","Deutsch","Español","Italiano"
+    };
     public static final String[] CODES={"en","ur","ar","bn","hi","tr","id","ms","pa","fa","fr","de","es","it"};
+
     private static final String PREFS="best_nikah_bridge_language", KEY="language_code";
+    private static final String CACHE_PREFS="best_nikah_bridge_translation_cache_v1";
     private static final Map<String,String[]> T=new HashMap<>();
+
+    public static final int NO_TRANSLATE_TAG=0x7f0b7a01;
+    private static final int SOURCE_TAG=0x7f0b7a02;
+    private static final int RENDERED_TAG=0x7f0b7a03;
+    private static final int HINT_SOURCE_TAG=0x7f0b7a04;
+    private static final int HINT_RENDERED_TAG=0x7f0b7a05;
+
+    private static final Handler MAIN=new Handler(Looper.getMainLooper());
+    private static final Object LOCK=new Object();
+    private static final Map<String,LinkedHashMap<String,List<TranslationCallback>>> PENDING=new HashMap<>();
+    private static final Set<String> SCHEDULED=new LinkedHashSet<>();
+    private static Context appContext;
+
+    private interface TranslationCallback{void done(String translated);}
+
     static{
+        put("Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge","Best Nikah Bridge");
         put("Back","واپس","رجوع","পেছনে","वापस","Geri","Kembali","Kembali","ਵਾਪਸ","بازگشت","Retour","Zurück","Atrás","Indietro");
         put("Refresh","تازہ کریں","تحديث","রিফ্রেশ","रीफ्रेश","Yenile","Segarkan","Muat semula","ਤਾਜ਼ਾ ਕਰੋ","تازه‌سازی","Actualiser","Aktualisieren","Actualizar","Aggiorna");
         put("Get Started","شروع کریں","ابدأ","শুরু করুন","शुरू करें","Başla","Mulai","Mula","ਸ਼ੁਰੂ ਕਰੋ","شروع کنید","Commencer","Loslegen","Comenzar","Inizia");
         put("Sign In","لاگ اِن","تسجيل الدخول","সাইন ইন","साइन इन","Giriş Yap","Masuk","Log Masuk","ਸਾਈਨ ਇਨ","ورود","Se connecter","Anmelden","Iniciar sesión","Accedi");
+        put("Cancel","منسوخ","إلغاء","বাতিল","रद्द करें","İptal","Batal","Batal","ਰੱਦ ਕਰੋ","لغو","Annuler","Abbrechen","Cancelar","Annulla");
         put("Choose Your Language","اپنی زبان منتخب کریں","اختر لغتك","আপনার ভাষা বেছে নিন","अपनी भाषा चुनें","Dilinizi Seçin","Pilih Bahasa Anda","Pilih Bahasa Anda","ਆਪਣੀ ਭਾਸ਼ਾ ਚੁਣੋ","زبان خود را انتخاب کنید","Choisissez votre langue","Sprache wählen","Elige tu idioma","Scegli la tua lingua");
+        put("Welcome","خوش آمدید","مرحبًا","স্বাগতম","स्वागत है","Hoş Geldiniz","Selamat Datang","Selamat Datang","ਜੀ ਆਇਆਂ ਨੂੰ","خوش آمدید","Bienvenue","Willkommen","Bienvenido","Benvenuto");
+        put("A trusted Muslim matrimonial platform","ایک قابلِ اعتماد مسلم ازدواجی پلیٹ فارم","منصة زواج إسلامية موثوقة","বিশ্বস্ত মুসলিম বিবাহ প্ল্যাটফর্ম","विश्वसनीय मुस्लिम वैवाहिक मंच","Güvenilir Müslüman evlilik platformu","Platform pernikahan Muslim tepercaya","Platform perkahwinan Muslim yang dipercayai","ਭਰੋਸੇਯੋਗ ਮੁਸਲਿਮ ਵਿਆਹ ਪਲੇਟਫਾਰਮ","پلتفرم معتبر ازدواج مسلمانان","Plateforme matrimoniale musulmane de confiance","Vertrauenswürdige muslimische Eheplattform","Plataforma matrimonial musulmana de confianza","Piattaforma matrimoniale musulmana affidabile");
+        put("Meaningful Matches","بامعنی رشتے","توافقات هادفة","অর্থবহ মিল","सार्थक रिश्ते","Anlamlı Eşleşmeler","Kecocokan Bermakna","Padanan Bermakna","ਅਰਥਪੂਰਨ ਰਿਸ਼ਤੇ","تطابق‌های معنادار","Correspondances sérieuses","Bedeutsame Matches","Coincidencias significativas","Incontri significativi");
+        put("Verified Profiles","تصدیق شدہ پروفائلز","ملفات موثقة","যাচাইকৃত প্রোফাইল","सत्यापित प्रोफ़ाइल","Doğrulanmış Profiller","Profil Terverifikasi","Profil Disahkan","ਤਸਦੀਕਸ਼ੁਦਾ ਪ੍ਰੋਫਾਈਲ","پروفایل‌های تأییدشده","Profils vérifiés","Verifizierte Profile","Perfiles verificados","Profili verificati");
+        put("Private & Safe","نجی اور محفوظ","خاص وآمن","ব্যক্তিগত ও নিরাপদ","निजी और सुरक्षित","Gizli ve Güvenli","Privat & Aman","Peribadi & Selamat","ਨਿੱਜੀ ਅਤੇ ਸੁਰੱਖਿਅਤ","خصوصی و امن","Privé et sûr","Privat & sicher","Privado y seguro","Privato e sicuro");
+        put("Halal Nikah • Trust • Family • Privacy","حلال نکاح • اعتماد • خاندان • رازداری","نكاح حلال • ثقة • أسرة • خصوصية","হালাল নিকাহ • আস্থা • পরিবার • গোপনীয়তা","हलाल निकाह • भरोसा • परिवार • गोपनीयता","Helal Nikah • Güven • Aile • Gizlilik","Nikah Halal • Kepercayaan • Keluarga • Privasi","Nikah Halal • Kepercayaan • Keluarga • Privasi","ਹਲਾਲ ਨਿਕਾਹ • ਭਰੋਸਾ • ਪਰਿਵਾਰ • ਪਰਾਈਵੇਸੀ","نکاح حلال • اعتماد • خانواده • حریم خصوصی","Nikah halal • Confiance • Famille • Confidentialité","Halal Nikah • Vertrauen • Familie • Privatsphäre","Nikah halal • Confianza • Familia • Privacidad","Nikah halal • Fiducia • Famiglia • Privacy");
         put("Discover","تلاش","اكتشف","খুঁজুন","खोजें","Keşfet","Temukan","Terokai","ਖੋਜੋ","کشف","Découvrir","Entdecken","Descubrir","Scopri");
         put("Send Interest","دلچسپی بھیجیں","إرسال اهتمام","আগ্রহ পাঠান","रुचि भेजें","İlgi Gönder","Kirim Minat","Hantar Minat","ਦਿਲਚਸਪੀ ਭੇਜੋ","ارسال علاقه","Envoyer un intérêt","Interesse senden","Enviar interés","Invia interesse");
         put("Interest Sent","دلچسپی بھیج دی گئی","تم إرسال الاهتمام","আগ্রহ পাঠানো হয়েছে","रुचि भेजी गई","İlgi Gönderildi","Minat Terkirim","Minat Dihantar","ਦਿਲਚਸਪੀ ਭੇਜੀ ਗਈ","علاقه ارسال شد","Intérêt envoyé","Interesse gesendet","Interés enviado","Interesse inviato");
@@ -36,16 +80,184 @@ public final class LanguageManager {
         put("Community Chat","کمیونٹی چیٹ","دردشة المجتمع","কমিউনিটি চ্যাট","कम्युनिटी चैट","Topluluk Sohbeti","Chat Komunitas","Sembang Komuniti","ਕਮਿਊਨਿਟੀ ਚੈਟ","گفتگوی جامعه","Chat communautaire","Community-Chat","Chat comunitario","Chat comunitaria");
         put("Premium Plans — 20 / 40 / 60 SAR","پریمیم پلان — 20 / 40 / 60 ریال","خطط بريميوم — 20 / 40 / 60 ر.س","প্রিমিয়াম প্ল্যান — 20 / 40 / 60 SAR","प्रीमियम प्लान — 20 / 40 / 60 SAR","Premium Planlar — 20 / 40 / 60 SAR","Paket Premium — 20 / 40 / 60 SAR","Pelan Premium — 20 / 40 / 60 SAR","ਪ੍ਰੀਮੀਅਮ ਪਲਾਨ — 20 / 40 / 60 SAR","پلن پریمیوم — 20 / 40 / 60 SAR","Plans Premium — 20 / 40 / 60 SAR","Premium-Pläne — 20 / 40 / 60 SAR","Planes Premium — 20 / 40 / 60 SAR","Piani Premium — 20 / 40 / 60 SAR");
     }
+
     private LanguageManager(){}
     private static void put(String en,String... values){T.put(en,values);}
+
     public static String currentCode(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY,"en");}
     public static int currentIndex(Context c){String code=currentCode(c);for(int i=0;i<CODES.length;i++)if(CODES[i].equals(code))return i;return 0;}
     public static void select(Context c,int index){if(index<0||index>=CODES.length)return;c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putString(KEY,CODES[index]).apply();}
     public static void apply(Activity a){Locale locale=new Locale(currentCode(a));Locale.setDefault(locale);Configuration config=new Configuration(a.getResources().getConfiguration());config.setLocale(locale);config.setLayoutDirection(locale);a.getResources().updateConfiguration(config,a.getResources().getDisplayMetrics());}
     public static String currentName(Context c){return NAMES[currentIndex(c)];}
-    public static String tr(Context c,String english){if(english==null)return "";int i=currentIndex(c);if(i==0)return english;String[] a=T.get(english);return a!=null&&i-1<a.length?a[i-1]:english;}
+
+    /** Synchronous offline translation for critical/pre-auth UI. Unknown strings fall back to English until cached Azure translation arrives. */
+    public static String tr(Context c,String english){
+        if(english==null)return "";
+        int i=currentIndex(c);if(i==0)return english;
+        String[] a=T.get(english);
+        return a!=null&&i-1<a.length?a[i-1]:english;
+    }
+
+    /** Mark member/user-generated text so automatic UI localization never sends it for translation. */
+    public static void protectUserContent(TextView view){
+        if(view!=null)view.setTag(NO_TRANSLATE_TAG,Boolean.TRUE);
+    }
+
     public static void localizeTree(Context c,View v){
-        if(v instanceof TextView){TextView t=(TextView)v;CharSequence cs=t.getText();if(cs!=null){String s=cs.toString();String translated=tr(c,s);if(!translated.equals(s))t.setText(translated);}}
-        if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)localizeTree(c,g.getChildAt(i));}
+        if(c==null||v==null||currentIndex(c)==0)return;
+        if(appContext==null)appContext=c.getApplicationContext();
+        if(v instanceof EditText){
+            localizeHint(c,(EditText)v);
+        }else if(v instanceof TextView){
+            localizeText(c,(TextView)v);
+        }
+        if(v instanceof ViewGroup){
+            ViewGroup g=(ViewGroup)v;
+            for(int i=0;i<g.getChildCount();i++)localizeTree(c,g.getChildAt(i));
+        }
+    }
+
+    private static void localizeText(Context c,TextView t){
+        if(Boolean.TRUE.equals(t.getTag(NO_TRANSLATE_TAG)))return;
+        String current=t.getText()==null?"":t.getText().toString();
+        if(current.trim().isEmpty())return;
+        String rendered=(String)t.getTag(RENDERED_TAG);
+        String source=(String)t.getTag(SOURCE_TAG);
+        if(rendered==null||!current.equals(rendered)){
+            source=current;
+            t.setTag(SOURCE_TAG,source);
+            t.setTag(RENDERED_TAG,current);
+        }
+        if(source==null||source.trim().isEmpty())return;
+        String offline=tr(c,source);
+        if(!offline.equals(source)){
+            if(!offline.equals(current)){t.setText(offline);t.setTag(RENDERED_TAG,offline);}
+            return;
+        }
+        final String sourceFinal=source;
+        requestTranslation(c,sourceFinal,translated->{
+            Object stored=t.getTag(SOURCE_TAG);
+            if(stored!=null&&sourceFinal.equals(stored.toString())&&!translated.equals(sourceFinal)){
+                t.setText(translated);t.setTag(RENDERED_TAG,translated);
+            }
+        });
+    }
+
+    private static void localizeHint(Context c,EditText e){
+        CharSequence h=e.getHint();if(h==null||h.toString().trim().isEmpty())return;
+        String current=h.toString();
+        String rendered=(String)e.getTag(HINT_RENDERED_TAG);
+        String source=(String)e.getTag(HINT_SOURCE_TAG);
+        if(rendered==null||!current.equals(rendered)){
+            source=current;e.setTag(HINT_SOURCE_TAG,source);e.setTag(HINT_RENDERED_TAG,current);
+        }
+        if(source==null)return;
+        String offline=tr(c,source);
+        if(!offline.equals(source)){
+            if(!offline.equals(current)){e.setHint(offline);e.setTag(HINT_RENDERED_TAG,offline);}
+            return;
+        }
+        final String sourceFinal=source;
+        requestTranslation(c,sourceFinal,translated->{
+            Object stored=e.getTag(HINT_SOURCE_TAG);
+            if(stored!=null&&sourceFinal.equals(stored.toString())&&!translated.equals(sourceFinal)){
+                e.setHint(translated);e.setTag(HINT_RENDERED_TAG,translated);
+            }
+        });
+    }
+
+    private static void requestTranslation(Context c,String source,TranslationCallback callback){
+        String target=currentCode(c);
+        if("en".equals(target)||!shouldAutoTranslate(source)){callback.done(source);return;}
+        if(appContext==null)appContext=c.getApplicationContext();
+        String cached=cache(appContext).getString(cacheKey(target,source),null);
+        if(cached!=null&&!cached.trim().isEmpty()){callback.done(cached);return;}
+        if(!AzureAuthManager.hasAccount(c)){callback.done(source);return;}
+
+        synchronized(LOCK){
+            LinkedHashMap<String,List<TranslationCallback>> byText=PENDING.get(target);
+            if(byText==null){byText=new LinkedHashMap<>();PENDING.put(target,byText);}
+            List<TranslationCallback> callbacks=byText.get(source);
+            if(callbacks==null){callbacks=new ArrayList<>();byText.put(source,callbacks);}
+            callbacks.add(callback);
+            if(!SCHEDULED.contains(target)){
+                SCHEDULED.add(target);
+                final String lang=target;
+                MAIN.postDelayed(()->flush(lang),140);
+            }
+        }
+    }
+
+    private static void flush(String target){
+        final LinkedHashMap<String,List<TranslationCallback>> batch=new LinkedHashMap<>();
+        synchronized(LOCK){
+            LinkedHashMap<String,List<TranslationCallback>> all=PENDING.get(target);
+            if(all==null||all.isEmpty()){SCHEDULED.remove(target);return;}
+            int n=0;
+            for(Map.Entry<String,List<TranslationCallback>> e:new ArrayList<>(all.entrySet())){
+                batch.put(e.getKey(),e.getValue());all.remove(e.getKey());
+                if(++n>=30)break;
+            }
+            if(all.isEmpty())SCHEDULED.remove(target);
+            else MAIN.postDelayed(()->flush(target),180);
+        }
+
+        try{
+            JSONArray texts=new JSONArray();
+            for(String s:batch.keySet())texts.put(s);
+            JSONObject body=new JSONObject().put("target",target).put("texts",texts);
+            AzureApiClient.post("/localization/translate",body.toString(),new AzureApiClient.Callback(){
+                public void ok(int code,String response){
+                    try{
+                        JSONArray out=new JSONObject(response).optJSONArray("translations");
+                        if(out==null||out.length()!=batch.size()){failBatch(batch);return;}
+                        int i=0;
+                        SharedPreferences.Editor editor=cache(appContext).edit();
+                        for(Map.Entry<String,List<TranslationCallback>> e:batch.entrySet()){
+                            String source=e.getKey(),translated=out.optString(i++,source);
+                            if(translated==null||translated.trim().isEmpty())translated=source;
+                            editor.putString(cacheKey(target,source),translated);
+                            final String value=translated;
+                            MAIN.post(()->{for(TranslationCallback cb:e.getValue())cb.done(value);});
+                        }
+                        editor.apply();
+                    }catch(Exception e){failBatch(batch);}
+                }
+                public void err(String message){failBatch(batch);}
+            });
+        }catch(Exception e){failBatch(batch);}
+    }
+
+    private static void failBatch(LinkedHashMap<String,List<TranslationCallback>> batch){
+        MAIN.post(()->{
+            for(Map.Entry<String,List<TranslationCallback>> e:batch.entrySet())
+                for(TranslationCallback cb:e.getValue())cb.done(e.getKey());
+        });
+    }
+
+    private static SharedPreferences cache(Context c){return c.getSharedPreferences(CACHE_PREFS,Context.MODE_PRIVATE);}
+
+    private static String cacheKey(String target,String source){
+        try{
+            byte[] digest=MessageDigest.getInstance("SHA-256").digest((target+"\u0001"+source).getBytes(StandardCharsets.UTF_8));
+            StringBuilder b=new StringBuilder("t_");
+            for(byte x:digest)b.append(String.format(Locale.US,"%02x",x));
+            return b.toString();
+        }catch(Exception e){return "t_"+target+"_"+Integer.toHexString(source.hashCode());}
+    }
+
+    /** Conservative filter: translate interface copy, never obvious secrets/IDs/URLs/member contact data. */
+    private static boolean shouldAutoTranslate(String s){
+        if(s==null)return false;
+        String x=s.trim();
+        if(x.length()<2||x.length()>500)return false;
+        if(!x.matches(".*[A-Za-z].*"))return false;
+        String lower=x.toLowerCase(Locale.US);
+        if(lower.startsWith("http://")||lower.startsWith("https://")||lower.startsWith("api://")||lower.startsWith("/api/"))return false;
+        if(x.contains("@")||x.contains("{")||x.contains("}")||x.contains("[")||x.contains("]"))return false;
+        if(x.matches(".*\\b[0-9a-fA-F]{8}-[0-9a-fA-F-]{20,}\\b.*"))return false;
+        if(x.matches(".*\\b\\d{8,}\\b.*"))return false;
+        if(lower.contains("bearer ")||lower.contains("access_token")||lower.contains("id_token")||lower.contains("password"))return false;
+        return true;
     }
 }
