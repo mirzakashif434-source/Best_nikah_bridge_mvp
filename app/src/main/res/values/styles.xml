@@ -2,8 +2,13 @@
 <resources>
     <style name="Theme.NikahBridge" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:statusBarColor">#FFFFFF</item>
-        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowBackground">#FAF7EF</item>
+        <item name="android:colorAccent">#0B5B46</item>
+        <item name="android:textColorPrimary">#1D2E2A</item>
+        <item name="android:textColorSecondary">#676F6A</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">#073C31</item>
+        <item name="android:navigationBarColor">#FAF7EF</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
 </resources>
