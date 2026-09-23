@@ -21,7 +21,7 @@ public class HelpLineActivity extends Activity {
     private EditText question;
     private TextView result;
     private Button send;
-    private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(95,108,103);
+    private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED;
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
@@ -37,7 +37,7 @@ public class HelpLineActivity extends Activity {
 
     private void build(){
         ScrollView scroll=new ScrollView(this);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(28),dp(28),dp(28),dp(28));root.setBackgroundColor(Color.rgb(247,250,249));
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(28),dp(28),dp(28),dp(28));root.setBackgroundColor(Premium2030Ui.CREAM);
         scroll.addView(root);setContentView(scroll);
 
         TextView title=txt("Help Line",26,true,green);title.setGravity(Gravity.CENTER);root.addView(title,new LinearLayout.LayoutParams(-1,dp(70)));
