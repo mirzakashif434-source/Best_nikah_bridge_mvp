@@ -1,8 +1,12 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
@@ -31,9 +35,16 @@ public class AdvancedMatchFiltersActivity extends Activity {
         Premium2030Ui.addButton(root,b);return b;
     }
     private void render(){
-        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(Premium2030Ui.CREAM);
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setClipToPadding(false);sc.setBackgroundColor(Premium2030Ui.CREAM);
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(20),dp(18),dp(30));
         sc.addView(root);setContentView(sc);
+        ViewCompat.setOnApplyWindowInsetsListener(sc,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(18),dp(20),dp(18),dp(30)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(sc);
 
         root.addView(Premium2030Ui.title(this,"Advanced Match Filters"));
         root.addView(Premium2030Ui.subtitle(this,"Plus/VIP filters apply to real Azure profiles before matches are shown."));
@@ -78,6 +89,15 @@ public class AdvancedMatchFiltersActivity extends Activity {
         });
     }
     private void save(){
+        if(!AzureAuthManager.hasAccount(this)){
+            LanguageManager.dialog(this)
+                .setTitle("Sign in required")
+                .setMessage("Sign in with Azure to save real advanced match filters.")
+                .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+                .setNegativeButton("Not now",null)
+                .show();
+            return;
+        }
         try{
             JSONObject b=new JSONObject()
                 .put("countries",array(countries.getText().toString()))
