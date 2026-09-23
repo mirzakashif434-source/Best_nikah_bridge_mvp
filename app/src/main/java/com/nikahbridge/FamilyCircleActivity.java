@@ -10,11 +10,11 @@ import org.json.JSONObject;
 
 public class FamilyCircleActivity extends Activity {
     private static final String PREFS="family_nikah_circle_pending", KEY="invite_token";
-    private LinearLayout root,membersBox,suggestionsBox;
+    private LinearLayout root,membersBox,invitesBox,suggestionsBox;
     private TextView status;
     private Spinner role;
     private EditText suggestedUser,note;
-    private String lastInviteLink;
+    private String lastInviteLink,myRole="";
 
     public static void savePendingInvite(android.content.Context c,String token){
         if(token!=null&&!token.trim().isEmpty())c.getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString(KEY,token.trim()).apply();
@@ -63,6 +63,7 @@ public class FamilyCircleActivity extends Activity {
         root.addView(role,new LinearLayout.LayoutParams(-1,dp(54)));
         Button create=btn("Create Secure Invite",true);create.setOnClickListener(v->createInvite());
         Button share=btn("Share Invite on WhatsApp / SMS",false);share.setOnClickListener(v->shareInvite());
+        invitesBox=new LinearLayout(this);invitesBox.setOrientation(LinearLayout.VERTICAL);root.addView(invitesBox);
 
         root.addView(Premium2030Ui.section(this,"Circle Members"));
         membersBox=new LinearLayout(this);membersBox.setOrientation(LinearLayout.VERTICAL);root.addView(membersBox);
@@ -104,14 +105,26 @@ public class FamilyCircleActivity extends Activity {
                     JSONObject o=new JSONObject(s);JSONObject circle=o.optJSONObject("circle");
                     JSONArray members=o.optJSONArray("members");
                     membersBox.removeAllViews();
-                    if(circle!=null)membersBox.addView(Premium2030Ui.subtitle(FamilyCircleActivity.this,"Circle: "+circle.optString("name","My Nikah Circle")+" • Role: "+circle.optString("role","member")));
+                    if(circle!=null){
+                        myRole=circle.optString("role","");
+                        membersBox.addView(Premium2030Ui.subtitle(FamilyCircleActivity.this,"Circle: "+circle.optString("name","My Nikah Circle")+" • Role: "+myRole));
+                    }
                     if(members==null||members.length()==0)membersBox.addView(Premium2030Ui.subtitle(FamilyCircleActivity.this,"No family members joined yet."));
                     else for(int i=0;i<members.length();i++){
                         JSONObject m=members.optJSONObject(i);if(m==null)continue;
-                        TextView row=Premium2030Ui.subtitle(FamilyCircleActivity.this,"• "+m.optString("display_name","Family member")+" — "+m.optString("role","family"));
-                        LanguageManager.protectUserContent(row);membersBox.addView(row);
+                        String memberId=m.optString("id",""),roleName=m.optString("role","family");
+                        LinearLayout card=Premium2030Ui.card(FamilyCircleActivity.this);
+                        TextView row=Premium2030Ui.subtitle(FamilyCircleActivity.this,"• "+m.optString("display_name","Family member")+" — "+roleName);
+                        LanguageManager.protectUserContent(row);card.addView(row);
+                        if("owner".equals(myRole)&&!"owner".equals(roleName)&&!memberId.isEmpty()){
+                            Button remove=Premium2030Ui.secondary(FamilyCircleActivity.this,"Remove from Circle");
+                            card.addView(remove,new LinearLayout.LayoutParams(-1,dp(48)));
+                            remove.setOnClickListener(v->removeMember(memberId));
+                        }
+                        membersBox.addView(card);
                     }
                     status.setText("Status: Family Circle loaded from Azure");
+                    loadInvites();
                     loadSuggestions();
                 }catch(Exception e){status.setText("Status: Family Circle response could not be read");}
             });}
@@ -129,6 +142,45 @@ public class FamilyCircleActivity extends Activity {
                 public void err(String e){runOnUiThread(()->status.setText("Status: invite creation failed")); }
             });
         }catch(Exception e){status.setText("Status: invite request error");}
+    }
+
+    private void loadInvites(){
+        AzureApiClient.get("/family-circle/invites",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("invites");invitesBox.removeAllViews();
+                    if(a==null||a.length()==0)return;
+                    invitesBox.addView(Premium2030Ui.section(FamilyCircleActivity.this,"Active Invites"));
+                    for(int i=0;i<a.length();i++){
+                        JSONObject x=a.optJSONObject(i);if(x==null)continue;
+                        String id=x.optString("id",""),roleName=x.optString("role","family");
+                        boolean revoked=!x.isNull("revoked_at");
+                        TextView row=Premium2030Ui.subtitle(FamilyCircleActivity.this,roleName+" • uses "+x.optInt("use_count",0)+"/"+x.optInt("max_uses",0)+(revoked?" • revoked":""));
+                        invitesBox.addView(row);
+                        if("owner".equals(myRole)&&!revoked&&!id.isEmpty()){
+                            Button revoke=Premium2030Ui.secondary(FamilyCircleActivity.this,"Revoke Invite");
+                            invitesBox.addView(revoke,new LinearLayout.LayoutParams(-1,dp(46)));
+                            revoke.setOnClickListener(v->revokeInvite(id));
+                        }
+                    }
+                }catch(Exception ignored){}
+            });}
+            public void err(String e){}
+        });
+    }
+
+    private void revokeInvite(String id){
+        AzureApiClient.delete("/family-circle/invites/"+Uri.encode(id),"{}",new AzureApiClient.Callback(){
+            public void ok(int c,String s){runOnUiThread(()->{status.setText("Status: invite revoked");loadInvites();});}
+            public void err(String e){runOnUiThread(()->status.setText("Status: invite revoke failed"));}
+        });
+    }
+
+    private void removeMember(String id){
+        AzureApiClient.delete("/family-circle/members/"+Uri.encode(id),"{}",new AzureApiClient.Callback(){
+            public void ok(int c,String s){runOnUiThread(()->{status.setText("Status: family member removed");load();});}
+            public void err(String e){runOnUiThread(()->status.setText("Status: member removal failed"));}
+        });
     }
 
     private void shareInvite(){
@@ -164,8 +216,8 @@ public class FamilyCircleActivity extends Activity {
                         TextView t=Premium2030Ui.subtitle(FamilyCircleActivity.this,name+" • suggested by "+by+" • "+st);
                         LanguageManager.protectUserContent(t);card.addView(t);
                         String n=x.optString("note","");if(!n.isEmpty()){TextView nv=Premium2030Ui.subtitle(FamilyCircleActivity.this,n);LanguageManager.protectUserContent(nv);card.addView(nv);}
-                        if("pending".equals(st)||"viewed".equals(st)){
-                            Button accept=Premium2030Ui.primary(FamilyCircleActivity.this,"Accept Family Suggestion");
+                        if("owner".equals(myRole)&&("pending".equals(st)||"viewed".equals(st))){
+                            Button accept=Premium2030Ui.primary(FamilyCircleActivity.this,"Accept & Send Interest");
                             Button decline=Premium2030Ui.secondary(FamilyCircleActivity.this,"Decline");
                             card.addView(accept,new LinearLayout.LayoutParams(-1,dp(52)));card.addView(decline,new LinearLayout.LayoutParams(-1,dp(52)));
                             accept.setOnClickListener(v->respondSuggestion(id,"accepted"));
