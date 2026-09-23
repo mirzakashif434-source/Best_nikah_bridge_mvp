@@ -13,13 +13,67 @@ async function me(user){
 }
 function h(fn){return requireAuth(async(req,ctx,user)=>{try{return await fn(req,ctx,user)}catch(e){ctx.error("AZURE_PARITY_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"AZURE_PARITY_FAILED"}}}})}
 app.http("sendLikeAzure",{methods:["POST"],authLevel:"anonymous",route:"likes",handler:h(async(req,ctx,user)=>{
- const u=await me(user),b=await req.json(),to=String(b?.toUid||""); if(!to||to===String(u.id))return {status:400,jsonBody:{ok:false,error:"INVALID_LIKE_TARGET"}};
- const t=await query("SELECT id FROM users WHERE (id::text=$1 OR azure_subject=$1 OR firebase_uid=$1) AND status='active' LIMIT 1",[to]); if(!t.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};
- const day=new Date().toISOString().slice(0,10),c=await query("SELECT count FROM daily_likes WHERE user_id=$1 AND day=$2",[u.id,day]); if(Number(c.rows[0]?.count||0)>=20)return {status:429,jsonBody:{ok:false,error:"DAILY_LIKE_LIMIT_REACHED"}};
- await query("INSERT INTO likes(from_user_id,to_user_id,day) VALUES($1,$2,$3) ON CONFLICT(from_user_id,to_user_id) DO UPDATE SET active=true,day=EXCLUDED.day",[u.id,t.rows[0].id,day]);
- await query("INSERT INTO daily_likes(user_id,day,count) VALUES($1,$2,1) ON CONFLICT(user_id,day) DO UPDATE SET count=daily_likes.count+1,updated_at=now()",[u.id,day]);
- return {status:200,jsonBody:{ok:true,sent:true,remaining:19-Number(c.rows[0]?.count||0)}};
+ const u=await me(user),b=await req.json(),to=String(b?.toUid||"");
+ if(!to||to===String(u.id))return {status:400,jsonBody:{ok:false,error:"INVALID_LIKE_TARGET"}};
+ const t=await query("SELECT id FROM users WHERE (id::text=$1 OR azure_subject=$1 OR firebase_uid=$1) AND status='active' LIMIT 1",[to]);
+ if(!t.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};
+
+ const client=await getPool().connect();
+ try{
+   await client.query("BEGIN");
+   await client.query("SELECT pg_advisory_xact_lock(hashtext($1))",["likes:"+u.id]);
+
+   const existing=await client.query(
+     "SELECT active FROM likes WHERE from_user_id=$1 AND to_user_id=$2 FOR UPDATE",
+     [u.id,t.rows[0].id]
+   );
+   if(existing.rows[0]?.active===true){
+     const used=await client.query(
+       "SELECT count(*)::int AS count FROM like_events WHERE user_id=$1 AND created_at>now()-interval '24 hours'",
+       [u.id]
+     );
+     await client.query("COMMIT");
+     return {status:200,jsonBody:{ok:true,sent:true,alreadyLiked:true,remaining:Math.max(0,20-Number(used.rows[0]?.count||0))}};
+   }
+
+   const used=await client.query(
+     "SELECT count(*)::int AS count FROM like_events WHERE user_id=$1 AND created_at>now()-interval '24 hours'",
+     [u.id]
+   );
+   const count=Number(used.rows[0]?.count||0);
+   if(count>=20){
+     const oldest=await client.query(
+       "SELECT created_at FROM like_events WHERE user_id=$1 AND created_at>now()-interval '24 hours' ORDER BY created_at ASC LIMIT 1",
+       [u.id]
+     );
+     await client.query("ROLLBACK");
+     const next=oldest.rows[0]?new Date(new Date(oldest.rows[0].created_at).getTime()+24*60*60*1000).toISOString():null;
+     return {status:429,jsonBody:{ok:false,error:"ROLLING_24H_LIKE_LIMIT_REACHED",limit:20,used:count,remaining:0,nextAvailableAt:next}};
+   }
+
+   const day=new Date().toISOString().slice(0,10);
+   await client.query(
+     "INSERT INTO likes(from_user_id,to_user_id,day,active) VALUES($1,$2,$3,true) ON CONFLICT(from_user_id,to_user_id) DO UPDATE SET active=true,day=EXCLUDED.day",
+     [u.id,t.rows[0].id,day]
+   );
+   await client.query("INSERT INTO like_events(user_id,target_user_id,created_at) VALUES($1,$2,now())",[u.id,t.rows[0].id]);
+   await client.query("COMMIT");
+   return {status:200,jsonBody:{ok:true,sent:true,alreadyLiked:false,limit:20,used:count+1,remaining:19-count}};
+ }catch(e){
+   await client.query("ROLLBACK").catch(()=>{});
+   throw e;
+ }finally{client.release();}
 })});
+
+app.http("presenceHeartbeatAzure",{methods:["POST"],authLevel:"anonymous",route:"presence/heartbeat",handler:h(async(req,ctx,user)=>{
+ const u=await me(user);
+ await query(
+   "INSERT INTO user_presence(user_id,last_seen_at) VALUES($1,now()) ON CONFLICT(user_id) DO UPDATE SET last_seen_at=now()",
+   [u.id]
+ );
+ return {status:200,jsonBody:{ok:true,online:true,onlineWindowSeconds:120}};
+})});
+
 app.http("claimFreeBoostAzure",{methods:["POST"],authLevel:"anonymous",route:"entitlements/free-boost",handler:h(async(req,ctx,user)=>{
  const u=await me(user);
  const premium=await entitlementForUser(u.id);
