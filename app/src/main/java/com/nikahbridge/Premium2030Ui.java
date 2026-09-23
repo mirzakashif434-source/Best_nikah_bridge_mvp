@@ -49,7 +49,7 @@ final class Premium2030Ui {
 
     static TextView title(Context c,String text){
         TextView t=new TextView(c);
-        t.setText(text);t.setTextSize(29);t.setTextColor(TEXT);
+        t.setText(LanguageManager.tr(c,text));t.setTextSize(29);t.setTextColor(TEXT);
         t.setTypeface(Typeface.SERIF,Typeface.BOLD);
         t.setGravity(Gravity.CENTER);
         t.setPadding(dp(c,10),dp(c,8),dp(c,10),dp(c,8));
@@ -58,7 +58,7 @@ final class Premium2030Ui {
 
     static TextView subtitle(Context c,String text){
         TextView t=new TextView(c);
-        t.setText(text);t.setTextSize(14);t.setTextColor(MUTED);
+        t.setText(LanguageManager.tr(c,text));t.setTextSize(14);t.setTextColor(MUTED);
         t.setGravity(Gravity.CENTER);
         t.setPadding(dp(c,12),0,dp(c,12),dp(c,16));
         return t;
@@ -66,7 +66,7 @@ final class Premium2030Ui {
 
     static TextView section(Context c,String text){
         TextView t=new TextView(c);
-        t.setText(text);t.setTextSize(18);t.setTextColor(TEXT);
+        t.setText(LanguageManager.tr(c,text));t.setTextSize(18);t.setTextColor(TEXT);
         t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
         t.setPadding(dp(c,4),dp(c,14),dp(c,4),dp(c,8));
         return t;
@@ -86,7 +86,7 @@ final class Premium2030Ui {
 
     static Button primary(Context c,String label){
         Button b=new Button(c);
-        b.setText(label);b.setAllCaps(false);b.setTextSize(16);
+        b.setText(LanguageManager.tr(c,label));b.setAllCaps(false);b.setTextSize(16);
         b.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
         b.setTextColor(Color.WHITE);
         b.setBackground(premiumGradient(c));
@@ -96,7 +96,7 @@ final class Premium2030Ui {
 
     static Button secondary(Context c,String label){
         Button b=new Button(c);
-        b.setText(label);b.setAllCaps(false);b.setTextSize(15);
+        b.setText(LanguageManager.tr(c,label));b.setAllCaps(false);b.setTextSize(15);
         b.setTextColor(GREEN);
         b.setBackground(outlined(c,Color.WHITE,GREEN,18));
         b.setMinHeight(dp(c,56));
@@ -105,7 +105,7 @@ final class Premium2030Ui {
 
     static TextView chip(Context c,String label){
         TextView t=new TextView(c);
-        t.setText(label);t.setTextSize(12);t.setTextColor(GREEN_DARK);
+        t.setText(LanguageManager.tr(c,label));t.setTextSize(12);t.setTextColor(GREEN_DARK);
         t.setPadding(dp(c,10),dp(c,5),dp(c,10),dp(c,5));
         t.setBackground(rounded(c,Color.rgb(238,246,242),16));
         return t;
@@ -113,7 +113,7 @@ final class Premium2030Ui {
 
     static TextView heroLine(Context c,String text){
         TextView t=new TextView(c);
-        t.setText(text);t.setTextColor(Color.WHITE);t.setTextSize(20);
+        t.setText(LanguageManager.tr(c,text));t.setTextColor(Color.WHITE);t.setTextSize(20);
         t.setTypeface(Typeface.SERIF,Typeface.BOLD);
         t.setGravity(Gravity.CENTER);
         t.setPadding(dp(c,18),dp(c,18),dp(c,18),dp(c,18));
