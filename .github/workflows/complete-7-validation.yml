@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+
       - name: Azure backend syntax
         working-directory: azure-backend
         run: |
@@ -23,37 +24,63 @@ jobs:
           npm install
           find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
           node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
+
       - name: Step 1 multilingual selector
         run: |
           grep -Fq 'Bahasa Indonesia' app/src/main/java/com/nikahbridge/LanguageManager.java
           grep -Fq 'العربية' app/src/main/java/com/nikahbridge/LanguageManager.java
           grep -Fq 'ਪੰਜਾਬੀ' app/src/main/java/com/nikahbridge/LanguageManager.java
+
       - name: Step 2 selfie verification
         run: |
           grep -Fq 'verification/selfie' app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
           grep -Eq 'route:[[:space:]]*"verification/selfie"' azure-backend/src/verification.js
+
       - name: Step 3 privacy photo switch
         run: |
           grep -Fq 'showPhotoToMatches",photos.isChecked()' app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
+
       - name: Step 4 Azure-only runtime wording
         run: |
           ! grep -RniE 'Firebase-backed activities|Loads real Firebase Storage|uploaded to Firebase Storage' app/src/main/java --include='*.java'
+
       - name: Step 5 match and interest wiring
         run: |
           grep -Fq 'COALESCE(u.azure_subject,u.firebase_uid)' azure-backend/src/interests.js
           grep -Fq 'Send Interest' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
-      - name: Production forbidden endpoint scan
+
+      - name: No MockData
         run: |
-          ! grep -RniE 'MockData|sample member|fake match|fake balance|demo purchase|localhost|10\.0\.2\.2' app/src/main azure-backend/src --exclude='*.md'
+          ! grep -Rni 'MockData' app/src/main azure-backend/src --exclude='*.md'
+
+      - name: No sample member
+        run: |
+          ! grep -Rni 'sample member' app/src/main azure-backend/src --exclude='*.md'
+
+      - name: No fake match
+        run: |
+          ! grep -Rni 'fake match' app/src/main azure-backend/src --exclude='*.md'
+
+      - name: No fake balance or demo purchase
+        run: |
+          ! grep -RniE 'fake balance|demo purchase' app/src/main azure-backend/src --exclude='*.md'
+
+      - name: No local test endpoints
+        run: |
+          ! grep -RniE 'localhost|10\.0\.2\.2' app/src/main azure-backend/src --exclude='*.md'
+
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: gradle/actions/setup-gradle@v6
+
       - name: Compile Android production source
         run: |
           chmod +x ./gradlew
           ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
       - name: Build unsigned validation release bundle
         run: |
           ./gradlew :app:bundleRelease --stacktrace
