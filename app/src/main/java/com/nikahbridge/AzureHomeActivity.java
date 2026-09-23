@@ -18,7 +18,7 @@ import java.util.Map;
 
 public class AzureHomeActivity extends Activity {
     private LinearLayout root;
-    private final int green=Color.rgb(18,103,82), dark=Color.rgb(30,45,41), gray=Color.rgb(95,108,103), light=Color.rgb(247,250,249);
+    private final int green=Premium2030Ui.GREEN, dark=Premium2030Ui.TEXT, gray=Premium2030Ui.MUTED, light=Premium2030Ui.CREAM;
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
@@ -27,37 +27,22 @@ public class AzureHomeActivity extends Activity {
     }
 
     private void base(){
-        ScrollView s=new ScrollView(this); s.setFillViewport(true); s.setBackgroundColor(light);
-        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(22,24,22,32);
+        ScrollView s=new ScrollView(this); s.setFillViewport(true); s.setVerticalScrollBarEnabled(false); s.setBackgroundColor(light);
+        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(20),dp(18),dp(32));
         s.addView(root); setContentView(s);
     }
     private TextView text(String v,int size,boolean bold){
         TextView t=new TextView(this); t.setText(v); t.setTextSize(size); t.setTextColor(bold?dark:gray); t.setPadding(6,8,6,12);
         if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD); return t;
     }
-    private void title(String v){TextView t=text(v,28,true);t.setGravity(Gravity.CENTER);root.addView(t);}
+    private void title(String v){root.addView(Premium2030Ui.title(this,v));}
     private int dp(int value){
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     private Button button(String label,boolean filled){
-        Button b=new Button(this);
-        b.setText(label);
-        b.setAllCaps(false);
-        b.setTextSize(16);
-        b.setTextColor(filled?Color.WHITE:green);
-        b.setGravity(Gravity.CENTER);
-        b.setMinHeight(dp(56));
-        b.setMinimumHeight(dp(56));
-        b.setPadding(dp(12),0,dp(12),0);
-        GradientDrawable g=new GradientDrawable();
-        g.setColor(filled?green:Color.WHITE);
-        g.setCornerRadius(dp(18));
-        if(!filled)g.setStroke(dp(2),green);
-        b.setBackground(g);
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(62));
-        lp.setMargins(0,dp(4),0,dp(4));
-        root.addView(b,lp);
+        Button b=filled?Premium2030Ui.primary(this,label):Premium2030Ui.secondary(this,label);
+        Premium2030Ui.addButton(root,b);
         return b;
     }
 
@@ -65,9 +50,12 @@ public class AzureHomeActivity extends Activity {
         EditText e=new EditText(this);
         e.setHint(hint);
         e.setTextSize(16);
+        e.setTextColor(dark);
+        e.setHintTextColor(gray);
         e.setMinHeight(dp(56));
-        e.setPadding(dp(12),0,dp(12),0);
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(62));
+        e.setPadding(dp(14),0,dp(14),0);
+        e.setBackground(Premium2030Ui.outlined(this,Color.WHITE,Premium2030Ui.GOLD_SOFT,16));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(58));
         lp.setMargins(0,dp(4),0,dp(4));
         root.addView(e,lp);
         return e;
@@ -80,9 +68,11 @@ public class AzureHomeActivity extends Activity {
 
     private void home(){
         base(); title("Best Nikah Bridge");
-        TextView authStatus=text("Verifying real Azure token with the production API…",15,false); root.addView(authStatus);
-        AzureApiClient.get("/auth/azure/me",new AzureApiClient.Callback(){ public void ok(int code,String body){runOnUiThread(()->authStatus.setText("Azure token verified by production API."));} public void err(String m){runOnUiThread(()->authStatus.setText("Azure token verification failed: "+m));} });
-        root.addView(text("Azure External ID • Azure API • PostgreSQL • Azure Storage\nReal Azure session — no demo data.",16,false));
+        root.addView(Premium2030Ui.subtitle(this,"Faith • Family • Trust • A Brighter Tomorrow"));
+        root.addView(Premium2030Ui.heroLine(this,"Meaningful Matches • Verified Profiles • Private & Safe"));
+        TextView authStatus=text("Verifying secure Azure session…",14,false); root.addView(authStatus);
+        AzureApiClient.get("/auth/azure/me",new AzureApiClient.Callback(){ public void ok(int code,String body){runOnUiThread(()->authStatus.setText("✓ Secure Azure session verified"));} public void err(String m){runOnUiThread(()->authStatus.setText("Azure token verification failed: "+m));} });
+        root.addView(Premium2030Ui.section(this,"Your Nikah Journey"));
 
         Button profile=button("My Real Azure Profile",true);
         Button matches=button("Real Compatibility Matches",true);
