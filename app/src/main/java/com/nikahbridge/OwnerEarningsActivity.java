@@ -7,6 +7,9 @@ import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -19,6 +22,7 @@ import org.json.JSONObject;
 public class OwnerEarningsActivity extends Activity {
     private LinearLayout root;
     private TextView summary;
+    private Button refresh,signIn;
     private final int green=Premium2030Ui.GREEN, dark=Premium2030Ui.TEXT, gray=Premium2030Ui.MUTED;
 
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
@@ -49,12 +53,19 @@ public class OwnerEarningsActivity extends Activity {
         AzureAuthManager.bindActivity(this);
 
         ScrollView scroll=new ScrollView(this);
+        scroll.setFillViewport(true);scroll.setClipToPadding(false);
         root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(22),dp(24),dp(22),dp(30));
         root.setBackgroundColor(Premium2030Ui.CREAM);
         scroll.addView(root);
         setContentView(scroll);
+        ViewCompat.setOnApplyWindowInsetsListener(scroll,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(scroll);
 
         add("Owner Wallet — Google Play → Al Rajhi",25,true);
         add("Real Google Play verified sales + Azure payout tracking. Google controls the actual bank transfer.",14,false);
@@ -65,7 +76,9 @@ public class OwnerEarningsActivity extends Activity {
         summary.setBackgroundColor(Color.WHITE);
         root.addView(summary);
 
-        Button refresh=button("Refresh Owner Wallet",true);
+        refresh=button("Refresh Owner Wallet",true);
+        signIn=button("Sign in with Owner / Admin Azure Account",false);
+        signIn.setVisibility(android.view.View.GONE);
         Button bank=button("Set Al Rajhi Payout Tracking",false);
         Button received=button("Record Google Payout Received",false);
         Button history=button("View Payout History",false);
@@ -73,6 +86,7 @@ public class OwnerEarningsActivity extends Activity {
         Button back=button("Back",false);
 
         refresh.setOnClickListener(v->loadAzure());
+        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
         bank.setOnClickListener(v->alRajhiTrackingDialog());
         received.setOnClickListener(v->recordGooglePayoutDialog());
         history.setOnClickListener(v->showPayoutHistory());
@@ -83,20 +97,42 @@ public class OwnerEarningsActivity extends Activity {
         loadAzure();
     }
 
+    private boolean authError(String message){
+        if(message==null)return false;
+        return message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("AZURE_AUTH")||message.contains("SIGN_IN")||message.contains("401");
+    }
+
+    private void showOwnerSignIn(){
+        summary.setText("Please sign in with the owner/admin Azure account.");
+        signIn.setVisibility(android.view.View.VISIBLE);
+    }
+
     private void loadAzure(){
+        if(!AzureAuthManager.hasAccount(this)){showOwnerSignIn();return;}
         summary.setText("Loading secure Azure Owner Wallet…");
+        refresh.setEnabled(false);refresh.setText("Loading Owner Wallet…");
+        signIn.setVisibility(android.view.View.GONE);
         AzureApiClient.get("/admin/owner/earnings",new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){
-                runOnUiThread(()->summary.setText(formatDashboard(body)));
+                runOnUiThread(()->{
+                    refresh.setEnabled(true);refresh.setText("Refresh Owner Wallet");
+                    signIn.setVisibility(android.view.View.GONE);
+                    summary.setText(formatDashboard(body));
+                });
             }
             @Override public void err(String message){
                 runOnUiThread(()->{
-                    if(message!=null&&message.contains("ADMIN_REQUIRED")){
-                        summary.setText("Owner access is not enabled for this Azure account.");
-                    }else if(message!=null&&(message.contains("AZURE_AUTH")||message.contains("401"))){
-                        summary.setText("Azure session needs sign-in again.");
+                    refresh.setEnabled(true);refresh.setText("Refresh Owner Wallet");
+                    if(message!=null&&(message.contains("ADMIN_REQUIRED")||message.contains("403"))){
+                        summary.setText("This Azure account is signed in, but owner/admin access is not enabled.");
+                    }else if(authError(message)){
+                        showOwnerSignIn();
+                    }else if(message!=null&&message.contains("404")){
+                        summary.setText("Owner Wallet service is updating on Azure. Tap Refresh Owner Wallet after the backend deploy completes.");
+                    }else if(message!=null&&(message.contains("500")||message.contains("502")||message.contains("503")||message.contains("504"))){
+                        summary.setText("Owner Wallet service is temporarily unavailable. Tap Refresh Owner Wallet.");
                     }else{
-                        summary.setText("Owner Wallet unavailable: "+message);
+                        summary.setText("Owner Wallet is temporarily unavailable. Check your connection and try Refresh.");
                     }
                 });
             }
@@ -169,7 +205,7 @@ public class OwnerEarningsActivity extends Activity {
                             });
                         }
                         @Override public void err(String message){
-                            runOnUiThread(()->LanguageManager.toast(OwnerEarningsActivity.this,"Could not save payout tracking: "+message,Toast.LENGTH_LONG).show());
+                            runOnUiThread(()->{if(authError(message))showOwnerSignIn();else LanguageManager.toast(OwnerEarningsActivity.this,"Could not save payout tracking. Please try again.",Toast.LENGTH_LONG).show();});
                         }
                     });
                 }catch(Exception e){
@@ -219,7 +255,7 @@ public class OwnerEarningsActivity extends Activity {
                             });
                         }
                         @Override public void err(String message){
-                            runOnUiThread(()->LanguageManager.toast(OwnerEarningsActivity.this,"Payout not recorded: "+message,Toast.LENGTH_LONG).show());
+                            runOnUiThread(()->{if(authError(message))showOwnerSignIn();else LanguageManager.toast(OwnerEarningsActivity.this,"Payout could not be recorded. Please try again.",Toast.LENGTH_LONG).show();});
                         }
                     });
                 }catch(Exception e){
@@ -268,7 +304,7 @@ public class OwnerEarningsActivity extends Activity {
                 });
             }
             @Override public void err(String message){
-                runOnUiThread(()->LanguageManager.toast(OwnerEarningsActivity.this,"Payout history unavailable: "+message,Toast.LENGTH_LONG).show());
+                runOnUiThread(()->{if(authError(message))showOwnerSignIn();else LanguageManager.toast(OwnerEarningsActivity.this,"Payout history is temporarily unavailable.",Toast.LENGTH_LONG).show();});
             }
         });
     }
