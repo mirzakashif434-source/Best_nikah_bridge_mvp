@@ -83,6 +83,8 @@ public class AzureHomeActivity extends Activity {
         Button verification=button("Verification Status",false);
         Button safety=button("Safety Reports",false);
         Button ai=button("Azure AI Nikah Assistant",false);
+        Button ownerAnalytics=button("Owner Live Analytics",false);
+        Button ownerWallet=button("Owner Wallet / Payout",false);
         Button wallet=button("Azure Wallet",false);
         Button delete=button("Permanently Delete Account",false);
         Button out=button("Sign out of Azure",false);
@@ -96,6 +98,8 @@ public class AzureHomeActivity extends Activity {
         verification.setOnClickListener(v->verification());
         safety.setOnClickListener(v->safety());
         ai.setOnClickListener(v->ai());
+        ownerAnalytics.setOnClickListener(v->startActivity(new Intent(this,OwnerLiveAnalyticsActivity.class)));
+        ownerWallet.setOnClickListener(v->startActivity(new Intent(this,OwnerEarningsActivity.class)));
         wallet.setOnClickListener(v->startActivity(new Intent(this,AzureWalletActivity.class)));
         delete.setOnClickListener(v->deleteAccount());
         out.setOnClickListener(v->signOut());
