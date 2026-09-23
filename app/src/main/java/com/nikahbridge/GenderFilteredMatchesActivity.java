@@ -63,7 +63,9 @@ public class GenderFilteredMatchesActivity extends Activity {
                             ProfilePhotoLoader.loadAzure(path,photo,()->photo.setVisibility(View.INVISIBLE));
                         }else photo.setVisibility(View.INVISIBLE);
                         boolean online=m.optBoolean("isOnline",false);
-                        card.addView(Premium2030Ui.chip(GenderFilteredMatchesActivity.this,online?"🟢 ONLINE":"REAL MATCH"));
+                        boolean photoVerified=m.optBoolean("photoVerified",false);
+                        String badge=photoVerified?(online?"✅ VERIFIED PHOTO • 🟢 ONLINE":"✅ VERIFIED PHOTO"):(online?"🟢 ONLINE":"REAL MATCH");
+                        card.addView(Premium2030Ui.chip(GenderFilteredMatchesActivity.this,badge));
                         TextView memberHeading=Premium2030Ui.section(GenderFilteredMatchesActivity.this,displayName+" • "+m.optInt("age",0));
                         LanguageManager.protectUserContent(memberHeading);
                         card.addView(memberHeading);
