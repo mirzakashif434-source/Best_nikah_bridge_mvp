@@ -2,6 +2,7 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
+const { entitlementForUser } = require("./premiumAccess");
 
 async function me(user){
   const key=user.azure_subject||user.uid;
@@ -20,8 +21,35 @@ app.http("sendLikeAzure",{methods:["POST"],authLevel:"anonymous",route:"likes",h
  return {status:200,jsonBody:{ok:true,sent:true,remaining:19-Number(c.rows[0]?.count||0)}};
 })});
 app.http("claimFreeBoostAzure",{methods:["POST"],authLevel:"anonymous",route:"entitlements/free-boost",handler:h(async(req,ctx,user)=>{
- const u=await me(user),r=await query("SELECT claimed_at FROM free_boost_claims WHERE user_id=$1",[u.id]); if(r.rows[0]&&Date.now()-new Date(r.rows[0].claimed_at).getTime()<8*86400000)return {status:409,jsonBody:{ok:false,error:"FREE_BOOST_NOT_AVAILABLE"}};
- await query("INSERT INTO free_boost_claims(user_id,claimed_at) VALUES($1,now()) ON CONFLICT(user_id) DO UPDATE SET claimed_at=now()",[u.id]); return {status:200,jsonBody:{ok:true,claimed:true}};
+ const u=await me(user);
+ const premium=await entitlementForUser(u.id);
+ const plan=premium.active?premium.planKey:null;
+ const now=new Date();
+
+ if(plan==="premium_vip_60"){
+   const last=await query("SELECT claimed_at FROM profile_boost_claims WHERE user_id=$1 ORDER BY claimed_at DESC LIMIT 1",[u.id]);
+   if(last.rows[0]){
+     const next=new Date(new Date(last.rows[0].claimed_at).getTime()+7*86400000);
+     if(now<next)return {status:409,jsonBody:{ok:false,error:"BOOST_NOT_AVAILABLE_YET",plan:"premium_vip_60",limitType:"weekly",nextAvailableAt:next.toISOString()}};
+   }
+   await query("INSERT INTO profile_boost_claims(user_id,plan_key,claimed_at) VALUES($1,$2,now())",[u.id,plan]);
+   await query("INSERT INTO free_boost_claims(user_id,claimed_at) VALUES($1,now()) ON CONFLICT(user_id) DO UPDATE SET claimed_at=now()",[u.id]);
+   return {status:200,jsonBody:{ok:true,claimed:true,plan:"premium_vip_60",limitType:"weekly",remaining:null,nextAvailableInDays:7}};
+ }
+
+ const limit=plan==="premium_plus_40"?4:plan==="premium_basic_20"?2:1;
+ const monthStart=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth(),1));
+ const nextMonth=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1));
+ const count=await query(
+   "SELECT count(*)::int AS count FROM profile_boost_claims WHERE user_id=$1 AND claimed_at >= $2 AND claimed_at < $3",
+   [u.id,monthStart.toISOString(),nextMonth.toISOString()]
+ );
+ const used=Number(count.rows[0]?.count||0);
+ if(used>=limit)return {status:409,jsonBody:{ok:false,error:"BOOST_MONTHLY_LIMIT_REACHED",plan:plan||"free",limit,used,remaining:0,nextAvailableAt:nextMonth.toISOString()}};
+
+ await query("INSERT INTO profile_boost_claims(user_id,plan_key,claimed_at) VALUES($1,$2,now())",[u.id,plan]);
+ await query("INSERT INTO free_boost_claims(user_id,claimed_at) VALUES($1,now()) ON CONFLICT(user_id) DO UPDATE SET claimed_at=now()",[u.id]);
+ return {status:200,jsonBody:{ok:true,claimed:true,plan:plan||"free",limit,used:used+1,remaining:Math.max(0,limit-used-1),resetsAt:nextMonth.toISOString()}};
 })});
 app.http("setNikahPromiseAzure",{methods:["POST"],authLevel:"anonymous",route:"connections/{connectionId}/nikah-promise",handler:h(async(req,ctx,user)=>{
  const u=await me(user),id=String(req.params.connectionId||""),b=await req.json();if(!id||!b?.stage)return {status:400,jsonBody:{ok:false,error:"INVALID_NIKAH_PROMISE"}};
