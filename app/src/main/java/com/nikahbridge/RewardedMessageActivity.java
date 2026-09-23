@@ -1,11 +1,15 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.LoadAdError;
 import com.google.android.gms.ads.MobileAds;
@@ -36,22 +40,41 @@ public class RewardedMessageActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        AzureAuthManager.bindActivity(this);
         base();
-        if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure."); watch.setEnabled(false); return; }
+        if (!AzureAuthManager.hasAccount(this)) {
+            showAzureRecovery();
+            return;
+        }
         status.setText("Preparing a real rewarded ad…");
         loadConfig();
     }
 
     private void base() {
-        ScrollView scroll = new ScrollView(this);
-        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(28,28,28,32); root.setBackgroundColor(Color.rgb(247,250,249));
+        ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setClipToPadding(false); scroll.setBackgroundColor(Premium2030Ui.CREAM);
+        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(28,28,28,32); root.setBackgroundColor(Premium2030Ui.CREAM);
         scroll.addView(root); setContentView(scroll);
-        TextView title = new TextView(this); title.setText("Earn 1 Message Credit"); title.setTextSize(26); title.setTypeface(Typeface.DEFAULT,Typeface.BOLD); title.setGravity(Gravity.CENTER); title.setTextColor(Color.rgb(30,45,41)); root.addView(title,new LinearLayout.LayoutParams(-1,80));
-        status = new TextView(this); status.setTextSize(16); status.setTextColor(Color.rgb(95,108,103)); root.addView(status,new LinearLayout.LayoutParams(-1,90));
-        watch = new Button(this); watch.setText("Watch Rewarded Ad"); watch.setAllCaps(false); watch.setEnabled(false); root.addView(watch,new LinearLayout.LayoutParams(-1,64));
-        Button back = new Button(this); back.setText("Back"); back.setAllCaps(false); root.addView(back,new LinearLayout.LayoutParams(-1,64)); back.setOnClickListener(v->finish());
+        ViewCompat.setOnApplyWindowInsetsListener(scroll,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(28,28,28,32+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(scroll);
+        TextView title = Premium2030Ui.title(this,"Earn 1 Message Credit"); root.addView(title);
+        status = Premium2030Ui.subtitle(this,""); root.addView(status);
+        watch = Premium2030Ui.primary(this,"Watch Rewarded Ad"); watch.setEnabled(false); Premium2030Ui.addButton(root,watch);
+        Button back = Premium2030Ui.secondary(this,"Back"); Premium2030Ui.addButton(root,back); back.setOnClickListener(v->finish());
         watch.setOnClickListener(v->showRewarded());
         TextView note = new TextView(this); note.setText("Maximum 2 rewarded message credits per UTC day. The backend verifies the AdMob reward before crediting your account."); note.setTextSize(14); note.setTextColor(Color.rgb(95,108,103)); note.setPadding(4,24,4,4); root.addView(note);
+    }
+
+    private void showAzureRecovery() {
+        status.setText("Please sign in with Azure to earn rewarded message credits.");
+        watch.setEnabled(false);
+        Button signIn = Premium2030Ui.primary(this,"Sign in with Azure");
+        Premium2030Ui.addButton(root,signIn);
+        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
     }
 
     private void loadConfig() {
