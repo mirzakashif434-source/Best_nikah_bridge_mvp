@@ -133,7 +133,7 @@ public class AzureExternalAuthActivity extends Activity {
                         AzureAuthManager.initialize(this,
                                 () -> {
                                     AzureAuthManager.markSignedIn(this);
-                                    Toast.makeText(this, "Real Azure login verified.", Toast.LENGTH_LONG).show();
+                                    LanguageManager.toast(this, "Real Azure login verified.", Toast.LENGTH_LONG).show();
                                     startActivity(new Intent(this, AzureHomeActivity.class));
                                     finish();
                                 },
