@@ -1,11 +1,15 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -16,7 +20,18 @@ public class SafeCommunicationActivity extends Activity {
 
     @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();loadConversations();String openId=getIntent()!=null?getIntent().getStringExtra("conversationId"):null;if(openId!=null&&!openId.trim().isEmpty()){conversationId.setText(openId.trim());loadMessages();}}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
-    private void base(){ScrollView s=new ScrollView(this);s.setFillViewport(true);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(22),dp(20),dp(30));root.setBackgroundColor(light);s.addView(root);setContentView(s);}
+    private void base(){
+        ScrollView s=new ScrollView(this);s.setFillViewport(true);s.setClipToPadding(false);s.setBackgroundColor(light);
+        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(22),dp(20),dp(30));root.setBackgroundColor(light);
+        s.addView(root);setContentView(s);
+        ViewCompat.setOnApplyWindowInsetsListener(s,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(20),dp(22),dp(20),dp(30)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(s);
+    }
     private TextView txt(String x,int z,boolean bold){TextView t=new TextView(this);t.setText(x);t.setTextSize(z);t.setTextColor(bold?dark:gray);t.setPadding(dp(6),dp(8),dp(6),dp(10));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
     private Button btn(String x,boolean fill){Button b=new Button(this);b.setText(x);b.setAllCaps(false);b.setTextSize(16);b.setTextColor(fill?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(fill?green:Color.WHITE);g.setCornerRadius(dp(18));if(!fill)g.setStroke(dp(2),green);b.setBackground(g);return b;}
     private EditText input(String h){EditText e=new EditText(this);e.setHint(h);e.setTextSize(16);root.addView(e,new LinearLayout.LayoutParams(-1,dp(62)));return e;}
@@ -34,6 +49,21 @@ public class SafeCommunicationActivity extends Activity {
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
     }
 
+    private boolean authError(String message){
+        if(message==null) return false;
+        return message.contains("AZURE_SIGN_IN_REQUIRED") || message.contains("AZURE_INTERACTION_REQUIRED") || message.contains("AZURE_AUTH");
+    }
+
+    private void showSignInRecovery(String action){
+        status.setText("Status: Azure sign in required");
+        LanguageManager.dialog(this)
+            .setTitle("Sign in required")
+            .setMessage("Your Azure session expired. Sign in again to "+action+".")
+            .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+            .setNegativeButton("Not now",null)
+            .show();
+    }
+
     private void loadConversations(){
         AzureApiClient.get("/conversations",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
@@ -43,7 +73,7 @@ public class SafeCommunicationActivity extends Activity {
                     for(int i=0;i<a.length();i++){JSONObject c=a.optJSONObject(i);if(c==null)continue;String id=c.optString("id",""),name=c.optString("other_display_name","Mutual connection");Button choose=btn("Open: "+name,false);choose.setOnClickListener(v->{conversationId.setText(id);loadMessages();});conversationList.addView(choose,new LinearLayout.LayoutParams(-1,dp(56)));}
                 }catch(Exception e){status.setText("Status: Azure conversation list could not be read");}
             });}
-            public void err(String message){runOnUiThread(()->status.setText("Status: Azure conversations unavailable — "+message));}
+            public void err(String message){runOnUiThread(()->{if(authError(message))showSignInRecovery("load your mutual conversations");else status.setText("Status: Azure conversations are temporarily unavailable.");});}
         });
     }
 
@@ -74,7 +104,7 @@ public class SafeCommunicationActivity extends Activity {
                             .setTitle("Message paused")
                             .setMessage("You already sent 2 messages. Please wait for her reply. Your next message will be available after she replies.")
                             .setPositiveButton("OK",null).show();
-                    }else status.setText("Status: not sent — "+m);
+                    }else if(authError(m))showSignInRecovery("send secure messages"); else status.setText("Status: message could not be sent. Please try again.");
                 });}
             });
         }catch(Exception e){status.setText("Status: invalid message");}
@@ -102,7 +132,7 @@ public class SafeCommunicationActivity extends Activity {
                 loadConversations();
                 LanguageManager.toast(SafeCommunicationActivity.this,"Chat deleted for both.",Toast.LENGTH_LONG).show();
             });}
-            public void err(String m){runOnUiThread(()->status.setText("Status: chat delete failed — "+m));}
+            public void err(String m){runOnUiThread(()->{if(authError(m))showSignInRecovery("delete this chat");else status.setText("Status: chat could not be deleted. Please try again.");});}
         });
     }
 
@@ -117,7 +147,7 @@ public class SafeCommunicationActivity extends Activity {
                     history.setText(out.toString());status.setText("Status: real Azure conversation history loaded");
                 }catch(Exception e){status.setText("Status: message history could not be read");}
             });}
-            public void err(String m){runOnUiThread(()->status.setText("Status: history unavailable — "+m));}
+            public void err(String m){runOnUiThread(()->{if(authError(m))showSignInRecovery("load recent messages");else status.setText("Status: message history is temporarily unavailable.");});}
         });
     }
 }
