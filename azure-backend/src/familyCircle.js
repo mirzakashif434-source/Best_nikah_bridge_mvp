@@ -97,6 +97,12 @@ app.http("familyCircleInviteCreate",{
       if(!["owner","wali","parent","sibling","family","trusted"].includes(membership.role))
         return {status:403,jsonBody:{ok:false,error:"CIRCLE_INVITE_NOT_ALLOWED"}};
 
+      const active=await query(
+        "SELECT count(*)::int AS count FROM family_circle_invites WHERE circle_id=$1 AND revoked_at IS NULL AND expires_at>now() AND use_count<max_uses",
+        [circle.id]
+      );
+      if(Number(active.rows[0]?.count||0)>=10) return {status:429,jsonBody:{ok:false,error:"ACTIVE_INVITE_LIMIT_REACHED"}};
+
       const b=await request.json().catch(()=>({}));
       const role=text(b?.role,20).toLowerCase()||"family";
       if(!ROLE_SET.has(role)) return {status:400,jsonBody:{ok:false,error:"INVALID_CIRCLE_ROLE"}};
@@ -257,6 +263,7 @@ app.http("familyCircleSuggestionCreate",{
 app.http("familyCircleSuggestionRespond",{
   methods:["PATCH"],authLevel:"anonymous",route:"family-circle/suggestions/{suggestionId}",
   handler:requireAuth(async(request,context,user)=>{
+    const client=await getPool().connect();
     try{
       const me=await ensureUser(user);
       const circle=await circleForUser(me.id);
@@ -265,13 +272,64 @@ app.http("familyCircleSuggestionRespond",{
       const b=await request.json();
       const status=text(b?.status,20).toLowerCase();
       if(!["viewed","accepted","declined"].includes(status)) return {status:400,jsonBody:{ok:false,error:"INVALID_SUGGESTION_STATUS"}};
-      const r=await query(
+
+      await client.query("BEGIN");
+      const current=await client.query(
+        "SELECT * FROM family_match_suggestions WHERE id=$1 AND circle_id=$2 FOR UPDATE",
+        [id,circle.id]
+      );
+      if(!current.rows[0]){await client.query("ROLLBACK");return {status:404,jsonBody:{ok:false,error:"SUGGESTION_NOT_FOUND"}};}
+      const suggestion=current.rows[0];
+
+      let interest=null;
+      if(status==="accepted"){
+        const blocked=await client.query(
+          "SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",
+          [circle.owner_user_id,suggestion.suggested_user_id]
+        );
+        if(blocked.rows[0]){await client.query("ROLLBACK");return {status:403,jsonBody:{ok:false,error:"SUGGESTION_BLOCKED"}};}
+        const ir=await client.query(
+          `INSERT INTO interests(sender_user_id,receiver_user_id,status)
+           VALUES($1,$2,'pending')
+           ON CONFLICT(sender_user_id,receiver_user_id) DO UPDATE SET
+             status=CASE WHEN interests.status IN ('declined','cancelled') THEN 'pending' ELSE interests.status END,
+             responded_at=CASE WHEN interests.status IN ('declined','cancelled') THEN NULL ELSE interests.responded_at END
+           RETURNING id,status,created_at`,
+          [circle.owner_user_id,suggestion.suggested_user_id]
+        );
+        interest=ir.rows[0]||null;
+      }
+
+      const r=await client.query(
         "UPDATE family_match_suggestions SET status=$3,responded_at=CASE WHEN $3 IN ('accepted','declined') THEN now() ELSE responded_at END WHERE id=$1 AND circle_id=$2 RETURNING id,status,responded_at",
         [id,circle.id,status]
       );
-      if(!r.rows[0]) return {status:404,jsonBody:{ok:false,error:"SUGGESTION_NOT_FOUND"}};
-      return {status:200,jsonBody:{ok:true,suggestion:r.rows[0]}};
-    }catch(e){context.error("FAMILY_CIRCLE_SUGGESTION_RESPOND_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"FAMILY_CIRCLE_SUGGESTION_RESPOND_FAILED"}};}
+      await client.query("COMMIT");
+      return {status:200,jsonBody:{ok:true,suggestion:r.rows[0],interest}};
+    }catch(e){
+      await client.query("ROLLBACK").catch(()=>{});
+      context.error("FAMILY_CIRCLE_SUGGESTION_RESPOND_FAILED",e);
+      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"FAMILY_CIRCLE_SUGGESTION_RESPOND_FAILED"}};
+    }finally{client.release();}
+  })
+});
+
+app.http("familyCircleInvitesList",{
+  methods:["GET"],authLevel:"anonymous",route:"family-circle/invites",
+  handler:requireAuth(async(request,context,user)=>{
+    try{
+      const me=await ensureUser(user);
+      const circle=await circleForUser(me.id);
+      if(!circle) return {status:200,jsonBody:{ok:true,invites:[]}};
+      await requireCircleMember(circle.id,me.id);
+      const r=await query(
+        `SELECT id,role,max_uses,use_count,expires_at,revoked_at,created_at
+         FROM family_circle_invites WHERE circle_id=$1
+         ORDER BY created_at DESC LIMIT 50`,
+        [circle.id]
+      );
+      return {status:200,jsonBody:{ok:true,invites:r.rows}};
+    }catch(e){context.error("FAMILY_CIRCLE_INVITES_LIST_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"FAMILY_CIRCLE_INVITES_LIST_FAILED"}};}
   })
 });
 
