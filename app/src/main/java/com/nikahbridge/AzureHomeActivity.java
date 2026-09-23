@@ -9,6 +9,9 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -27,9 +30,26 @@ public class AzureHomeActivity extends Activity {
     }
 
     private void base(){
-        ScrollView s=new ScrollView(this); s.setFillViewport(true); s.setVerticalScrollBarEnabled(false); s.setBackgroundColor(light);
-        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(20),dp(18),dp(32));
-        s.addView(root); setContentView(s);
+        ScrollView s=new ScrollView(this);
+        s.setFillViewport(true);
+        s.setVerticalScrollBarEnabled(false);
+        s.setClipToPadding(false);
+        s.setBackgroundColor(light);
+        root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18),dp(20),dp(18),dp(32));
+        s.addView(root);
+        setContentView(s);
+
+        // Screen-local system-bar protection for the Azure home/profile flow.
+        // This is additive: it preserves the existing UI and only keeps content
+        // below the status bar and above the Android navigation/gesture area.
+        ViewCompat.setOnApplyWindowInsetsListener(s,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(s);
     }
     private TextView text(String v,int size,boolean bold){
         TextView t=new TextView(this); t.setText(v); t.setTextSize(size); t.setTextColor(bold?dark:gray); t.setPadding(6,8,6,12);
