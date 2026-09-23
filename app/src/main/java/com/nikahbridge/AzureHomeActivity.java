@@ -238,8 +238,23 @@ public class AzureHomeActivity extends Activity {
         AzureApiClient.get("/interests",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
-                    JSONArray a=new JSONObject(body).optJSONArray("interests");
-                    if(a==null||a.length()==0){out.setText("No interests yet.");return;}
+                    JSONObject response=new JSONObject(body);
+                    JSONArray a=response.optJSONArray("interests");
+                    if(a==null){
+                        Object raw=response.opt("interests");
+                        if(raw instanceof String){
+                            String value=((String)raw).trim();
+                            if(value.isEmpty()||"[]".equals(value)||"null".equalsIgnoreCase(value)){
+                                out.setText("No interests yet.");
+                                return;
+                            }
+                            try{a=new JSONArray(value);}catch(Exception ignored){}
+                        }
+                    }
+                    if(a==null||a.length()==0){
+                        out.setText("No interests yet.");
+                        return;
+                    }
                     StringBuilder s=new StringBuilder();
                     for(int i=0;i<Math.min(a.length(),100);i++){
                         JSONObject x=a.optJSONObject(i);if(x==null)continue;
