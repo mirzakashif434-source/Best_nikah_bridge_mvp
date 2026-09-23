@@ -134,6 +134,13 @@ public final class LanguageManager {
         }
     }
 
+    /** Localized form validation error. */
+    public static void setError(TextView view,CharSequence error){
+        if(view==null)return;
+        String source=error==null?"":error.toString();
+        requestTranslation(view.getContext(),source,translated->view.setError(translated));
+    }
+
     /** Mark member/user-generated text so automatic UI localization never sends it for translation. */
     public static void protectUserContent(TextView view){
         if(view!=null)view.setTag(NO_TRANSLATE_TAG,Boolean.TRUE);
