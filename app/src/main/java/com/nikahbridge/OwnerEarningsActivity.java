@@ -138,7 +138,7 @@ public class OwnerEarningsActivity extends Activity {
         box.addView(label,new LinearLayout.LayoutParams(-1,dp(58)));
         box.addView(masked,new LinearLayout.LayoutParams(-1,dp(58)));
 
-        new AlertDialog.Builder(this)
+        LanguageManager.dialog(this)
             .setTitle("Al Rajhi Payout Tracking")
             .setMessage("For safety, save only a masked identifier here. Your full IBAN/SWIFT must be configured directly in Google Play Payments Profile.")
             .setView(box)
@@ -146,7 +146,7 @@ public class OwnerEarningsActivity extends Activity {
                 String bankLabel=label.getText().toString().trim();
                 String destination=masked.getText().toString().trim();
                 if(bankLabel.isEmpty()||destination.length()<6){
-                    Toast.makeText(this,"Enter bank label and masked account identifier.",Toast.LENGTH_LONG).show();
+                    LanguageManager.toast(this,"Enter bank label and masked account identifier.",Toast.LENGTH_LONG).show();
                     return;
                 }
                 try{
@@ -158,16 +158,16 @@ public class OwnerEarningsActivity extends Activity {
                     AzureApiClient.post("/admin/owner/settlement-profile",body.toString(),new AzureApiClient.Callback(){
                         @Override public void ok(int code,String response){
                             runOnUiThread(()->{
-                                Toast.makeText(OwnerEarningsActivity.this,"Al Rajhi payout tracking saved in Azure.",Toast.LENGTH_LONG).show();
+                                LanguageManager.toast(OwnerEarningsActivity.this,"Al Rajhi payout tracking saved in Azure.",Toast.LENGTH_LONG).show();
                                 loadAzure();
                             });
                         }
                         @Override public void err(String message){
-                            runOnUiThread(()->Toast.makeText(OwnerEarningsActivity.this,"Could not save payout tracking: "+message,Toast.LENGTH_LONG).show());
+                            runOnUiThread(()->LanguageManager.toast(OwnerEarningsActivity.this,"Could not save payout tracking: "+message,Toast.LENGTH_LONG).show());
                         }
                     });
                 }catch(Exception e){
-                    Toast.makeText(this,"Invalid payout tracking data.",Toast.LENGTH_LONG).show();
+                    LanguageManager.toast(this,"Invalid payout tracking data.",Toast.LENGTH_LONG).show();
                 }
             })
             .setNegativeButton("Cancel",null)
@@ -188,7 +188,7 @@ public class OwnerEarningsActivity extends Activity {
         box.addView(amount,new LinearLayout.LayoutParams(-1,dp(58)));
         box.addView(reference,new LinearLayout.LayoutParams(-1,dp(58)));
 
-        new AlertDialog.Builder(this)
+        LanguageManager.dialog(this)
             .setTitle("Record Google Payout Received")
             .setMessage("Use this only after the Google Play payout actually appears in your Al Rajhi account.")
             .setView(box)
@@ -196,7 +196,7 @@ public class OwnerEarningsActivity extends Activity {
                 String a=amount.getText().toString().trim();
                 String ref=reference.getText().toString().trim();
                 if(a.isEmpty()||ref.length()<3){
-                    Toast.makeText(this,"Enter the real USD amount and payout reference.",Toast.LENGTH_LONG).show();
+                    LanguageManager.toast(this,"Enter the real USD amount and payout reference.",Toast.LENGTH_LONG).show();
                     return;
                 }
                 try{
@@ -208,16 +208,16 @@ public class OwnerEarningsActivity extends Activity {
                     AzureApiClient.post("/admin/owner/provider-settlement",body.toString(),new AzureApiClient.Callback(){
                         @Override public void ok(int code,String response){
                             runOnUiThread(()->{
-                                Toast.makeText(OwnerEarningsActivity.this,"Google payout recorded as received.",Toast.LENGTH_LONG).show();
+                                LanguageManager.toast(OwnerEarningsActivity.this,"Google payout recorded as received.",Toast.LENGTH_LONG).show();
                                 loadAzure();
                             });
                         }
                         @Override public void err(String message){
-                            runOnUiThread(()->Toast.makeText(OwnerEarningsActivity.this,"Payout not recorded: "+message,Toast.LENGTH_LONG).show());
+                            runOnUiThread(()->LanguageManager.toast(OwnerEarningsActivity.this,"Payout not recorded: "+message,Toast.LENGTH_LONG).show());
                         }
                     });
                 }catch(Exception e){
-                    Toast.makeText(this,"Enter a valid payout amount.",Toast.LENGTH_LONG).show();
+                    LanguageManager.toast(this,"Enter a valid payout amount.",Toast.LENGTH_LONG).show();
                 }
             })
             .setNegativeButton("Cancel",null)
@@ -231,7 +231,7 @@ public class OwnerEarningsActivity extends Activity {
                     try{
                         JSONArray a=new JSONObject(body).optJSONArray("providerPayouts");
                         if(a==null||a.length()==0){
-                            new AlertDialog.Builder(OwnerEarningsActivity.this)
+                            LanguageManager.dialog(OwnerEarningsActivity.this)
                                 .setTitle("Google Payout History")
                                 .setMessage("No Google payout has been recorded yet.")
                                 .setPositiveButton("OK",null).show();
@@ -252,17 +252,17 @@ public class OwnerEarningsActivity extends Activity {
                                .append(p.optString("created_at",""))
                                .append("\n\n");
                         }
-                        new AlertDialog.Builder(OwnerEarningsActivity.this)
+                        LanguageManager.dialog(OwnerEarningsActivity.this)
                             .setTitle("Google Payout History")
                             .setMessage(out.toString())
                             .setPositiveButton("OK",null).show();
                     }catch(Exception e){
-                        Toast.makeText(OwnerEarningsActivity.this,"Payout history could not be displayed.",Toast.LENGTH_LONG).show();
+                        LanguageManager.toast(OwnerEarningsActivity.this,"Payout history could not be displayed.",Toast.LENGTH_LONG).show();
                     }
                 });
             }
             @Override public void err(String message){
-                runOnUiThread(()->Toast.makeText(OwnerEarningsActivity.this,"Payout history unavailable: "+message,Toast.LENGTH_LONG).show());
+                runOnUiThread(()->LanguageManager.toast(OwnerEarningsActivity.this,"Payout history unavailable: "+message,Toast.LENGTH_LONG).show());
             }
         });
     }
@@ -272,7 +272,7 @@ public class OwnerEarningsActivity extends Activity {
             Intent i=new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/console/"));
             startActivity(i);
         }catch(Exception e){
-            Toast.makeText(this,"Open Play Console in your browser and go to Settings → Payments profile.",Toast.LENGTH_LONG).show();
+            LanguageManager.toast(this,"Open Play Console in your browser and go to Settings → Payments profile.",Toast.LENGTH_LONG).show();
         }
     }
 }
