@@ -6,6 +6,8 @@ const { requireAuth } = require("./auth");
 const credential = new DefaultAzureCredential();
 const MAX_Q = 4000;
 const MAX_A = 8000;
+const LANGUAGE_NAMES={en:"English",ur:"Urdu",ar:"Arabic",bn:"Bengali",hi:"Hindi",tr:"Turkish",id:"Indonesian",ms:"Malay",pa:"Punjabi",fa:"Persian (Farsi)",fr:"French",de:"German",es:"Spanish",it:"Italian"};
+function responseLanguage(req){const code=(req.headers.get("x-app-language")||"en").trim().toLowerCase();return LANGUAGE_NAMES[code]||"English";}
 const clean = (v,max) => typeof v === "string" ? v.trim().slice(0,max) : "";
 
 const sensitivePattern = /(password|otp|one[- ]time|bank|iban|card|refund|payment dispute|verification decision|ban|blocked|report|legal|police|harass|abuse|self[- ]harm|suicide)/i;
@@ -28,7 +30,7 @@ async function requireAdmin(user) {
   return r.rows[0];
 }
 
-async function azureAnswer(question, context) {
+async function azureAnswer(question, context, targetLanguage) {
   const endpoint=(process.env.AZURE_AI_ENDPOINT||"").trim().replace(/\/$/,"");
   const model=(process.env.AZURE_AI_MODEL||"").trim();
   if(!endpoint || !model) throw new Error("AI_SERVICE_NOT_CONFIGURED");
@@ -40,7 +42,7 @@ async function azureAnswer(question, context) {
     body:JSON.stringify({
       model,
       messages:[
-        {role:"system",content:"You are the production Help Assistant for a serious Muslim matrimonial app. Answer concise practical questions about using the app. Be respectful and privacy-conscious. Never ask for passwords, OTPs, bank/card details, identity documents, or secrets. Do not provide binding religious, legal, medical, financial, or safety guarantees. For sensitive or human-review matters, do not answer; the server will route them to human support."},
+        {role:"system",content:"You are the production Help Assistant for a serious Muslim matrimonial app. Answer concise practical questions about using the app. Be respectful and privacy-conscious. Never ask for passwords, OTPs, bank/card details, identity documents, or secrets. Do not provide binding religious, legal, medical, financial, or safety guarantees. For sensitive or human-review matters, do not answer; the server will route them to human support. Respond in "+targetLanguage+" unless the user explicitly asks for another language."},
         {role:"user",content:question}
       ],
       temperature:0.2,max_tokens:700
@@ -58,21 +60,22 @@ app.http("helpLineAsk",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await ensureUser(user);
+      const targetLanguage=responseLanguage(request);
       const body=await request.json();
       const question=clean(body?.question,MAX_Q);
       if(!question)return {status:400,jsonBody:{ok:false,error:"QUESTION_REQUIRED"}};
       if(sensitivePattern.test(question)){
         const r=await query("INSERT INTO help_line_tickets(user_id,question,human_required,status,human_reply_target_at) VALUES($1,$2,true,'awaiting_human',now()+interval '24 hours') RETURNING id,status,human_reply_target_at,created_at",[me.id,question]);
-        return {status:201,jsonBody:{ok:true,ticketId:r.rows[0].id,answer:"Aap ki request human support ko bhej di gayi hai. Hamara target hai ke aapko 24 ghanton ke andar reply mile.",aiAnswered:false,humanRequired:true,humanReplySlaHours:24,ticket:r.rows[0]}};
+        return {status:201,jsonBody:{ok:true,ticketId:r.rows[0].id,answer:"Your request has been sent to human support. Our target is to reply within 24 hours.",aiAnswered:false,humanRequired:true,humanReplySlaHours:24,ticket:r.rows[0]}};
       }
       try{
-        const answer=await azureAnswer(question,context);
+        const answer=await azureAnswer(question,context,targetLanguage);
         const r=await query("INSERT INTO help_line_tickets(user_id,question,ai_answer,ai_answered,human_required,status,created_at) VALUES($1,$2,$3,true,false,'ai_answered',now()) RETURNING id,status,created_at",[me.id,question,answer]);
         return {status:201,jsonBody:{ok:true,ticketId:r.rows[0].id,answer,aiAnswered:true,humanRequired:false,ticket:r.rows[0]}};
       }catch(e){
         context.error("HELP_AI_FALLBACK_TO_HUMAN",e);
         const r=await query("INSERT INTO help_line_tickets(user_id,question,human_required,status,human_reply_target_at) VALUES($1,$2,true,'awaiting_human',now()+interval '24 hours') RETURNING id,status,human_reply_target_at,created_at",[me.id,question]);
-        return {status:201,jsonBody:{ok:true,ticketId:r.rows[0].id,answer:"Aap ki request human support ko bhej di gayi hai. Hamara target hai ke aapko 24 ghanton ke andar reply mile.",aiAnswered:false,humanRequired:true,humanReplySlaHours:24,ticket:r.rows[0]}};
+        return {status:201,jsonBody:{ok:true,ticketId:r.rows[0].id,answer:"Your request has been sent to human support. Our target is to reply within 24 hours.",aiAnswered:false,humanRequired:true,humanReplySlaHours:24,ticket:r.rows[0]}};
       }
     }catch(e){context.error("HELP_LINE_ASK_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"HELP_LINE_ASK_FAILED"}};}
   })
