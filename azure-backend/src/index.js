@@ -29,6 +29,7 @@ require("./aiCompatibility");
 require("./interests");
 require("./chat");
 require("./family");
+require("./familyCircle");
 require("./verification");
 require("./photos");
 require("./community");
