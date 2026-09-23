@@ -104,6 +104,34 @@ public class AzureHomeActivity extends Activity {
         Button verification=button("Verification Status",false);
         Button safety=button("Safety Reports",false);
         Button ai=button("Azure AI Nikah Assistant",false);
+
+        // Additional real user-facing features already present in the production APK.
+        // Added only as direct navigation; existing flows and screens are preserved.
+        root.addView(Premium2030Ui.section(this,"More Nikah Tools"));
+        Button profilePhoto=button("Real Profile Photo",false);
+        Button fourPhotos=button("Four-Photo Verification",false);
+        Button communityChat=button("Global Community Chat",false);
+        Button rewardedMessage=button("Earn Message Credits",false);
+        Button blockedMembers=button("Blocked Members",false);
+        Button terms=button("Terms & Community Guidelines",false);
+        Button nikahJourney=button("Nikah Journey",false);
+        Button nikahBlueprint=button("Nikah Blueprint",false);
+        Button smartQuestions=button("Smart Serious Questions",false);
+        Button whyMatched=button("Why We Matched",false);
+        Button advancedFilters=button("Advanced Match Filters",false);
+        Button dealBreakers=button("Compatibility Deal-Breakers",false);
+        Button trafficLight=button("Compatibility Traffic Light",false);
+        Button timeline=button("Marriage Timeline Matching",false);
+        Button familyCircle=button("Family Circle",false);
+        Button trustPassport=button("Trust Passport",false);
+        Button safeCommunication=button("Safe Communication",false);
+        Button nikahIntelligence=button("Nikah Intelligence",false);
+        Button conversationHealth=button("Conversation Health",false);
+        Button nikahMediator=button("AI Nikah Mediator",false);
+        Button successPlan=button("Nikah Success Plan",false);
+        Button successNetwork=button("Nikah Success Network",false);
+        Button futureSimulation=button("Future Life Simulation",false);
+
         Button ownerAnalytics=button("Owner Live Analytics",false);
         Button ownerWallet=button("Owner Wallet / Payout",false);
         Button wallet=button("Azure Wallet",false);
@@ -120,6 +148,29 @@ public class AzureHomeActivity extends Activity {
         verification.setOnClickListener(v->verification());
         safety.setOnClickListener(v->safety());
         ai.setOnClickListener(v->ai());
+        profilePhoto.setOnClickListener(v->startActivity(new Intent(this,ProfilePhotoActivity.class)));
+        fourPhotos.setOnClickListener(v->startActivity(new Intent(this,RealFourPhotoActivity.class)));
+        communityChat.setOnClickListener(v->startActivity(new Intent(this,CommunityChatActivity.class)));
+        rewardedMessage.setOnClickListener(v->startActivity(new Intent(this,RewardedMessageActivity.class)));
+        blockedMembers.setOnClickListener(v->startActivity(new Intent(this,BlockedMembersActivity.class)));
+        terms.setOnClickListener(v->startActivity(new Intent(this,TermsAndCommunityGuidelinesActivity.class)));
+        nikahJourney.setOnClickListener(v->startActivity(new Intent(this,NikahJourneyActivity.class)));
+        nikahBlueprint.setOnClickListener(v->startActivity(new Intent(this,NikahBlueprintActivity.class)));
+        smartQuestions.setOnClickListener(v->startActivity(new Intent(this,SmartSeriousQuestionsActivity.class)));
+        whyMatched.setOnClickListener(v->startActivity(new Intent(this,WhyWeMatchedActivity.class)));
+        advancedFilters.setOnClickListener(v->startActivity(new Intent(this,AdvancedMatchFiltersActivity.class)));
+        dealBreakers.setOnClickListener(v->startActivity(new Intent(this,CompatibilityDealBreakerActivity.class)));
+        trafficLight.setOnClickListener(v->startActivity(new Intent(this,CompatibilityTrafficLightActivity.class)));
+        timeline.setOnClickListener(v->startActivity(new Intent(this,MarriageTimelineMatchingActivity.class)));
+        familyCircle.setOnClickListener(v->startActivity(new Intent(this,FamilyCircleActivity.class)));
+        trustPassport.setOnClickListener(v->startActivity(new Intent(this,TrustPassportActivity.class)));
+        safeCommunication.setOnClickListener(v->startActivity(new Intent(this,SafeCommunicationActivity.class)));
+        nikahIntelligence.setOnClickListener(v->startActivity(new Intent(this,NikahIntelligenceActivity.class)));
+        conversationHealth.setOnClickListener(v->startActivity(new Intent(this,ConversationHealthActivity.class)));
+        nikahMediator.setOnClickListener(v->startActivity(new Intent(this,NikahMediatorActivity.class)));
+        successPlan.setOnClickListener(v->startActivity(new Intent(this,NikahSuccessPlanActivity.class)));
+        successNetwork.setOnClickListener(v->startActivity(new Intent(this,NikahSuccessNetworkActivity.class)));
+        futureSimulation.setOnClickListener(v->startActivity(new Intent(this,FutureLifeSimulationActivity.class)));
         ownerAnalytics.setOnClickListener(v->startActivity(new Intent(this,OwnerLiveAnalyticsActivity.class)));
         ownerWallet.setOnClickListener(v->startActivity(new Intent(this,OwnerEarningsActivity.class)));
         wallet.setOnClickListener(v->startActivity(new Intent(this,AzureWalletActivity.class)));
