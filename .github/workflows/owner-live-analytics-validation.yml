@@ -1,0 +1,87 @@
+name: Owner Live Analytics Production Validation
+
+on:
+  push:
+    branches: [owner-live-analytics-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
+
+      - name: Verify owner analytics metrics
+        run: |
+          set -euo pipefail
+          grep -Fq 'route:"admin/owner/live-analytics"' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'ADMIN_REQUIRED' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'online_now' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'likes_24h' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'messages_24h' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'premium_basic_20' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'todayGrossSar' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'pendingUsd' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'recentUsers' azure-backend/src/ownerAnalytics.js
+
+      - name: Verify privacy and owner wallet preservation
+        run: |
+          set -euo pipefail
+          grep -Fq 'Private message bodies are not included' azure-backend/src/ownerAnalytics.js
+          ! grep -nE 'SELECT .*body.*FROM messages' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'ownerEarningsDashboardAzure' azure-backend/src/ownerEarnings.js
+          grep -Fq 'ownerProviderSettlementAzure' azure-backend/src/ownerEarnings.js
+
+      - name: Verify Android owner dashboard
+        run: |
+          set -euo pipefail
+          grep -Fq 'Owner Live Analytics' app/src/main/java/com/nikahbridge/OwnerLiveAnalyticsActivity.java
+          grep -Fq 'Open Owner Wallet / Payout' app/src/main/java/com/nikahbridge/OwnerLiveAnalyticsActivity.java
+          grep -Fq 'Recent / Online Members' app/src/main/java/com/nikahbridge/OwnerLiveAnalyticsActivity.java
+          grep -Fq '.OwnerLiveAnalyticsActivity' app/src/main/AndroidManifest.xml
+          grep -Fq 'Open Owner Dashboard' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed production AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
