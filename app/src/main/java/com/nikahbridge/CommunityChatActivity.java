@@ -2,6 +2,7 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -30,9 +31,52 @@ public class CommunityChatActivity extends Activity {
     private LinearLayout messages; private EditText composer; private ScrollView scroll; private final Set<String> mutedUids = new HashSet<>();
     private final Handler azureHandler = new Handler(Looper.getMainLooper());
     private final Runnable azurePoll = new Runnable(){ @Override public void run(){ loadAzureCommunity(); azureHandler.postDelayed(this,5000); } };
-    @Override protected void onCreate(Bundle state) { super.onCreate(state); if(!AzureAuthManager.hasAccount(this)){finish();return;} build(); loadAzureMutes(); loadAzureCommunity(); azureHandler.postDelayed(azurePoll,5000); }
+    @Override protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        AzureAuthManager.bindActivity(this);
+        if(!AzureAuthManager.hasAccount(this)){
+            buildAuthRecovery();
+            return;
+        }
+        build();
+        loadAzureMutes();
+        loadAzureCommunity();
+        azureHandler.postDelayed(azurePoll,5000);
+    }
     @Override protected void onDestroy(){ azureHandler.removeCallbacksAndMessages(null); super.onDestroy(); }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+
+    private void buildAuthRecovery(){
+        LinearLayout root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18),dp(28),dp(18),dp(28));
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setBackgroundColor(light);
+
+        TextView title=text("Global Community Chat",27,true);
+        title.setGravity(Gravity.CENTER);
+        root.addView(title,new LinearLayout.LayoutParams(-1,dp(64)));
+
+        TextView info=text("Your Azure session is not active. Sign in again to open the real community chat.",16,false);
+        info.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams ilp=new LinearLayout.LayoutParams(-1,-2);
+        ilp.setMargins(0,dp(18),0,dp(18));
+        root.addView(info,ilp);
+
+        Button signIn=button("Sign in with Azure",true);
+        LinearLayout.LayoutParams slp=new LinearLayout.LayoutParams(-1,dp(60));
+        slp.setMargins(0,dp(8),0,dp(8));
+        root.addView(signIn,slp);
+
+        Button back=button("Back",false);
+        LinearLayout.LayoutParams blp=new LinearLayout.LayoutParams(-1,dp(58));
+        blp.setMargins(0,dp(8),0,0);
+        root.addView(back,blp);
+
+        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        back.setOnClickListener(v->finish());
+        setContentView(root);
+    }
     private TextView text(String value,int size,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(bold?dark:gray);t.setPadding(dp(8),dp(5),dp(8),dp(5));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
     private Button button(String label,boolean filled){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(15);b.setTextColor(filled?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(filled?green:Color.WHITE);g.setCornerRadius(dp(18));if(!filled)g.setStroke(dp(1),green);b.setBackground(g);b.setPadding(dp(8),0,dp(8),0);return b;}
     private void build(){
