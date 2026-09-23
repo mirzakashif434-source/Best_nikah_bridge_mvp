@@ -38,7 +38,7 @@ public class WelcomeActivity extends Activity {
     private void position(WelcomeArtworkView a,TextView s,TextView l,TextView g){int w=a.getWidth(),h=a.getHeight();if(w<=0)return;int bw=(int)(w*.74f),bh=Math.max(dp(52),(int)(h*.06f)),left=(w-bw)/2;place(s,left,(int)(h*.800f),bw,bh);place(l,left,(int)(h*.878f),bw,bh);place(g,(int)(w*.735f),(int)(h*.010f),(int)(w*.245f),Math.max(dp(44),(int)(h*.055f)));}
     private void place(View v,int x,int y,int w,int h){FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(w,h);p.leftMargin=x;p.topMargin=y;v.setLayoutParams(p);}
     private void showLanguageDialog(){
-        new AlertDialog.Builder(this)
+        LanguageManager.dialog(this)
             .setTitle(LanguageManager.tr(this,"Choose Your Language"))
             .setSingleChoiceItems(LanguageManager.NAMES,LanguageManager.currentIndex(this),(d,which)->{
                 LanguageManager.select(this,which);
