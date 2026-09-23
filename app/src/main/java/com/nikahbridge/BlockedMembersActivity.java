@@ -1,18 +1,24 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 /** Real Azure Block + Unblock management. No demo/local-only block state. */
 public class BlockedMembersActivity extends Activity {
     private LinearLayout list;
+    private LinearLayout root;
+    private Button signIn;
     private TextView status;
     private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED;
 
@@ -34,20 +40,34 @@ public class BlockedMembersActivity extends Activity {
     }
 
     private void build(){
-        ScrollView scroll=new ScrollView(this);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(16),dp(20),dp(16),dp(28));root.setBackgroundColor(Premium2030Ui.CREAM);
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);scroll.setBackgroundColor(Premium2030Ui.CREAM);
+        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(16),dp(20),dp(16),dp(28));root.setBackgroundColor(Premium2030Ui.CREAM);
         scroll.addView(root);setContentView(scroll);
+        ViewCompat.setOnApplyWindowInsetsListener(scroll,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(16),dp(20),dp(16),dp(28)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(scroll);
         TextView title=text("Blocked Members",27,true);title.setGravity(Gravity.CENTER);root.addView(title,new LinearLayout.LayoutParams(-1,dp(55)));
         root.addView(text("Manage members you blocked. Unblock is a real authenticated Azure server-side safety action.",15,false));
         status=text("Status: loading…",14,false);root.addView(status);
         list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);root.addView(list);
 
+        signIn=button("Sign in with Azure",true);signIn.setVisibility(android.view.View.GONE);signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));root.addView(signIn,new LinearLayout.LayoutParams(-1,dp(56)));
         Button refresh=button("Refresh",false);refresh.setOnClickListener(v->loadBlocked());root.addView(refresh,new LinearLayout.LayoutParams(-1,dp(54)));
         Button back=button("Back",false);back.setOnClickListener(v->finish());LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(54));bp.setMargins(0,dp(8),0,0);root.addView(back,bp);
     }
 
     private void loadBlocked(){
-        if(!AzureAuthManager.hasAccount(this)){status.setText("Status: Azure sign in required");return;}
+        if(!AzureAuthManager.hasAccount(this)){
+            status.setText("Status: Azure sign in required");
+            signIn.setVisibility(android.view.View.VISIBLE);
+            list.removeAllViews();
+            return;
+        }
+        signIn.setVisibility(android.view.View.GONE);
         status.setText("Status: loading real Azure blocked members…");list.removeAllViews();
         AzureApiClient.get("/blocks",new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){
