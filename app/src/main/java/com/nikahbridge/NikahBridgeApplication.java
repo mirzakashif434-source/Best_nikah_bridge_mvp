@@ -16,10 +16,13 @@ import com.google.android.gms.ads.MobileAds;
 import com.google.android.ump.ConsentInformation;
 import com.google.android.ump.ConsentRequestParameters;
 import com.google.android.ump.UserMessagingPlatform;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 /** Additive navigation helper. Existing screens and flows are preserved. */
 public class NikahBridgeApplication extends Application implements Application.ActivityLifecycleCallbacks {
-    private static final int BACK_TAG=0x4E42424B, COMMUNITY_TAG=0x4E42434D, REWARD_TAG=0x4E425257, PREMIUM_TAG=0x4E425050, BLUEPRINT_TAG=0x4E424250, MEDIATOR_TAG=0x4E424D44, SUCCESS_NETWORK_TAG=0x4E42534E, FUTURE_SIM_TAG=0x4E424653, LOCALIZER_TAG=0x4E424C47;
+    private static final int BACK_TAG=0x4E42424B, COMMUNITY_TAG=0x4E42434D, REWARD_TAG=0x4E425257, PREMIUM_TAG=0x4E425050, BLUEPRINT_TAG=0x4E424250, MEDIATOR_TAG=0x4E424D44, SUCCESS_NETWORK_TAG=0x4E42534E, FUTURE_SIM_TAG=0x4E424653, LOCALIZER_TAG=0x4E424C47, INSETS_TAG=0x4E42494E;
     private ConsentInformation consentInformation; private boolean privacyConsentStarted;
     @Override public void onCreate(){super.onCreate();LanguageManager.init(this);registerActivityLifecycleCallbacks(this); MobileAds.initialize(this,status->{}); AzureAuthManager.initialize(this,()->{},message->android.util.Log.w("BestNikahBridge","Azure auth initialization: "+message));}
     private void initializePrivacyConsent(Activity a){if(privacyConsentStarted||a==null||a.isFinishing())return;privacyConsentStarted=true;consentInformation=UserMessagingPlatform.getConsentInformation(getApplicationContext());ConsentRequestParameters p=new ConsentRequestParameters.Builder().build();consentInformation.requestConsentInfoUpdate(a,p,()->UserMessagingPlatform.loadAndShowConsentFormIfRequired(a,e->{if(e!=null)android.util.Log.w("BestNikahBridge","UMP consent form: "+e.getMessage());}),e->android.util.Log.w("BestNikahBridge","UMP consent update: "+e.getMessage()));}
@@ -37,6 +40,19 @@ public class NikahBridgeApplication extends Application implements Application.A
     private void addMediatorEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(MEDIATOR_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"🧠  AI Nikah Mediator",220,258,MEDIATOR_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,NikahMediatorActivity.class)));}
     private void addSuccessNetworkEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(SUCCESS_NETWORK_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"❤️  Nikah Success Network",250,320,SUCCESS_NETWORK_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,NikahSuccessNetworkActivity.class)));}
     private void addFutureSimulationEntry(Activity a){if(!isHost(a)||a.isFinishing())return;ViewGroup c=a.findViewById(android.R.id.content);if(c==null||c.getTag(FUTURE_SIM_TAG)!=null||!(c instanceof FrameLayout))return;Button b=overlay(a,"🔥  Future Life Simulation",250,382,FUTURE_SIM_TAG);b.setOnClickListener(v->a.startActivity(new Intent(a,FutureLifeSimulationActivity.class)));}
+    private void applySafeInsets(Activity a){
+        View root=a.findViewById(android.R.id.content);
+        if(root==null||root.getTag(INSETS_TAG)!=null)return;
+        final int left=root.getPaddingLeft(),top=root.getPaddingTop(),right=root.getPaddingRight(),bottom=root.getPaddingBottom();
+        root.setTag(INSETS_TAG,Boolean.TRUE);
+        ViewCompat.setOnApplyWindowInsetsListener(root,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(left+bars.left,top+bars.top,right+bars.right,bottom+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(root);
+    }
+
     private void attachLocalization(Activity a){
         ViewGroup root=a.findViewById(android.R.id.content);
         if(root==null)return;
@@ -50,7 +66,7 @@ public class NikahBridgeApplication extends Application implements Application.A
     @Override public void onActivityResumed(Activity a){
         LanguageManager.apply(a);
         initializePrivacyConsent(a);
-        addBack(a);addCommunityEntry(a);addRewardEntry(a);addPremiumEntry(a);addBlueprintEntry(a);addMediatorEntry(a);addSuccessNetworkEntry(a);addFutureSimulationEntry(a);
+        applySafeInsets(a);
         attachLocalization(a);
     }
     @Override public void onActivityCreated(Activity a,Bundle s){} @Override public void onActivityStarted(Activity a){} @Override public void onActivityPaused(Activity a){} @Override public void onActivityStopped(Activity a){} @Override public void onActivitySaveInstanceState(Activity a,Bundle s){} @Override public void onActivityDestroyed(Activity a){}
