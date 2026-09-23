@@ -1,0 +1,118 @@
+name: Family Nikah Circle Production Validation
+
+on:
+  push:
+    branches: [family-nikah-circle-20260923]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
+
+      - name: Verify Family Circle database schema
+        run: |
+          set -euo pipefail
+          for table in family_circles family_circle_invites family_circle_members family_match_suggestions; do
+            grep -Fq "CREATE TABLE IF NOT EXISTS $table" azure-backend/database/schema.sql
+          done
+          grep -Fq "token_hash TEXT NOT NULL UNIQUE" azure-backend/database/schema.sql
+          grep -Fq "max_uses SMALLINT" azure-backend/database/schema.sql
+          grep -Fq "expires_at TIMESTAMPTZ NOT NULL" azure-backend/database/schema.sql
+
+      - name: Verify secure Azure Family Circle API
+        run: |
+          set -euo pipefail
+          grep -Fq 'require("./familyCircle")' azure-backend/src/index.js
+          grep -Eq 'route:[[:space:]]*"family-circle"' azure-backend/src/familyCircle.js
+          grep -Eq 'route:[[:space:]]*"family-circle/invites"' azure-backend/src/familyCircle.js
+          grep -Eq 'route:[[:space:]]*"family-circle/join"' azure-backend/src/familyCircle.js
+          grep -Eq 'route:[[:space:]]*"family-circle/suggestions"' azure-backend/src/familyCircle.js
+          grep -Fq 'crypto.randomBytes(24)' azure-backend/src/familyCircle.js
+          grep -Fq 'sha256' azure-backend/src/familyCircle.js
+          grep -Fq 'ACTIVE_INVITE_LIMIT_REACHED' azure-backend/src/familyCircle.js
+          grep -Fq 'blocked_users' azure-backend/src/familyCircle.js
+          grep -Fq 'INSERT INTO interests' azure-backend/src/familyCircle.js
+
+      - name: Verify Android deep-link and sharing
+        run: |
+          set -euo pipefail
+          test -f app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+          grep -Fq 'bestnikahbredge://circle/join?token=' azure-backend/src/familyCircle.js
+          grep -Fq 'android:scheme="bestnikahbredge"' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:host="circle"' app/src/main/AndroidManifest.xml
+          grep -Fq 'Intent.ACTION_SEND' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+          grep -Fq 'Share Invite on WhatsApp / SMS' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+          grep -Fq 'pendingInvite' app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
+
+      - name: Verify owner and family controls
+        run: |
+          set -euo pipefail
+          grep -Fq 'Remove from Circle' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+          grep -Fq 'Revoke Invite' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+          grep -Fq 'Accept & Send Interest' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+          grep -Fq 'Suggest to Family Circle' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          grep -Fq 'protectUserContent' app/src/main/java/com/nikahbridge/FamilyCircleActivity.java
+          grep -Fq 'Open Best Nikah Family Circle' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
+
+      - name: Verify old Wali flow preserved
+        run: |
+          set -euo pipefail
+          grep -Fq 'Request Wali Connection' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
+          grep -Fq 'Verify Wali Connection' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
+          grep -Fq 'Revoke Connection' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
+          grep -Eq 'route:[[:space:]]*"family-links"' azure-backend/src/family.js
+
+      - name: No demo mock or local endpoints
+        run: |
+          set -euo pipefail
+          ! grep -RniE 'MockData|sample member|fake match|fake balance|demo purchase|localhost|10\.0\.2\.2' app/src/main azure-backend/src --exclude='*.md'
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile Android production source
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --stacktrace
+
+      - name: Verify production release signing secret
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Build signed Family Circle production AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          ./gradlew :app:bundleRelease --stacktrace
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
