@@ -55,7 +55,7 @@ public class WelcomeArtworkView extends View {
         txt(c,LanguageManager.currentName(getContext()),820*s,58*s,20*s,dark,Paint.Align.LEFT,false); txt(c,"⌄",954*s,59*s,26*s,green,Paint.Align.CENTER,true);
 
         txt(c,"بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ",w/2,158*s,34*s,dark,Paint.Align.CENTER,false);
-        txt(c,"Welcome",w/2,220*s,58*s,dark,Paint.Align.CENTER,true);
+        txt(c,LanguageManager.tr(getContext(),"Welcome"),w/2,220*s,54*s,dark,Paint.Align.CENTER,true);
 
         // Bridge + heart logo.
         stroke(c,gold,7*s); c.drawArc(new RectF(360*s,250*s,664*s,430*s),180,180,false,p);
@@ -85,10 +85,10 @@ public class WelcomeArtworkView extends View {
         // Simple mosque silhouettes.
         fill(c,Color.rgb(95,128,111));
         c.drawRect(0,1510*s,w,1536*s,p); c.drawRect(120*s,1475*s,210*s,1536*s,p); c.drawCircle(165*s,1474*s,28*s,p); c.drawRect(455*s,1490*s,570*s,1536*s,p); c.drawCircle(512*s,1488*s,34*s,p); c.drawRect(820*s,1475*s,900*s,1536*s,p); c.drawCircle(860*s,1474*s,28*s,p);
-        txt(c,"Halal Nikah • Trust • Family • Privacy",w/2,1500*s,20*s,Color.WHITE,Paint.Align.CENTER,true);
+        txt(c,LanguageManager.tr(getContext(),"Halal Nikah • Trust • Family • Privacy"),w/2,1500*s,18*s,Color.WHITE,Paint.Align.CENTER,true);
     }
 
-    private void drawCard(Canvas c,float l,float t,float r,float b,String en,String ur,String icon){
+    private void drawCard(Canvas c,float l,float t,float r,float b,String en,String icon){
         p.setShadowLayer(10,0,5,0x18000000); fill(c,Color.WHITE); c.drawRoundRect(new RectF(l,t,r,b),28*(getWidth()/1024f),28*(getWidth()/1024f),p); p.clearShadowLayer();
         fill(c,Color.rgb(232,242,234)); c.drawCircle(l+72*(getWidth()/1024f),(t+b)/2,42*(getWidth()/1024f),p);
         txt(c,icon,l+72*(getWidth()/1024f),(t+b)/2+13*(getWidth()/1024f),42*(getWidth()/1024f),green,Paint.Align.CENTER,true);
