@@ -43,14 +43,16 @@ app.http("matchDetail",{
       `,[user.uid]);
 
       const candidate=await query(`
-        SELECT u.id,u.firebase_uid,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.marriage_intention,
+        SELECT u.id,u.firebase_uid,u.azure_subject,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.marriage_intention,
                p.readiness_score,p.profile_completed,p.is_visible,
                pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
-               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences
+               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,
+               EXISTS(SELECT 1 FROM verifications v WHERE v.user_id=u.id AND v.status='approved') AS identity_verified,
+               EXISTS(SELECT 1 FROM photos ph WHERE ph.user_id=u.id AND ph.moderation_status='approved') AS photo_present
         FROM users u
         JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
-        WHERE u.firebase_uid=$1 AND u.status='active'
+        WHERE (u.azure_subject=$1 OR u.firebase_uid=$1 OR u.id::text=$1) AND u.status='active'
       `,[matchUserId]);
 
       if(!me.rows[0] || !me.rows[0].profile_completed || !me.rows[0].is_visible)
@@ -83,7 +85,7 @@ app.http("matchDetail",{
       score=Math.min(100,score);
 
       return {status:200,jsonBody:{ok:true,match:{
-        userId:c.firebase_uid,
+        userId:c.azure_subject||c.firebase_uid||String(c.id),
         displayName:c.display_name,
         age:theirAge,
         gender:c.gender,
