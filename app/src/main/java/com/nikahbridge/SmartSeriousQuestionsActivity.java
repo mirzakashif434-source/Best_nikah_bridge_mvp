@@ -31,7 +31,7 @@ public class SmartSeriousQuestionsActivity extends Activity {
     }
 
     private void generate(){
-        String id=uidInput.getText().toString().trim();if(id.isEmpty()){Toast.makeText(this,"Enter a real matched member ID.",Toast.LENGTH_LONG).show();return;}
+        String id=uidInput.getText().toString().trim();if(id.isEmpty()){LanguageManager.toast(this,"Enter a real matched member ID.",Toast.LENGTH_LONG).show();return;}
         AzureApiClient.get("/matches/"+id,new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
@@ -51,5 +51,5 @@ public class SmartSeriousQuestionsActivity extends Activity {
         });
     }
     private void add(String label,String detail,String q){root.addView(txt(label+"\n"+detail+"\nDiscussion question: "+q,16,true));}
-    private void toast(String x){Toast.makeText(this,x,Toast.LENGTH_LONG).show();}
+    private void toast(String x){LanguageManager.toast(this,x,Toast.LENGTH_LONG).show();}
 }
