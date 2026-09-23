@@ -18,7 +18,7 @@ final class AzureApiClient {
   interface Callback{void ok(int code,String body);void err(String message);}
   interface BinaryCallback{void ok(int code,String contentType,byte[] body);void err(String message);}
 
-  static void get(String path,Callback cb){request("GET",path,null,"application/json",cb);}
+  static void get(String path,Callback cb){request("GET",path,null,"application/json",cb,true);}
   static void getBytes(String path,BinaryCallback cb){
     authToken(token->{EXEC.execute(()->{
       HttpURLConnection c=null;
@@ -43,10 +43,10 @@ final class AzureApiClient {
       finally{if(c!=null)c.disconnect();}
     });},new Callback(){public void ok(int code,String body){} public void err(String m){cb.err(m);}});
   }
-  static void post(String path,String json,Callback cb){request("POST",path,json,"application/json; charset=UTF-8",cb);}
-  static void put(String path,String json,Callback cb){request("PUT",path,json,"application/json; charset=UTF-8",cb);}
-  static void patch(String path,String json,Callback cb){request("PATCH",path,json,"application/json; charset=UTF-8",cb);}
-  static void delete(String path,String json,Callback cb){request("DELETE",path,json,"application/json; charset=UTF-8",cb);}
+  static void post(String path,String json,Callback cb){request("POST",path,json,"application/json; charset=UTF-8",cb,true);}
+  static void put(String path,String json,Callback cb){request("PUT",path,json,"application/json; charset=UTF-8",cb,true);}
+  static void patch(String path,String json,Callback cb){request("PATCH",path,json,"application/json; charset=UTF-8",cb,true);}
+  static void delete(String path,String json,Callback cb){request("DELETE",path,json,"application/json; charset=UTF-8",cb,true);}
 
   static void multipart(String path,String field,String fileName,String mime,byte[] data,String[] names,String[] values,Callback cb){
     authToken(token->{EXEC.execute(()->{
@@ -73,7 +73,7 @@ final class AzureApiClient {
     });},cb);
   }
 
-  private static void request(String method,String path,String body,String contentType,Callback cb){
+  private static void request(String method,String path,String body,String contentType,Callback cb,boolean allowAuthRetry){
     authToken(token->{EXEC.execute(()->{
       HttpURLConnection c=null;
       try{
@@ -86,7 +86,23 @@ final class AzureApiClient {
           c.setDoOutput(true); c.setRequestProperty("Content-Type",contentType);
           try(OutputStream o=c.getOutputStream()){o.write(body.getBytes(StandardCharsets.UTF_8));}
         }
-        finish(c,cb);
+        int code=c.getResponseCode();
+        InputStream in=code>=400?c.getErrorStream():c.getInputStream();
+        StringBuilder response=new StringBuilder();
+        if(in!=null)try(BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8))){
+          String s;while((s=r.readLine())!=null)response.append(s);
+        }
+        if(code>=200&&code<300){
+          cb.ok(code,response.toString());
+        }else if(code==401&&allowAuthRetry){
+          AzureAuthManager.clearCachedToken();
+          request(method,path,body,contentType,cb,false);
+        }else if(code==401){
+          AzureAuthManager.clearCachedToken();
+          cb.err("AZURE_SIGN_IN_REQUIRED");
+        }else{
+          cb.err("HTTP "+code+(response.length()==0?"":": "+response));
+        }
       }catch(Exception e){cb.err(e.getMessage()==null?"NETWORK_ERROR":e.getMessage());}
       finally{if(c!=null)c.disconnect();}
     });},cb);
