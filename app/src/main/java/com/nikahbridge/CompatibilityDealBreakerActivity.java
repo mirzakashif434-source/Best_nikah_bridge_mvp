@@ -23,7 +23,7 @@ public class CompatibilityDealBreakerActivity extends Activity {
     private void check(){
         String other=uid.getText().toString().trim();
         if(!AzureAuthManager.hasAccount(this)){result.setText("Azure sign in required.");return;}
-        if(other.isEmpty()){uid.setError("Real matched member ID required");uid.requestFocus();return;}
+        if(other.isEmpty()){LanguageManager.setError(uid,"Real matched member ID required");uid.requestFocus();return;}
         result.setText("Checking real Azure match data…");
         AzureApiClient.get("/matches/"+other,new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){runOnUiThread(()->{
