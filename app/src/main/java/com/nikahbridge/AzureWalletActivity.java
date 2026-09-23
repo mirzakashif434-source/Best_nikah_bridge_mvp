@@ -64,7 +64,13 @@ public class AzureWalletActivity extends Activity {
                     status.setText("Balance: "+balance+" "+currency);
                 }catch(Exception e){status.setText("Wallet response could not be displayed.");}
             });}
-            public void err(String m){runOnUiThread(()->status.setText("Wallet unavailable: "+m));}
+            public void err(String m){runOnUiThread(()->{
+                if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("401"))){
+                    status.setText("Your Azure session expired. Please sign in again, then tap Refresh Wallet.");
+                }else{
+                    status.setText("Wallet is temporarily unavailable. Check your connection and tap Refresh Wallet.");
+                }
+            });}
         });
     }
 
@@ -97,7 +103,13 @@ public class AzureWalletActivity extends Activity {
                     status.setText(out.toString());
                 }catch(Exception e){status.setText("Transactions could not be displayed.");}
             });}
-            public void err(String m){runOnUiThread(()->status.setText("Transactions unavailable: "+m));}
+            public void err(String m){runOnUiThread(()->{
+                if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("401"))){
+                    status.setText("Your Azure session expired. Please sign in again, then tap View Real Transactions.");
+                }else{
+                    status.setText("Transactions are temporarily unavailable. Please try again.");
+                }
+            });}
         });
     }
 }
