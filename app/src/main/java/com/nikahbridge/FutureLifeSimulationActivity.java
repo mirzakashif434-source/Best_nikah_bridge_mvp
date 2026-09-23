@@ -1,12 +1,16 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.*;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import org.json.JSONObject;
 
 /** Real Future Life Simulation using Azure AI and private Azure PostgreSQL settings. */
@@ -24,7 +28,14 @@ public class FutureLifeSimulationActivity extends Activity {
     private Button btn(String s,boolean fill){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(16);b.setTextColor(fill?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(fill?green:Color.WHITE);g.setCornerRadius(dp(18));if(!fill)g.setStroke(dp(2),green);b.setBackground(g);return b;}
 
     private void render(){
-        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(light);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(24),dp(20),dp(32));sc.addView(root);setContentView(sc);
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setClipToPadding(false);sc.setBackgroundColor(light);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(24),dp(20),dp(32));root.setBackgroundColor(light);sc.addView(root);setContentView(sc);
+        ViewCompat.setOnApplyWindowInsetsListener(sc,(v,insets)->{
+            Insets bars=insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(bars.left,bars.top,bars.right,0);
+            root.setPadding(dp(20),dp(24),dp(20),dp(32)+bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyWindowInsets(sc);
         root.addView(txt("🔥 Future Life Simulation",28,true));root.addView(txt("Real Azure AI comparison. It supports discussion and does not predict the future or decide whether two people should marry.",15,false));
         root.addView(txt("Your answers",20,true));
         for(int i=0;i<8;i++){root.addView(txt(titles[i]+" — "+prompts[i],16,true));my[i]=area("Write your honest answer");root.addView(my[i],new LinearLayout.LayoutParams(-1,dp(118)));}
@@ -37,15 +48,30 @@ public class FutureLifeSimulationActivity extends Activity {
         run.setOnClickListener(v->compare(consent));
     }
 
+    private boolean authError(String message){
+        if(message==null) return false;
+        return message.contains("AZURE_SIGN_IN_REQUIRED") || message.contains("AZURE_INTERACTION_REQUIRED") || message.contains("AZURE_AUTH");
+    }
+
+    private void showSignInRecovery(String action){
+        LanguageManager.dialog(this)
+            .setTitle("Sign in required")
+            .setMessage("Your Azure session expired. Sign in again to "+action+".")
+            .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+            .setNegativeButton("Not now",null)
+            .show();
+    }
+
     private void load(){
+        if(!AzureAuthManager.hasAccount(this)){showSignInRecovery("load your saved Future Life Simulation");return;}
         AzureApiClient.get("/settings/future_life_simulation",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{try{JSONObject v=new JSONObject(body).optJSONObject("value");if(v==null)return;for(int i=0;i<8;i++){my[i].setText(v.optString("my"+(i+1),""));partner[i].setText(v.optString("partner"+(i+1),""));}}catch(Exception ignored){}});}
-            public void err(String message){}
+            public void err(String message){runOnUiThread(()->{if(authError(message))showSignInRecovery("load your saved Future Life Simulation");else result.setText("Saved Azure scenario answers are temporarily unavailable.");});}
         });
     }
 
     private void compare(CheckBox consent){
-        if(!AzureAuthManager.hasAccount(this)){LanguageManager.toast(this,"Azure sign in required.",Toast.LENGTH_LONG).show();return;}
+        if(!AzureAuthManager.hasAccount(this)){showSignInRecovery("run the real Future Life comparison");return;}
         if(!consent.isChecked()){LanguageManager.toast(this,"Permission is required before comparing partner answers.",Toast.LENGTH_LONG).show();return;}
         StringBuilder a=new StringBuilder(),b=new StringBuilder();
         for(int i=0;i<8;i++){String av=my[i].getText().toString().trim(),bv=partner[i].getText().toString().trim();if(av.length()<20||bv.length()<20){LanguageManager.toast(this,"Please answer all 8 scenarios in both sections.",Toast.LENGTH_LONG).show();return;}a.append("Scenario ").append(i+1).append(": ").append(av).append("\n");b.append("Scenario ").append(i+1).append(": ").append(bv).append("\n");}
@@ -55,7 +81,7 @@ public class FutureLifeSimulationActivity extends Activity {
             JSONObject body=new JSONObject().put("prompt",prompt);
             AzureApiClient.post("/ai/future-life",body.toString(),new AzureApiClient.Callback(){
                 public void ok(int code,String response){runOnUiThread(()->{try{String out=new JSONObject(response).getJSONObject("assistant").getString("content");result.setText(out);save(out);}catch(Exception e){result.setText("Azure AI returned an invalid response.");}run.setEnabled(true);});}
-                public void err(String message){runOnUiThread(()->{result.setText("Azure AI comparison is temporarily unavailable.");run.setEnabled(true);});}
+                public void err(String message){runOnUiThread(()->{if(authError(message))showSignInRecovery("run the real Future Life comparison");result.setText(authError(message)?"Sign in with Azure to continue.":"Azure AI comparison is temporarily unavailable.");run.setEnabled(true);});}
             });
         }catch(Exception e){result.setText("Could not prepare the Azure AI request.");run.setEnabled(true);}
     }
@@ -63,7 +89,7 @@ public class FutureLifeSimulationActivity extends Activity {
     private void save(String output){
         try{
             JSONObject v=new JSONObject();for(int i=0;i<8;i++){v.put("my"+(i+1),my[i].getText().toString().trim());v.put("partner"+(i+1),partner[i].getText().toString().trim());}v.put("lastResult",output);
-            AzureApiClient.put("/settings/future_life_simulation",v.toString(),new AzureApiClient.Callback(){public void ok(int c,String b){}public void err(String m){runOnUiThread(()->LanguageManager.toast(FutureLifeSimulationActivity.this,"Comparison completed, but private Azure history could not be saved.",Toast.LENGTH_LONG).show());}});
+            AzureApiClient.put("/settings/future_life_simulation",v.toString(),new AzureApiClient.Callback(){public void ok(int c,String b){}public void err(String m){runOnUiThread(()->{if(authError(m))showSignInRecovery("save your private Future Life history");else LanguageManager.toast(FutureLifeSimulationActivity.this,"Comparison completed, but private Azure history could not be saved.",Toast.LENGTH_LONG).show();});}});
         }catch(Exception ignored){}
     }
 }
