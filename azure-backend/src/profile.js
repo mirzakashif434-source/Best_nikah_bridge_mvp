@@ -41,7 +41,7 @@ app.http("profileGet", {
       if(u.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
       const r=await query(
         `SELECT u.id,u.email,u.status,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.bio,
-                p.marriage_intention,p.readiness_score,p.profile_completed,p.is_visible,
+                p.marriage_intention,p.education,p.family_involvement,p.readiness_score,p.profile_completed,p.is_visible,
                 pp.min_age,pp.max_age,pp.countries,pp.cities,pp.preferred_marriage_timeline,
                 pp.deal_breakers,pp.preferences
          FROM users u LEFT JOIN profiles p ON p.user_id=u.id
@@ -78,14 +78,16 @@ app.http("profilePut", {
       const cities=Array.isArray(b.cities)?b.cities.map(x=>text(x,120)).filter(Boolean).slice(0,50):[];
       await client.query("BEGIN");
       await client.query(
-        `INSERT INTO profiles(user_id,display_name,date_of_birth,gender,country,city,bio,marriage_intention,readiness_score,profile_completed,is_visible)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        `INSERT INTO profiles(user_id,display_name,date_of_birth,gender,country,city,bio,marriage_intention,education,family_involvement,readiness_score,profile_completed,is_visible)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
          ON CONFLICT(user_id) DO UPDATE SET display_name=EXCLUDED.display_name,date_of_birth=EXCLUDED.date_of_birth,
          gender=EXCLUDED.gender,country=EXCLUDED.country,city=EXCLUDED.city,bio=EXCLUDED.bio,
-         marriage_intention=EXCLUDED.marriage_intention,readiness_score=EXCLUDED.readiness_score,
+         marriage_intention=EXCLUDED.marriage_intention,education=EXCLUDED.education,
+         family_involvement=EXCLUDED.family_involvement,readiness_score=EXCLUDED.readiness_score,
          profile_completed=EXCLUDED.profile_completed,is_visible=EXCLUDED.is_visible,updated_at=now()`,
         [u.id,displayName,dob,gender,text(b.country,120)||null,text(b.city,120)||null,text(b.bio,5000)||null,
-         text(b.marriageIntention,120)||null,b.readinessScore==null?null:Math.max(0,Math.min(100,Number(b.readinessScore))),
+         text(b.marriageIntention,120)||null,text(b.education,120)||null,text(b.familyInvolvement,120)||null,
+         b.readinessScore==null?null:Math.max(0,Math.min(100,Number(b.readinessScore))),
          Boolean(b.profileCompleted),Boolean(b.isVisible??true)]);
       await client.query(
         `INSERT INTO partner_preferences(user_id,min_age,max_age,countries,cities,preferred_marriage_timeline,deal_breakers,preferences)
