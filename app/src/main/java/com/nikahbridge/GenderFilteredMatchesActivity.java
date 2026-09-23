@@ -5,13 +5,26 @@ import android.os.Bundle;
 import android.net.Uri;
 import android.view.View;
 import android.widget.*;
+import android.os.Handler;
+import android.os.Looper;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class GenderFilteredMatchesActivity extends Activity {
     private LinearLayout root;
+    private final Handler presenceHandler=new Handler(Looper.getMainLooper());
+    private final Runnable presencePulse=new Runnable(){public void run(){presenceHeartbeat();presenceHandler.postDelayed(this,60000);}};
     private int dp(int v){return Premium2030Ui.dp(this,v);}
     @Override protected void onCreate(Bundle state){super.onCreate(state);AzureAuthManager.bindActivity(this);show();}
+    @Override protected void onResume(){super.onResume();presenceHandler.removeCallbacks(presencePulse);presenceHandler.post(presencePulse);}
+    @Override protected void onPause(){presenceHandler.removeCallbacks(presencePulse);super.onPause();}
+    private void presenceHeartbeat(){
+        if(!AzureAuthManager.hasAccount(this))return;
+        AzureApiClient.post("/presence/heartbeat","{}",new AzureApiClient.Callback(){
+            public void ok(int code,String body){}
+            public void err(String message){}
+        });
+    }
     private void show(){
         ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(Premium2030Ui.CREAM);
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(20),dp(18),dp(30));sc.addView(root);setContentView(sc);
@@ -44,7 +57,8 @@ public class GenderFilteredMatchesActivity extends Activity {
                             String path="/matches/"+Uri.encode(receiverId)+"/photos/"+Uri.encode(photoId)+"/content";
                             ProfilePhotoLoader.loadAzure(path,photo,()->photo.setVisibility(View.INVISIBLE));
                         }else photo.setVisibility(View.INVISIBLE);
-                        card.addView(Premium2030Ui.chip(GenderFilteredMatchesActivity.this,"REAL MATCH"));
+                        boolean online=m.optBoolean("isOnline",false);
+                        card.addView(Premium2030Ui.chip(GenderFilteredMatchesActivity.this,online?"🟢 ONLINE":"REAL MATCH"));
                         TextView memberHeading=Premium2030Ui.section(GenderFilteredMatchesActivity.this,displayName+" • "+m.optInt("age",0));
                         LanguageManager.protectUserContent(memberHeading);
                         card.addView(memberHeading);
@@ -61,6 +75,9 @@ public class GenderFilteredMatchesActivity extends Activity {
                             TextView w=Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,why.toString());
                             w.setGravity(android.view.Gravity.START);card.addView(w);
                         }
+                        Button like=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"♡ Like");
+                        LinearLayout.LayoutParams llp=new LinearLayout.LayoutParams(-1,dp(52));llp.setMargins(0,dp(6),0,0);card.addView(like,llp);
+                        like.setOnClickListener(v->sendLike(receiverId,like));
                         Button interest=Premium2030Ui.primary(GenderFilteredMatchesActivity.this,"Send Interest");
                         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(54));lp.setMargins(0,dp(8),0,0);card.addView(interest,lp);
                         interest.setOnClickListener(v->sendInterest(receiverId,displayName,interest));
@@ -74,6 +91,33 @@ public class GenderFilteredMatchesActivity extends Activity {
             public void err(String message){runOnUiThread(()->root.addView(Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,"Could not load real Azure matches: "+message)));}
         });
     }
+    private void sendLike(String receiverId,Button button){
+        if(receiverId==null||receiverId.trim().isEmpty()){LanguageManager.toast(this,"This profile cannot receive a like yet.",Toast.LENGTH_LONG).show();return;}
+        try{
+            JSONObject b=new JSONObject().put("toUid",receiverId);
+            button.setEnabled(false);button.setText("Liking…");
+            AzureApiClient.post("/likes",b.toString(),new AzureApiClient.Callback(){
+                public void ok(int code,String body){runOnUiThread(()->{
+                    try{
+                        JSONObject o=new JSONObject(body);
+                        button.setText("♥ Liked");
+                        int remaining=o.optInt("remaining",0);
+                        LanguageManager.toast(GenderFilteredMatchesActivity.this,"Liked • "+remaining+" likes remaining in 24 hours",Toast.LENGTH_SHORT).show();
+                    }catch(Exception e){button.setText("♥ Liked");}
+                });}
+                public void err(String m){runOnUiThread(()->{
+                    button.setEnabled(true);button.setText("♡ Like");
+                    if(m!=null&&m.contains("ROLLING_24H_LIKE_LIMIT_REACHED")){
+                        LanguageManager.dialog(GenderFilteredMatchesActivity.this)
+                            .setTitle("24-hour like limit reached")
+                            .setMessage("You can send up to 20 likes in any rolling 24-hour period. A like becomes available again after the oldest one passes 24 hours.")
+                            .setPositiveButton("OK",null).show();
+                    }else LanguageManager.toast(GenderFilteredMatchesActivity.this,"Like could not be sent.",Toast.LENGTH_LONG).show();
+                });}
+            });
+        }catch(Exception e){button.setEnabled(true);button.setText("♡ Like");}
+    }
+
     private void suggestToFamilyCircle(String receiverId,Button button){
         if(receiverId==null||receiverId.trim().isEmpty()){LanguageManager.toast(this,"This profile cannot be suggested yet.",Toast.LENGTH_LONG).show();return;}
         try{
