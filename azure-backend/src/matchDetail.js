@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
+const { accessForAuth, premiumRequired } = require("./premiumAccess");
 
 function norm(v){
   return typeof v === "string" ? v.toLowerCase().replace(/[\\/,_-]+/g," ").trim() : "";
@@ -26,6 +27,9 @@ app.http("matchDetail",{
   route:"matches/{matchUserId}",
   handler:requireAuth(async(request,context,user)=>{
     try{
+      const access=await accessForAuth(user);
+      const locked=premiumRequired(access.premium);
+      if(locked) return locked;
       const matchUserId=request.params?.matchUserId||context.triggerMetadata?.matchUserId;
       if(!matchUserId) return {status:400,jsonBody:{ok:false,error:"MATCH_USER_ID_REQUIRED"}};
 
@@ -39,8 +43,8 @@ app.http("matchDetail",{
         FROM users u
         JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
-        WHERE u.firebase_uid=$1 AND u.status='active'
-      `,[user.uid]);
+        WHERE (u.azure_subject=$1 OR u.firebase_uid=$2) AND u.status='active'
+      `,[user.azure_subject||"",user.uid||""]);
 
       const candidate=await query(`
         SELECT u.id,u.firebase_uid,u.azure_subject,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.marriage_intention,
