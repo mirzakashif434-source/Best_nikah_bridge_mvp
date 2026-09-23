@@ -14,7 +14,7 @@ import org.json.JSONObject;
 /** Azure-backed Nikah Intelligence Center. Real saved preferences only. */
 public class NikahIntelligenceActivity extends Activity {
     private LinearLayout root;
-    private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
+    private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
     private EditText country,city,timeline,family,children,career,living,deen,dealbreakers;private TextView score;
 
     @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();load();}
