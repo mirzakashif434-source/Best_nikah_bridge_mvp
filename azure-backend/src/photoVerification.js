@@ -4,6 +4,7 @@ const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
 const { getProfilePhotosContainer } = require("./storage");
 const { analyzeImage, shouldReject } = require("./contentSafety");
+const { requireAdultProfile } = require("./ageGate");
 
 const ALLOWED=new Set(["image/jpeg","image/png","image/webp"]);
 const MAX=4*1024*1024;
@@ -65,6 +66,7 @@ app.http("photoVerificationStart",{
   handler:requireAuth(async(req,ctx,user)=>{
     try{
       const me=await ensureUser(user);
+      await requireAdultProfile(me.id);
       await query("UPDATE photo_verification_sets SET status='rejected',updated_at=now() WHERE user_id=$1 AND status='draft'",[me.id]);
       const r=await query("INSERT INTO photo_verification_sets(user_id,status,provider) VALUES($1,'draft','manual-review') RETURNING id,status,created_at",[me.id]);
       return {status:201,jsonBody:{ok:true,set:r.rows[0]}};
@@ -77,6 +79,7 @@ app.http("photoVerificationUpload",{
   handler:requireAuth(async(req,ctx,user)=>{
     try{
       const me=await ensureUser(user);
+      await requireAdultProfile(me.id);
       const setId=text(req.params?.setId||ctx.triggerMetadata?.setId,100);
       const slot=Number(req.params?.slot||ctx.triggerMetadata?.slot);
       if(![1,2,3,4].includes(slot))return {status:400,jsonBody:{ok:false,error:"INVALID_PHOTO_SLOT"}};
@@ -116,6 +119,7 @@ app.http("photoVerificationSubmit",{
     const client=await getPool().connect();
     try{
       const me=await ensureUser(user);
+      await requireAdultProfile(me.id);
       const setId=text(req.params?.setId||ctx.triggerMetadata?.setId,100);
       await client.query("BEGIN");
       const set=await client.query("SELECT id,status FROM photo_verification_sets WHERE id=$1 AND user_id=$2 FOR UPDATE",[setId,me.id]);
