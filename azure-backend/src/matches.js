@@ -25,7 +25,7 @@ app.http("matches",{
     try{
       const me=await query(`
         SELECT u.id,u.azure_subject,u.firebase_uid,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
-               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city
+               pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,pp.education_levels,pp.family_involvement,ps.show_city
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
@@ -67,8 +67,12 @@ app.http("matches",{
         if(viewerCaps.advancedMatching){
           const wantedCountries=Array.isArray(m.countries)?m.countries.filter(Boolean):[];
           const wantedCities=Array.isArray(m.cities)?m.cities.filter(Boolean):[];
+          const wantedEducation=Array.isArray(m.education_levels)?m.education_levels.filter(Boolean):[];
+          const wantedFamily=norm(m.family_involvement);
           if(wantedCountries.length && !wantedCountries.some(x=>norm(x)===norm(c.country))) continue;
           if(wantedCities.length && !wantedCities.some(x=>norm(x)===norm(c.city))) continue;
+          if(wantedEducation.length && !wantedEducation.some(x=>norm(x)===norm(c.education))) continue;
+          if(wantedFamily && wantedFamily!==norm(c.family_involvement)) continue;
         }
 
         let score=40;
