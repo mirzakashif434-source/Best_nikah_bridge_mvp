@@ -2,6 +2,7 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.content.Intent;
 import android.widget.*;
 import org.json.JSONObject;
 
@@ -17,6 +18,8 @@ public class FamilyBridge2Activity extends Activity{
    root.addView(Premium2030Ui.title(this,"Family / Wali Connect"));
    root.addView(Premium2030Ui.subtitle(this,"Because family matters in a halal journey."));
    root.addView(Premium2030Ui.heroLine(this,"Build with blessings • Keep your family informed"));
+   Button circle=btn("Open Best Nikah Family Circle",true);
+   circle.setOnClickListener(v->startActivity(new Intent(this,FamilyCircleActivity.class)));
    root.addView(Premium2030Ui.section(this,"Invite Your Wali"));
    name=input("Wali name");email=input("Wali email");phone=input("Wali phone (E.164)");
    Button req=btn("Request Wali Connection",true);req.setOnClickListener(v->create());
