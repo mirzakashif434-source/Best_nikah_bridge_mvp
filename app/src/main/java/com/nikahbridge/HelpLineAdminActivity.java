@@ -11,7 +11,7 @@ public class HelpLineAdminActivity extends Activity {
 
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private Button button(String text){Button b=new Button(this);b.setText(text);b.setAllCaps(false);root.addView(b,new LinearLayout.LayoutParams(-1,dp(64)));return b;}
-    private void text(String s,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(bold?18:15);t.setTextColor(Color.rgb(30,45,41));t.setPadding(dp(8),dp(10),dp(8),dp(10));if(bold)t.setTypeface(null,1);root.addView(t);}
+    private void text(String s,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(bold?18:15);t.setTextColor(Premium2030Ui.TEXT);t.setPadding(dp(8),dp(10),dp(8),dp(10));if(bold)t.setTypeface(null,1);root.addView(t);}
 
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);AzureAuthManager.bindActivity(this);
