@@ -49,15 +49,15 @@ public class HelpLineAdminActivity extends Activity {
 
     private void replyDialog(String id){
         EditText input=new EditText(this);input.setHint("Write your human support reply");input.setMinLines(4);
-        new AlertDialog.Builder(this).setTitle("Human Support Reply").setView(input).setPositiveButton("Send Reply",(d,w)->{
-            String reply=input.getText().toString().trim();if(reply.isEmpty()){Toast.makeText(this,"Reply is required.",Toast.LENGTH_LONG).show();return;}
+        LanguageManager.dialog(this).setTitle("Human Support Reply").setView(input).setPositiveButton("Send Reply",(d,w)->{
+            String reply=input.getText().toString().trim();if(reply.isEmpty()){LanguageManager.toast(this,"Reply is required.",Toast.LENGTH_LONG).show();return;}
             try{
                 JSONObject body=new JSONObject().put("reply",reply);
                 AzureApiClient.patch("/admin/help/tickets/"+id,body.toString(),new AzureApiClient.Callback(){
-                    public void ok(int code,String response){runOnUiThread(()->{Toast.makeText(HelpLineAdminActivity.this,"Reply saved in Azure.",Toast.LENGTH_SHORT).show();load();});}
-                    public void err(String message){runOnUiThread(()->Toast.makeText(HelpLineAdminActivity.this,"Reply failed: "+message,Toast.LENGTH_LONG).show());}
+                    public void ok(int code,String response){runOnUiThread(()->{LanguageManager.toast(HelpLineAdminActivity.this,"Reply saved in Azure.",Toast.LENGTH_SHORT).show();load();});}
+                    public void err(String message){runOnUiThread(()->LanguageManager.toast(HelpLineAdminActivity.this,"Reply failed: "+message,Toast.LENGTH_LONG).show());}
                 });
-            }catch(Exception e){Toast.makeText(this,"Reply failed.",Toast.LENGTH_LONG).show();}
+            }catch(Exception e){LanguageManager.toast(this,"Reply failed.",Toast.LENGTH_LONG).show();}
         }).setNegativeButton("Cancel",null).show();
     }
 }
