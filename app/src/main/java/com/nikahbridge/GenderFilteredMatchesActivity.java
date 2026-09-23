@@ -4,117 +4,33 @@ import android.app.Activity;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.widget.Button;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
-
-import java.util.Locale;
-
-/**
- * Additive real gender-filtered matching view.
- * A female member is shown only male profiles; a male member is shown only
- * female profiles. It uses authenticated Firestore data and the existing
- * reciprocal preference fields. No demo members or fabricated matches.
- */
+/** Real gender-filtered matching view backed by Azure reciprocal match rules. */
 public class GenderFilteredMatchesActivity extends Activity {
-    private FirebaseAuth auth;
-    private FirebaseFirestore db;
     private LinearLayout root;
-
-    @Override protected void onCreate(Bundle state) {
-        super.onCreate(state);
-        auth = FirebaseAuth.getInstance();
-        db = FirebaseFirestore.getInstance();
-        show();
+    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+    @Override protected void onCreate(Bundle state){super.onCreate(state);AzureAuthManager.bindActivity(this);show();}
+    private void show(){
+        ScrollView sc=new ScrollView(this);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(22),dp(20),dp(30));root.setBackgroundColor(Color.rgb(247,250,249));sc.addView(root);setContentView(sc);
+        TextView title=text("Gender-Filtered Nikah Matches",27,true);title.setGravity(Gravity.CENTER);root.addView(title);
+        root.addView(text("Real Azure profiles only. Reciprocal age, gender/preference, privacy and block rules are enforced by the server.",15,false));
+        load();
+        Button back=new Button(this);back.setText("Back");back.setAllCaps(false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
     }
-
-    private void show() {
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(20, 22, 20, 30);
-        root.setBackgroundColor(Color.rgb(247,250,249));
-        setContentView(root);
-        TextView title = text("Gender-Filtered Nikah Matches", 27, true);
-        title.setGravity(Gravity.CENTER);
-        root.addView(title);
-        root.addView(text("Real profiles only. Women see eligible men; men see eligible women. Existing compatibility and privacy rules still apply.", 15, false));
-
-        if (auth.getCurrentUser() == null) {
-            root.addView(text("Please sign in again.", 16, true));
-            return;
-        }
-
-        String uid = auth.getCurrentUser().getUid();
-        db.collection("users").document(uid).get().addOnSuccessListener(me -> {
-            if (!me.exists() || !Boolean.TRUE.equals(me.getBoolean("profileActive")) || !Boolean.TRUE.equals(me.getBoolean("discoverable"))) {
-                root.addView(text("Complete and activate your real profile first.", 16, true));
-                return;
-            }
-            String myGender = normalized(me.getString("gender"));
-            if (!isMale(myGender) && !isFemale(myGender)) {
-                root.addView(text("Set your gender as male or female in your real profile before viewing gender-filtered matches.", 16, true));
-                return;
-            }
-            final boolean lookingForMale = isFemale(myGender);
-            db.collection("users").whereEqualTo("profileActive", true).whereEqualTo("discoverable", true).limit(100).get()
-                .addOnSuccessListener(q -> {
-                    int count = 0;
-                    for (DocumentSnapshot d : q) {
-                        if (d.getId().equals(uid)) continue;
-                        String candidateGender = normalized(d.getString("gender"));
-                        if (lookingForMale ? !isMale(candidateGender) : !isFemale(candidateGender)) continue;
-                        String lookingFor = normalized(d.getString("lookingFor"));
-                        if (!lookingFor.isEmpty() && !preferenceAccepts(lookingFor, myGender)) continue;
-                        addCandidate(d);
-                        count++;
-                    }
-                    if (count == 0) root.addView(text("No eligible real profiles are available yet. This list will change as genuine members join and activate profiles.", 16, false));
-                })
-                .addOnFailureListener(e -> root.addView(text("Could not load real matches. Please try again.", 16, false)));
-        }).addOnFailureListener(e -> root.addView(text("Could not load your real profile.", 16, false)));
-
-        Button back = new Button(this);
-        back.setText("Back");
-        back.setAllCaps(false);
-        root.addView(back, new LinearLayout.LayoutParams(-1, 62));
-        back.setOnClickListener(v -> finish());
+    private void load(){
+        AzureApiClient.get("/matches",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("matches");
+                    if(a==null||a.length()==0){root.addView(text("No eligible real profiles are available yet.",16,false));return;}
+                    for(int i=0;i<a.length();i++){JSONObject m=a.optJSONObject(i);if(m==null)continue;root.addView(text(m.optString("displayName","Member")+" • "+m.optInt("age",0)+" • "+m.optString("gender","")+"\n"+m.optString("country","")+" • Compatibility "+m.optInt("compatibilityScore",0)+"/100",18,true));}
+                }catch(Exception e){root.addView(text("Azure matches could not be read.",16,false));}
+            });}
+            public void err(String message){runOnUiThread(()->root.addView(text("Could not load real Azure matches: "+message,16,false)));}
+        });
     }
-
-    private void addCandidate(DocumentSnapshot d) {
-        String name = value(d, "name");
-        String age = value(d, "age");
-        String country = value(d, "country");
-        TextView card = text(name + " • " + age + " • " + country, 18, true);
-        root.addView(card);
-    }
-
-    private boolean preferenceAccepts(String preference, String myGender) {
-        String p = preference.toLowerCase(Locale.ROOT);
-        if (isMale(myGender)) return p.contains("male") || p.contains("man") || p.contains("boy") || p.contains("mard") || p.contains("لڑکا") || p.contains("مرد");
-        return p.contains("female") || p.contains("woman") || p.contains("girl") || p.contains("larki") || p.contains("ladki") || p.contains("لڑکی") || p.contains("عورت");
-    }
-
-    private boolean isMale(String s) {
-        return s.contains("male") || s.equals("m") || s.contains("man") || s.contains("mard") || s.contains("لڑکا") || s.contains("مرد");
-    }
-
-    private boolean isFemale(String s) {
-        return s.contains("female") || s.equals("f") || s.contains("woman") || s.contains("female") || s.contains("larki") || s.contains("ladki") || s.contains("لڑکی") || s.contains("عورت");
-    }
-
-    private String normalized(String s) { return s == null ? "" : s.trim().toLowerCase(Locale.ROOT); }
-    private String value(DocumentSnapshot d, String key) { Object x = d.get(key); return x == null ? "" : String.valueOf(x); }
-
-    private TextView text(String value, int size, boolean bold) {
-        TextView t = new TextView(this);
-        t.setText(value);
-        t.setTextSize(size);
-        t.setTextColor(bold ? Color.rgb(30,45,41) : Color.rgb(95,108,103));
-        t.setPadding(6, 8, 6, 12);
-        return t;
-    }
+    private TextView text(String value,int size,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(bold?Color.rgb(30,45,41):Color.rgb(95,108,103));t.setPadding(dp(6),dp(8),dp(6),dp(12));if(bold)t.setTypeface(null,1);return t;}
 }
