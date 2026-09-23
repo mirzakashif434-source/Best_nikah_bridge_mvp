@@ -737,3 +737,10 @@ CREATE TABLE IF NOT EXISTS family_match_suggestions (
 );
 CREATE INDEX IF NOT EXISTS idx_family_match_suggestions_circle_status
   ON family_match_suggestions(circle_id,status,created_at DESC);
+
+
+-- Serious Nikah Plus: additive profile attributes and advanced matching filters.
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS education TEXT;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS family_involvement TEXT;
+ALTER TABLE partner_preferences ADD COLUMN IF NOT EXISTS education_levels TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE partner_preferences ADD COLUMN IF NOT EXISTS family_involvement TEXT;
