@@ -7,6 +7,13 @@ const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 async function ensureUser(user){
   const email=text(user.email,320).toLowerCase();
   if(!user.uid||!email) throw new Error("AUTH_IDENTITY_REQUIRED");
+  const azureSubject=typeof user.azure_subject==="string"&&user.azure_subject.trim()?user.azure_subject.trim():null;
+  if(azureSubject){
+    const existing=await query("SELECT id,email,status FROM users WHERE azure_subject=$1 OR firebase_uid=$2 LIMIT 1",[azureSubject,user.uid]);
+    if(existing.rows[0]) return existing.rows[0];
+    const created=await query("INSERT INTO users(firebase_uid,azure_subject,email,email_verified_at) VALUES($1,$2,$3,CASE WHEN $4 THEN now() ELSE NULL END) RETURNING id,email,status",[user.uid,azureSubject,email,Boolean(user.email_verified)]);
+    return created.rows[0];
+  }
   const r=await query(
     `INSERT INTO users(firebase_uid,email,email_verified_at)
      VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END)
@@ -25,9 +32,10 @@ app.http("interestCreate",{
       const me=await ensureUser(user);
       if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
       const b=await request.json();
-      const receiverUid=text(b.receiverUserId,200);
-      if(!receiverUid||receiverUid===user.uid) return {status:400,jsonBody:{ok:false,error:"INVALID_RECEIVER"}};
-      const receiver=await query("SELECT id,status FROM users WHERE firebase_uid=$1",[receiverUid]);
+      const receiverUid=text(b.receiverUserId,300);
+      const myIdentity=(user.azure_subject||user.uid||"").trim();
+      if(!receiverUid||receiverUid===myIdentity||receiverUid===user.uid) return {status:400,jsonBody:{ok:false,error:"INVALID_RECEIVER"}};
+      const receiver=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR firebase_uid=$1 LIMIT 1",[receiverUid]);
       if(!receiver.rows[0]||receiver.rows[0].status!=="active") return {status:404,jsonBody:{ok:false,error:"RECEIVER_NOT_FOUND"}};
       const blocked=await query("SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",[me.id,receiver.rows[0].id]);
       if(blocked.rows[0]) return {status:403,jsonBody:{ok:false,error:"USER_BLOCKED"}};
@@ -53,7 +61,7 @@ app.http("interestList",{
       const r=await query(
         `SELECT i.id,i.status,i.created_at,i.responded_at,
                 CASE WHEN i.sender_user_id=$1 THEN 'sent' ELSE 'received' END AS direction,
-                u.firebase_uid AS user_id,p.display_name,p.gender,p.country,p.city
+                COALESCE(u.azure_subject,u.firebase_uid) AS user_id,p.display_name,p.gender,p.country,p.city
          FROM interests i
          JOIN users u ON u.id=CASE WHEN i.sender_user_id=$1 THEN i.receiver_user_id ELSE i.sender_user_id END
          LEFT JOIN profiles p ON p.user_id=u.id
@@ -82,7 +90,7 @@ app.http("interestRespond",{
       if(!["accepted","declined","cancelled"].includes(status)) return {status:400,jsonBody:{ok:false,error:"INVALID_STATUS"}};
       await client.query("BEGIN");
       const current=await client.query(
-        `SELECT i.*,s.firebase_uid AS sender_uid,r.firebase_uid AS receiver_uid
+        `SELECT i.*,COALESCE(s.azure_subject,s.firebase_uid) AS sender_uid,COALESCE(r.azure_subject,r.firebase_uid) AS receiver_uid
          FROM interests i JOIN users s ON s.id=i.sender_user_id JOIN users r ON r.id=i.receiver_user_id
          WHERE i.id=$1 FOR UPDATE`,[id]
       );
