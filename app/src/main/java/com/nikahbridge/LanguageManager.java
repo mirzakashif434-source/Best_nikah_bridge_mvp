@@ -84,6 +84,8 @@ public final class LanguageManager {
     }
 
     private LanguageManager(){}
+    public static void init(Context c){if(c!=null)appContext=c.getApplicationContext();}
+    public static String currentCode(){return appContext==null?"en":currentCode(appContext);}
     private static void put(String en,String... values){T.put(en,values);}
 
     public static String currentCode(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY,"en");}
