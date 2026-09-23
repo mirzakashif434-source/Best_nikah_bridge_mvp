@@ -43,6 +43,7 @@ app.http("matches",{
                EXISTS(
                  SELECT 1 FROM premium_entitlements pe
                  WHERE pe.user_id=u.id AND pe.status='active' AND pe.expires_at>now()
+                   AND pe.plan_key='premium_vip_60'
                ) AS premium_priority,
                (SELECT ph.id FROM photos ph WHERE ph.user_id=u.id AND ph.moderation_status='approved' ORDER BY ph.created_at ASC LIMIT 1) AS photo_id
         FROM users u JOIN profiles p ON p.user_id=u.id
@@ -63,6 +64,12 @@ app.http("matches",{
         const reciprocalAge=Number(m.age||0)>=theirMin&&Number(m.age||0)<=theirMax;
         if(!ageOk||!reciprocalAge)continue;
         if(!compatible(m.preferred_gender||"",c.gender)||!compatible(c.preferred_gender||"",m.gender))continue;
+        if(viewerCaps.advancedMatching){
+          const wantedCountries=Array.isArray(m.countries)?m.countries.filter(Boolean):[];
+          const wantedCities=Array.isArray(m.cities)?m.cities.filter(Boolean):[];
+          if(wantedCountries.length && !wantedCountries.some(x=>norm(x)===norm(c.country))) continue;
+          if(wantedCities.length && !wantedCities.some(x=>norm(x)===norm(c.city))) continue;
+        }
 
         let score=40;
         const reasons=["reciprocal age and gender preferences"];
@@ -83,7 +90,7 @@ app.http("matches",{
           whyWeMatched:viewerCaps.whyWeMatched?reasons:[],
           advancedLocked:!viewerCaps.advancedMatching,
           premiumPriority:Boolean(c.premium_priority),
-          rankingScore:score+(viewerCaps.priorityVisibility&&c.premium_priority?3:0),
+          rankingScore:score+(c.premium_priority?3:0),
           photoId:c.show_photo_to_matches===true?c.photo_id:null,
           photoBlurred:!(c.show_photo_to_matches===true&&c.photo_id)
         });
