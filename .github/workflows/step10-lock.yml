@@ -22,5 +22,6 @@ jobs:
           grep -Eq 'getProfilePhotosContainer' azure-backend/src/photos.js
           grep -Eq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
           grep -Eq 'AzureApiClient\.multipart\("/photos"' app/src/main/java/com/nikahbridge/ProfilePhotoActivity.java
-          grep -Eq 'AzureApiClient\.multipart\("/photos"' app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java
+          grep -Eq 'getProfilePhotosContainer' azure-backend/src/photoVerification.js
+          grep -Eq 'AzureApiClient\.multipart\("/photo-verification/' app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java
           echo "STEP 10 LOCKED: Azure Blob profile/verification storage path is preserved and Android photo uploads remain connected through the authenticated Azure API."
