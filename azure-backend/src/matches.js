@@ -53,6 +53,12 @@ app.http("matches",{
                  WHERE pbc.user_id=u.id
                    AND pbc.claimed_at>now()-interval '30 minutes'
                ) AS boost_active,
+               (
+                 SELECT cv.id FROM conversations cv
+                 WHERE cv.status='mutual'
+                   AND ((cv.user_a_id=$1 AND cv.user_b_id=u.id) OR (cv.user_b_id=$1 AND cv.user_a_id=u.id))
+                 LIMIT 1
+               ) AS conversation_id,
                (SELECT ph.id FROM photos ph WHERE ph.user_id=u.id AND ph.moderation_status='approved' ORDER BY ph.created_at ASC LIMIT 1) AS photo_id
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
@@ -105,6 +111,7 @@ app.http("matches",{
           isOnline:Boolean(c.is_online),
           lastSeenAt:c.last_seen_at||null,
           boostActive:Boolean(c.boost_active),
+          conversationId:c.conversation_id||null,
           rankingScore:score+(c.boost_active?8:0)+(c.premium_priority?3:0),
           photoId:c.show_photo_to_matches===true?c.photo_id:null,
           photoBlurred:!(c.show_photo_to_matches===true&&c.photo_id)
