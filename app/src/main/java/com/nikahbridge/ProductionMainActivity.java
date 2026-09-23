@@ -138,16 +138,26 @@ public class ProductionMainActivity extends Activity {
 
         Button photo=Premium2030Ui.secondary(this,"Real Profile Photo");
         Button reward=Premium2030Ui.secondary(this,"Rewarded Message Credits");
+        Button community=Premium2030Ui.secondary(this,"Global Community Chat");
+        Button blueprint=Premium2030Ui.secondary(this,"Nikah Blueprint");
+        Button mediator=Premium2030Ui.secondary(this,"AI Nikah Mediator");
+        Button successNetwork=Premium2030Ui.secondary(this,"Nikah Success Network");
+        Button futureSimulation=Premium2030Ui.secondary(this,"Future Life Simulation");
         Button blocked=Premium2030Ui.secondary(this,"Blocked Members");
         Button admin=Premium2030Ui.secondary(this,"Admin Verification Review");
         Button terms=Premium2030Ui.secondary(this,"Terms & Community Guidelines");
-        for(Button b:new Button[]{photo,reward,blocked,admin,terms}){
+        for(Button b:new Button[]{photo,reward,community,blueprint,mediator,successNetwork,futureSimulation,blocked,admin,terms}){
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(54));
             lp.setMargins(0,dp(3),0,dp(3));
             tools.addView(b,lp);
         }
         photo.setOnClickListener(v->open(ProfilePhotoActivity.class));
         reward.setOnClickListener(v->open(RewardedMessageActivity.class));
+        community.setOnClickListener(v->open(CommunityChatActivity.class));
+        blueprint.setOnClickListener(v->open(NikahBlueprintActivity.class));
+        mediator.setOnClickListener(v->open(NikahMediatorActivity.class));
+        successNetwork.setOnClickListener(v->open(NikahSuccessNetworkActivity.class));
+        futureSimulation.setOnClickListener(v->open(FutureLifeSimulationActivity.class));
         blocked.setOnClickListener(v->open(BlockedMembersActivity.class));
         admin.setOnClickListener(v->open(VerificationAdminActivity.class));
         terms.setOnClickListener(v->open(TermsAndCommunityGuidelinesActivity.class));
