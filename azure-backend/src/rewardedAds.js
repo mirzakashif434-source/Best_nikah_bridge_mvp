@@ -2,6 +2,7 @@ const { app } = require("@azure/functions");
 const crypto = require("crypto");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
+const { entitlementForUser } = require("./premiumAccess");
 
 const REWARDED_UNIT = () => String(process.env.ADMOB_REWARDED_AD_UNIT_ID || "").trim();
 
@@ -43,7 +44,9 @@ app.http("getRewardedAdConfig", {
   route: "admob/rewarded/config",
   handler: requireAuth(async (request, context, authUser) => {
     if (authUser.auth_provider !== "azure_external_id" || !authUser.azure_subject) return { status: 401, jsonBody: { ok: false, error: "AZURE_AUTH_REQUIRED" } };
-    await activeRewardedUser(authUser);
+    const user=await activeRewardedUser(authUser);
+    const premium=await entitlementForUser(user.id);
+    if(premium.active) return {status:403,jsonBody:{ok:false,error:"PREMIUM_AD_FREE",adFree:true}};
     const unit = requireAdMobUnit();
     return {
       status: 200,
