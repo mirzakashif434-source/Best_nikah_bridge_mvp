@@ -518,15 +518,31 @@ public class AzureHomeActivity extends Activity {
         Button ask=button("Ask Azure AI",true),back=button("Back",false);
         ask.setOnClickListener(v->{try{
             String question=q.getText().toString().trim();
-            if(question.isEmpty()){LanguageManager.setError(q,"Nikah question required");q.requestFocus();return;}
+            if(question.length()<4){LanguageManager.setError(q,"Please enter a clear Nikah question");q.requestFocus();return;}
+            if(question.length()>2000){LanguageManager.setError(q,"Question is too long. Keep it under 2000 characters");q.requestFocus();return;}
+            ask.setEnabled(false);
             JSONObject msg=new JSONObject();msg.put("role","user");msg.put("content",question);
             JSONArray messages=new JSONArray();messages.put(msg);JSONObject b=new JSONObject();b.put("messages",messages);
             answer.setText("Azure AI is responding…");
             AzureApiClient.post("/ai/nikah-assistant",b.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String body){runOnUiThread(()->{try{JSONObject a=new JSONObject(body).optJSONObject("assistant");String text=a==null?"":a.optString("content","");answer.setText(text.isEmpty()?"Azure AI response could not be displayed.":text);}catch(Exception e){answer.setText("Azure AI response could not be displayed.");}});}
-                public void err(String m){runOnUiThread(()->answer.setText("Azure AI unavailable: "+m));}
+                public void ok(int code,String body){runOnUiThread(()->{
+                    ask.setEnabled(true);
+                    try{
+                        JSONObject response=new JSONObject(body);
+                        String text="";
+                        JSONObject assistant=response.optJSONObject("assistant");
+                        if(assistant!=null) text=assistant.optString("content","");
+                        if(text.trim().isEmpty()){
+                            Object raw=response.opt("assistant");
+                            if(raw instanceof String) text=((String)raw).trim();
+                        }
+                        if(text.trim().isEmpty()) text=response.optString("content","");
+                        answer.setText(text.trim().isEmpty()?"Azure AI response could not be displayed.":text.trim());
+                    }catch(Exception e){answer.setText("Azure AI response could not be displayed.");}
+                });}
+                public void err(String m){runOnUiThread(()->{ask.setEnabled(true);answer.setText("Azure AI unavailable: "+m);});}
             });
-        }catch(Exception e){answer.setText("Please enter a clear question.");}});
+        }catch(Exception e){ask.setEnabled(true);answer.setText("Please enter a clear question.");}});
         back.setOnClickListener(v->home());
     }
 
