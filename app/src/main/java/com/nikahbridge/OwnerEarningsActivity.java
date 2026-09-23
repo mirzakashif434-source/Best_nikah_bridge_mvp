@@ -19,7 +19,7 @@ import org.json.JSONObject;
 public class OwnerEarningsActivity extends Activity {
     private LinearLayout root;
     private TextView summary;
-    private final int green=Color.rgb(18,103,82), dark=Color.rgb(30,45,41), gray=Color.rgb(95,108,103);
+    private final int green=Premium2030Ui.GREEN, dark=Premium2030Ui.TEXT, gray=Premium2030Ui.MUTED;
 
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 
@@ -50,7 +50,7 @@ public class OwnerEarningsActivity extends Activity {
         root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(22),dp(24),dp(22),dp(30));
-        root.setBackgroundColor(Color.rgb(247,250,249));
+        root.setBackgroundColor(Premium2030Ui.CREAM);
         scroll.addView(root);
         setContentView(scroll);
 
