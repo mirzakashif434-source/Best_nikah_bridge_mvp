@@ -12,7 +12,7 @@ import org.json.JSONObject;
 /** Real Azure journey tracker derived only from production API records. */
 public class NikahJourneyActivity extends Activity {
     private LinearLayout root,stages;private TextView summary;
-    private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
+    private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
     private boolean profileReady,blueprintReady,verified,hasMatches,hasConversation,hasFamily;
 
     @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();load();}
