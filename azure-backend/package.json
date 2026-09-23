@@ -2,7 +2,7 @@
   "name": "best-nikah-bridge-azure-backend",
   "private": true,
   "version": "1.0.0",
-  "description": "Additive Azure Functions backend. Existing Firebase code remains untouched.",
+  "description": "Production Azure Functions backend for Best Nikah Bridge.",
   "main": "src/index.js",
   "engines": {
     "node": "22.x"
@@ -11,7 +11,6 @@
     "@azure/functions": "^4.9.0",
     "@azure/identity": "^4.10.0",
     "@azure/storage-blob": "^12.28.0",
-    "firebase-admin": "^13.5.0",
     "pg": "^8.16.3",
     "jose": "^6.1.0"
   }
