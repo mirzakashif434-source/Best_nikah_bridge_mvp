@@ -1,6 +1,5 @@
 plugins {
     id 'com.android.application'
-    id 'com.google.gms.google-services'
 }
 
 android {
@@ -40,17 +39,10 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.google.android.material:material:1.13.0'
     implementation 'androidx.activity:activity:1.10.1'
-    implementation platform('com.google.firebase:firebase-bom:34.18.0')
-    implementation 'com.google.firebase:firebase-auth'
-    implementation 'com.google.firebase:firebase-firestore'
-    implementation 'com.google.firebase:firebase-functions'
-    implementation 'com.google.firebase:firebase-storage'
-    implementation 'com.google.firebase:firebase-ai:17.16.0'
-    implementation 'com.google.firebase:firebase-appcheck-playintegrity'
     implementation 'com.google.android.gms:play-services-ads:25.4.0'
     implementation 'com.google.android.ump:user-messaging-platform:4.0.0'
     implementation 'com.android.billingclient:billing:9.1.0'
     implementation 'com.google.guava:guava:31.0.1-android'
-    // Additive Microsoft Entra External ID authentication; Firebase dependencies remain intact.
+    // Microsoft Entra External ID is the production authentication authority.
     implementation 'com.microsoft.identity.client:msal:8.4.2'
 }
