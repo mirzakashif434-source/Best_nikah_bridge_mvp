@@ -58,7 +58,7 @@ public class HelpLineActivity extends Activity {
     private void ask(){
         if(!AzureAuthManager.hasAccount(this)){result.setText("Please sign in with Azure first.");return;}
         String q=question.getText().toString().trim();
-        if(q.isEmpty()){question.setError("Please enter your question.");question.requestFocus();return;}
+        if(q.isEmpty()){LanguageManager.setError(question,"Please enter your question.");question.requestFocus();return;}
         send.setEnabled(false);result.setText("Connecting to secure Azure Help Assistant…");
         try{
             JSONObject body=new JSONObject().put("question",q);
