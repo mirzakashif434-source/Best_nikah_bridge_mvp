@@ -52,17 +52,17 @@ public class NikahBlueprintActivity extends Activity {
     }
 
     private void save(){
-        if(!AzureAuthManager.hasAccount(this)){Toast.makeText(this,"Azure sign in required.",Toast.LENGTH_LONG).show();return;}
+        if(!AzureAuthManager.hasAccount(this)){LanguageManager.toast(this,"Azure sign in required.",Toast.LENGTH_LONG).show();return;}
         try{
             JSONObject data=new JSONObject();int completed=0;
             for(Map.Entry<String,EditText> e:fields.entrySet()){String value=e.getValue().getText().toString().trim();if(!value.isEmpty())completed++;data.put(e.getKey(),value);}
-            if(completed<fields.size()){Toast.makeText(this,"Please complete every blueprint section before saving.",Toast.LENGTH_LONG).show();return;}
+            if(completed<fields.size()){LanguageManager.toast(this,"Please complete every blueprint section before saving.",Toast.LENGTH_LONG).show();return;}
             data.put("complete",true);
             AzureApiClient.put("/settings/nikah_blueprint",data.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String body){runOnUiThread(()->{Toast.makeText(NikahBlueprintActivity.this,"Nikah Blueprint saved securely in Azure.",Toast.LENGTH_LONG).show();syncLiving();});}
-                public void err(String message){runOnUiThread(()->Toast.makeText(NikahBlueprintActivity.this,"Could not save Azure Blueprint: "+message,Toast.LENGTH_LONG).show());}
+                public void ok(int code,String body){runOnUiThread(()->{LanguageManager.toast(NikahBlueprintActivity.this,"Nikah Blueprint saved securely in Azure.",Toast.LENGTH_LONG).show();syncLiving();});}
+                public void err(String message){runOnUiThread(()->LanguageManager.toast(NikahBlueprintActivity.this,"Could not save Azure Blueprint: "+message,Toast.LENGTH_LONG).show());}
             });
-        }catch(Exception e){Toast.makeText(this,"Blueprint data is invalid.",Toast.LENGTH_LONG).show();}
+        }catch(Exception e){LanguageManager.toast(this,"Blueprint data is invalid.",Toast.LENGTH_LONG).show();}
     }
 
     private void syncLiving(){
