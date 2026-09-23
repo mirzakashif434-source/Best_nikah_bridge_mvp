@@ -111,6 +111,7 @@ app.http("matches",{
           isOnline:Boolean(c.is_online),
           lastSeenAt:c.last_seen_at||null,
           boostActive:Boolean(c.boost_active),
+          photoVerified:Boolean(c.photo_verified),
           conversationId:c.conversation_id||null,
           rankingScore:score+(c.boost_active?8:0)+(c.premium_priority?3:0),
           photoId:c.show_photo_to_matches===true?c.photo_id:null,
