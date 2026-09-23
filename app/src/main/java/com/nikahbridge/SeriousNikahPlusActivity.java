@@ -47,6 +47,7 @@ public class SeriousNikahPlusActivity extends Activity {
         root.addView(card);
 
         whoLiked=btn("See Who Liked You",true);whoLiked.setOnClickListener(v->loadWhoLiked());
+        Button filters=btn("Open Advanced Match Filters",false);filters.setOnClickListener(v->startActivity(new Intent(this,AdvancedMatchFiltersActivity.class)));
         upgrade=btn("Upgrade with Google Play",true);upgrade.setOnClickListener(v->startActivity(new Intent(this,PremiumPlansActivity.class)));
         peopleBox=new LinearLayout(this);peopleBox.setOrientation(LinearLayout.VERTICAL);root.addView(peopleBox);
         status=Premium2030Ui.subtitle(this,"Status: loading…");status.setGravity(Gravity.START);root.addView(status);
