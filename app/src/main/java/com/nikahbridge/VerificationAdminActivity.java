@@ -75,13 +75,13 @@ public class VerificationAdminActivity extends Activity {
     }
 
     private void review(String id,String decision){
-        if(id.isEmpty()){Toast.makeText(this,"Verification ID missing.",Toast.LENGTH_LONG).show();return;}
+        if(id.isEmpty()){LanguageManager.toast(this,"Verification ID missing.",Toast.LENGTH_LONG).show();return;}
         try{
             JSONObject body=new JSONObject().put("decision",decision);
             AzureApiClient.patch("/admin/verifications/"+id,body.toString(),new AzureApiClient.Callback(){
-                @Override public void ok(int code,String response){runOnUiThread(()->{Toast.makeText(VerificationAdminActivity.this,"Verification review saved in Azure.",Toast.LENGTH_LONG).show();load();});}
-                @Override public void err(String message){runOnUiThread(()->Toast.makeText(VerificationAdminActivity.this,"Review failed: "+message,Toast.LENGTH_LONG).show());}
+                @Override public void ok(int code,String response){runOnUiThread(()->{LanguageManager.toast(VerificationAdminActivity.this,"Verification review saved in Azure.",Toast.LENGTH_LONG).show();load();});}
+                @Override public void err(String message){runOnUiThread(()->LanguageManager.toast(VerificationAdminActivity.this,"Review failed: "+message,Toast.LENGTH_LONG).show());}
             });
-        }catch(Exception e){Toast.makeText(this,"Invalid review request.",Toast.LENGTH_LONG).show();}
+        }catch(Exception e){LanguageManager.toast(this,"Invalid review request.",Toast.LENGTH_LONG).show();}
     }
 }
