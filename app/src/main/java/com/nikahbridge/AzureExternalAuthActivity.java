@@ -134,7 +134,10 @@ public class AzureExternalAuthActivity extends Activity {
                                 () -> {
                                     AzureAuthManager.markSignedIn(this);
                                     LanguageManager.toast(AzureExternalAuthActivity.this, "Real Azure login verified.", Toast.LENGTH_LONG).show();
-                                    startActivity(new Intent(this, AzureHomeActivity.class));
+                                    Intent next = FamilyCircleActivity.pendingInvite(AzureExternalAuthActivity.this).isEmpty()
+                                            ? new Intent(AzureExternalAuthActivity.this, AzureHomeActivity.class)
+                                            : new Intent(AzureExternalAuthActivity.this, FamilyCircleActivity.class);
+                                    startActivity(next);
                                     finish();
                                 },
                                 messageText -> status.setText("Azure session initialization failed: " + messageText));
