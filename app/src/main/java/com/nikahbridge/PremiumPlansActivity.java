@@ -28,33 +28,36 @@ public class PremiumPlansActivity extends Activity {
         TextView t = new TextView(this);
         t.setText(text);
         t.setTextSize(size);
-        t.setTextColor(bold ? Color.rgb(30,45,41) : Color.rgb(95,108,103));
+        t.setTextColor(bold ? Premium2030Ui.TEXT : Premium2030Ui.MUTED);
         t.setPadding(8,10,8,10);
         if (bold) t.setTypeface(null, 1);
         root.addView(t);
     }
 
     private Button button(String text) {
-        Button b = new Button(this);
-        b.setText(text);
-        b.setAllCaps(false);
-        b.setTextSize(16);
-        root.addView(b, new LinearLayout.LayoutParams(-1, 64));
+        boolean buy=text.contains("Buy");
+        Button b = buy ? Premium2030Ui.primary(this,text) : Premium2030Ui.secondary(this,text);
+        Premium2030Ui.addButton(root,b);
         return b;
     }
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.setBackgroundColor(Premium2030Ui.CREAM);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(22,24,22,30);
+        root.setPadding(Premium2030Ui.dp(this,18),Premium2030Ui.dp(this,20),Premium2030Ui.dp(this,18),Premium2030Ui.dp(this,30));
         scroll.addView(root);
         setContentView(scroll);
 
-        add("Best Nikah Bridge — Premium", 27, true);
-        add("Real Google Play purchases only. No demo plans, fake balances, or simulated payments.", 15, false);
-        add("Choose a plan. The final price shown by Google Play is the price configured in Play Console for your country.", 14, false);
+        root.addView(Premium2030Ui.title(this,"Go Premium"));
+        root.addView(Premium2030Ui.subtitle(this,"Unlock more opportunities for your halal journey."));
+        root.addView(Premium2030Ui.heroLine(this,"20 • 40 • 60 SAR — Real Google Play Billing"));
+        add("Real Google Play purchases only. No demo plans, fake balances, or simulated payments.", 14, false);
+        add("The final price and payment screen are supplied by Google Play for your country.", 14, false);
         status = new TextView(this);
         status.setTextSize(15);
         status.setPadding(8,12,8,18);
