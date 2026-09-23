@@ -80,6 +80,22 @@ jobs:
           done
           echo "AZURE PRODUCTION ROUTES: PASS"
 
+      - name: Verify Owner Wallet Google Play to Al Rajhi tracking
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'available_usd_minor' azure-backend/database/schema.sql
+          grep -Fq 'pending_usd_minor' azure-backend/database/schema.sql
+          grep -Fq 'settled_usd_minor' azure-backend/database/schema.sql
+          grep -Fq '"USD"' azure-backend/src/ownerEarnings.js
+          grep -Eq 'route:[[:space:]]*"admin/owner/provider-settlement"' azure-backend/src/ownerEarnings.js
+          grep -Fq 'providerPayouts' azure-backend/src/ownerEarnings.js
+          grep -Fq 'Owner Wallet — Google Play → Al Rajhi' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'Record Google Payout Received' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'Set Al Rajhi Payout Tracking' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.post("/admin/owner/provider-settlement"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          echo "OWNER WALLET GOOGLE PLAY → AL RAJHI TRACKING: PASS"
+
       - name: Verify six final Android cutover screens
         shell: bash
         run: |
