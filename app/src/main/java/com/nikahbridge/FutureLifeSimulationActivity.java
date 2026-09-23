@@ -15,7 +15,7 @@ public class FutureLifeSimulationActivity extends Activity {
     private final EditText[] my=new EditText[8],partner=new EditText[8];
     private final String[] titles={"1. Job loss or financial pressure","2. Caring for parents","3. Children and parenting","4. Relocation or migration","5. Household responsibilities","6. Deen, lifestyle and social boundaries","7. Serious disagreement","8. Privacy and family involvement"};
     private final String[] prompts={"How would both spouses respond if income dropped?","How should care and support for parents be handled?","Expectations about children and parenting?","What if moving city/country became necessary?","How should household responsibilities be shared?","Which Deen/lifestyle boundaries matter?","How should a serious disagreement be handled?","What privacy and family/Wali boundaries should apply?"};
-    private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
+    private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
 
     @Override protected void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();load();}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
