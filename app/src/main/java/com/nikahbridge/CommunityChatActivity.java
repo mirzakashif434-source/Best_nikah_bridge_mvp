@@ -63,7 +63,10 @@ public class CommunityChatActivity extends Activity {
     private void addAzureMessageCard(JSONObject d){
         String author=d.optString("author_name","Member"),country=d.optString("country",""),body=d.optString("text",""),uid=d.optString("author_uid","");
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(14),dp(10),dp(14),dp(10));GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadius(dp(16));card.setBackground(bg);
-        card.addView(text(author+(country.isEmpty()?"":" • "+country),15,true));card.addView(text(body,16,false));
+        TextView authorView=text(author+(country.isEmpty()?"":" • "+country),15,true);
+        TextView bodyView=text(body,16,false);
+        LanguageManager.protectUserContent(authorView);LanguageManager.protectUserContent(bodyView);
+        card.addView(authorView);card.addView(bodyView);
         LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.END);Button report=button("Report",false),mute=button("Mute",false),block=button("Block",false);actions.addView(report,new LinearLayout.LayoutParams(dp(86),dp(44)));actions.addView(mute,new LinearLayout.LayoutParams(dp(78),dp(44)));actions.addView(block,new LinearLayout.LayoutParams(dp(82),dp(44)));card.addView(actions);
         report.setOnClickListener(v->reportAzureMessage(d));mute.setOnClickListener(v->muteAzureUser(uid,author));block.setOnClickListener(v->blockAzureUser(uid,author));
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(5),0,dp(5));messages.addView(card,lp);
