@@ -14,7 +14,7 @@ import org.json.JSONObject;
 public class OwnerLiveAnalyticsActivity extends Activity {
     private LinearLayout root,dynamic;
     private TextView status;
-    private Button wallet,signIn;
+    private Button wallet,signIn,refresh;
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 
     @Override protected void onCreate(Bundle state){
@@ -56,7 +56,7 @@ public class OwnerLiveAnalyticsActivity extends Activity {
 
         dynamic=new LinearLayout(this);dynamic.setOrientation(LinearLayout.VERTICAL);root.addView(dynamic,new LinearLayout.LayoutParams(-1,-2));
 
-        Button refresh=button("Refresh Live Dashboard",true);
+        refresh=button("Refresh Live Dashboard",true);
         signIn=button("Sign in with Owner / Admin Azure Account",false);
         wallet=button("Open Owner Wallet / Payout",true);
         Button back=button("Back",false);
@@ -70,24 +70,41 @@ public class OwnerLiveAnalyticsActivity extends Activity {
 
     private String money(double v){return String.format(java.util.Locale.US,"%.2f",v);}
 
+    private boolean authError(String message){
+        if(message==null) return false;
+        return message.contains("AZURE_SIGN_IN_REQUIRED") || message.contains("AZURE_AUTH") || message.contains("SIGN_IN") || message.contains("401");
+    }
+
+    private void showOwnerSignIn(){
+        status.setText("Please sign in with the owner/admin Azure account.");
+        signIn.setVisibility(android.view.View.VISIBLE);
+    }
+
     private void load(){
+        if(!AzureAuthManager.hasAccount(this)){dynamic.removeAllViews();wallet.setVisibility(android.view.View.GONE);showOwnerSignIn();return;}
         status.setText("Loading live Azure analytics…");
+        refresh.setEnabled(false);refresh.setText("Loading Live Dashboard…");
         dynamic.removeAllViews();
         wallet.setVisibility(android.view.View.GONE);
         signIn.setVisibility(android.view.View.GONE);
         AzureApiClient.get("/admin/owner/live-analytics",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
+                refresh.setEnabled(true);refresh.setText("Refresh Live Dashboard");
                 signIn.setVisibility(android.view.View.GONE);
                 wallet.setVisibility(android.view.View.VISIBLE);
                 render(body);
             });}
             public void err(String m){runOnUiThread(()->{
+                refresh.setEnabled(true);refresh.setText("Refresh Live Dashboard");
                 wallet.setVisibility(android.view.View.GONE);
-                if(m!=null&&m.contains("ADMIN_REQUIRED")){
+                if(m!=null&&(m.contains("ADMIN_REQUIRED")||m.contains("403"))){
                     status.setText("This Azure account is signed in, but owner/admin access is not enabled.");
-                }else if(m!=null&&(m.contains("401")||m.contains("AZURE_AUTH")||m.contains("SIGN_IN"))){
-                    status.setText("Please sign in with the owner/admin Azure account.");
-                    signIn.setVisibility(android.view.View.VISIBLE);
+                }else if(authError(m)){
+                    showOwnerSignIn();
+                }else if(m!=null&&m.contains("404")){
+                    status.setText("Owner analytics service is not available in this backend release.");
+                }else if(m!=null&&(m.contains("500")||m.contains("502")||m.contains("503")||m.contains("504"))){
+                    status.setText("Owner analytics service is temporarily unavailable. Tap Refresh Live Dashboard.");
                 }else{
                     status.setText("Owner analytics unavailable. Check your connection and tap Refresh Live Dashboard.");
                 }
