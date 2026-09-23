@@ -45,7 +45,9 @@ public class GenderFilteredMatchesActivity extends Activity {
                             ProfilePhotoLoader.loadAzure(path,photo,()->photo.setVisibility(View.INVISIBLE));
                         }else photo.setVisibility(View.INVISIBLE);
                         card.addView(Premium2030Ui.chip(GenderFilteredMatchesActivity.this,"REAL MATCH"));
-                        card.addView(Premium2030Ui.section(GenderFilteredMatchesActivity.this,displayName+" • "+m.optInt("age",0)));
+                        TextView memberHeading=Premium2030Ui.section(GenderFilteredMatchesActivity.this,displayName+" • "+m.optInt("age",0));
+                        LanguageManager.protectUserContent(memberHeading);
+                        card.addView(memberHeading);
                         StringBuilder details=new StringBuilder();
                         if(!m.optString("country","").isEmpty())details.append(m.optString("country")).append("\n");
                         details.append("Compatibility ").append(m.optInt("compatibilityScore",0)).append("/100");
@@ -75,7 +77,7 @@ public class GenderFilteredMatchesActivity extends Activity {
             JSONObject body=new JSONObject().put("receiverUserId",receiverId);
             button.setEnabled(false);button.setText("Sending…");
             AzureApiClient.post("/interests",body.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String response){runOnUiThread(()->{button.setText("Interest Sent");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Interest sent to "+name,Toast.LENGTH_SHORT).show();});}
+                public void ok(int code,String response){runOnUiThread(()->{button.setText("Interest Sent");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Interest Sent",Toast.LENGTH_SHORT).show();});}
                 public void err(String message){runOnUiThread(()->{button.setEnabled(true);button.setText("Send Interest");LanguageManager.toast(GenderFilteredMatchesActivity.this,"Interest could not be sent: "+message,Toast.LENGTH_LONG).show();});}
             });
         }catch(Exception e){button.setEnabled(true);button.setText("Send Interest");}
