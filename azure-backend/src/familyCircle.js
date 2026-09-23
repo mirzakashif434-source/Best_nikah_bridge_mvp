@@ -2,6 +2,7 @@ const { app } = require("@azure/functions");
 const crypto = require("crypto");
 const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
+const { entitlementForUser } = require("./premiumAccess");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 const ROLE_SET=new Set(["wali","parent","sibling","family","trusted"]);
@@ -81,7 +82,8 @@ app.http("familyCircleGet",{
          WHERE m.circle_id=$1 AND m.removed_at IS NULL ORDER BY m.joined_at ASC`,
         [circle.id]
       );
-      return {status:200,jsonBody:{ok:true,circle,members:members.rows}};
+      const ownerPremium=await entitlementForUser(circle.owner_user_id);
+      return {status:200,jsonBody:{ok:true,circle,members:members.rows,memberLimit:ownerPremium.active?10:2,premiumOwner:ownerPremium.active}};
     }catch(e){context.error("FAMILY_CIRCLE_GET_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"FAMILY_CIRCLE_GET_FAILED"}};}
   })
 });
@@ -190,6 +192,16 @@ app.http("familyCircleJoin",{
         "SELECT id,removed_at FROM family_circle_members WHERE circle_id=$1 AND user_id=$2 FOR UPDATE",
         [i.circle_id,me.id]
       );
+      const ownerPremium=await entitlementForUser(i.owner_user_id);
+      const memberLimit=ownerPremium.active?10:2;
+      const memberCount=await client.query(
+        "SELECT count(*)::int AS count FROM family_circle_members WHERE circle_id=$1 AND removed_at IS NULL AND role<>'owner'",
+        [i.circle_id]
+      );
+      if(!existing.rows[0] && Number(memberCount.rows[0]?.count||0)>=memberLimit){
+        await client.query("ROLLBACK");
+        return {status:402,jsonBody:{ok:false,error:"FAMILY_CIRCLE_MEMBER_LIMIT",premiumRequired:!ownerPremium.active,limit:memberLimit}};
+      }
       if(existing.rows[0]&&!existing.rows[0].removed_at){
         await client.query("ROLLBACK");return {status:409,jsonBody:{ok:false,error:"ALREADY_IN_CIRCLE"}};
       }
