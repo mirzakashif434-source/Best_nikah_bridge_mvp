@@ -1,36 +1,42 @@
 package com.nikahbridge;
 
 import android.app.Activity;
-import android.graphics.Color;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.widget.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Real gender-filtered matching view backed by Azure reciprocal match rules. */
 public class GenderFilteredMatchesActivity extends Activity {
     private LinearLayout root;
-    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+    private int dp(int v){return Premium2030Ui.dp(this,v);}
     @Override protected void onCreate(Bundle state){super.onCreate(state);AzureAuthManager.bindActivity(this);show();}
     private void show(){
-        ScrollView sc=new ScrollView(this);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(22),dp(20),dp(30));root.setBackgroundColor(Color.rgb(247,250,249));sc.addView(root);setContentView(sc);
-        TextView title=text("Gender-Filtered Nikah Matches",27,true);title.setGravity(Gravity.CENTER);root.addView(title);
-        root.addView(text("Real Azure profiles only. Reciprocal age, gender/preference, privacy and block rules are enforced by the server.",15,false));
+        ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setBackgroundColor(Premium2030Ui.CREAM);
+        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(20),dp(18),dp(30));sc.addView(root);setContentView(sc);
+        root.addView(Premium2030Ui.title(this,"Discover"));
+        root.addView(Premium2030Ui.subtitle(this,"Serious people • Real intentions • Verified Azure profiles"));
+        root.addView(Premium2030Ui.heroLine(this,"Meaningful matches for a brighter halal future"));
         load();
-        Button back=new Button(this);back.setText("Back");back.setAllCaps(false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
+        Button back=Premium2030Ui.secondary(this,"Back");Premium2030Ui.addButton(root,back);back.setOnClickListener(v->finish());
     }
     private void load(){
         AzureApiClient.get("/matches",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
                     JSONArray a=new JSONObject(body).optJSONArray("matches");
-                    if(a==null||a.length()==0){root.addView(text("No eligible real profiles are available yet.",16,false));return;}
-                    for(int i=0;i<a.length();i++){JSONObject m=a.optJSONObject(i);if(m==null)continue;root.addView(text(m.optString("displayName","Member")+" • "+m.optInt("age",0)+" • "+m.optString("gender","")+"\n"+m.optString("country","")+" • Compatibility "+m.optInt("compatibilityScore",0)+"/100",18,true));}
-                }catch(Exception e){root.addView(text("Azure matches could not be read.",16,false));}
+                    if(a==null||a.length()==0){root.addView(Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,"No eligible real profiles are available yet."));return;}
+                    for(int i=0;i<a.length();i++){
+                        JSONObject m=a.optJSONObject(i);if(m==null)continue;
+                        LinearLayout card=Premium2030Ui.card(GenderFilteredMatchesActivity.this);
+                        card.addView(Premium2030Ui.chip(GenderFilteredMatchesActivity.this,"VERIFIED MATCH"));
+                        card.addView(Premium2030Ui.section(GenderFilteredMatchesActivity.this,m.optString("displayName","Member")+" • "+m.optInt("age",0)));
+                        TextView d=Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,
+                            m.optString("country","")+"\nCompatibility "+m.optInt("compatibilityScore",0)+"/100");
+                        d.setGravity(android.view.Gravity.START);d.setPadding(0,0,0,dp(4));card.addView(d);root.addView(card);
+                    }
+                }catch(Exception e){root.addView(Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,"Azure matches could not be read."));}
             });}
-            public void err(String message){runOnUiThread(()->root.addView(text("Could not load real Azure matches: "+message,16,false)));}
+            public void err(String message){runOnUiThread(()->root.addView(Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,"Could not load real Azure matches: "+message)));}
         });
     }
-    private TextView text(String value,int size,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(bold?Color.rgb(30,45,41):Color.rgb(95,108,103));t.setPadding(dp(6),dp(8),dp(6),dp(12));if(bold)t.setTypeface(null,1);return t;}
 }
