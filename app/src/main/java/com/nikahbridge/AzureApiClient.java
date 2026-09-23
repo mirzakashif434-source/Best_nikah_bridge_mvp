@@ -16,8 +16,33 @@ final class AzureApiClient {
   private static final ScheduledExecutorService TIMEOUTS=Executors.newSingleThreadScheduledExecutor();
   private static final long AUTH_TIMEOUT_MS=12000L;
   interface Callback{void ok(int code,String body);void err(String message);}
+  interface BinaryCallback{void ok(int code,String contentType,byte[] body);void err(String message);}
 
   static void get(String path,Callback cb){request("GET",path,null,"application/json",cb);}
+  static void getBytes(String path,BinaryCallback cb){
+    authToken(token->{EXEC.execute(()->{
+      HttpURLConnection c=null;
+      try{
+        c=(HttpURLConnection)new URL(BASE+path).openConnection();
+        c.setRequestMethod("GET");c.setConnectTimeout(15000);c.setReadTimeout(25000);
+        c.setRequestProperty("Authorization","Bearer "+token);
+        c.setRequestProperty("Accept","image/*");
+        int code=c.getResponseCode();
+        InputStream in=code>=400?c.getErrorStream():c.getInputStream();
+        if(code>=200&&code<300){
+          ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] buf=new byte[8192];int n;
+          while(in!=null&&(n=in.read(buf))!=-1)out.write(buf,0,n);
+          if(in!=null)in.close();
+          cb.ok(code,c.getContentType(),out.toByteArray());
+        }else{
+          StringBuilder b=new StringBuilder();
+          if(in!=null)try(BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8))){String s;while((s=r.readLine())!=null)b.append(s);}
+          cb.err("HTTP "+code+(b.length()==0?"":": "+b));
+        }
+      }catch(Exception e){cb.err(e.getMessage()==null?"NETWORK_ERROR":e.getMessage());}
+      finally{if(c!=null)c.disconnect();}
+    });},new Callback(){public void ok(int code,String body){} public void err(String m){cb.err(m);}});
+  }
   static void post(String path,String json,Callback cb){request("POST",path,json,"application/json; charset=UTF-8",cb);}
   static void put(String path,String json,Callback cb){request("PUT",path,json,"application/json; charset=UTF-8",cb);}
   static void patch(String path,String json,Callback cb){request("PATCH",path,json,"application/json; charset=UTF-8",cb);}
