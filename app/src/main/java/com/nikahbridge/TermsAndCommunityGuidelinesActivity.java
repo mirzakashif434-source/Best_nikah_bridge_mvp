@@ -23,7 +23,21 @@ public class TermsAndCommunityGuidelinesActivity extends Activity {
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
         AzureAuthManager.bindActivity(this);
-        if(!AzureAuthManager.hasAccount(this)){buildAuthRecovery();return;}
+        recoverAzureSessionAndOpenTerms();
+    }
+
+    private void recoverAzureSessionAndOpenTerms(){
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){
+                runOnUiThread(()->buildTermsScreen());
+            }
+            @Override public void err(String message){
+                runOnUiThread(()->buildAuthRecovery());
+            }
+        });
+    }
+
+    private void buildTermsScreen(){
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(22),dp(20),dp(22),dp(28));root.setBackgroundColor(light);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);scroll.setBackgroundColor(light);LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);
         TextView title=text("Terms & Community Guidelines",27,true);title.setGravity(Gravity.CENTER);content.addView(title,new LinearLayout.LayoutParams(-1,dp(65)));
@@ -69,7 +83,7 @@ public class TermsAndCommunityGuidelinesActivity extends Activity {
         Button back=Premium2030Ui.secondary(this,"Back");
         Premium2030Ui.addButton(root,back);
 
-        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        signIn.setOnClickListener(v->recoverAzureSessionAndOpenTerms());
         back.setOnClickListener(v->finish());
         setContentView(root);
 
