@@ -85,11 +85,13 @@ public class ProfilePhotoActivity extends Activity {
 
         preview = new ImageView(this);
         preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        preview.setVisibility(android.view.View.GONE);
         root.addView(preview, new LinearLayout.LayoutParams(-1, dp(320)));
 
         Button choose = styledButton("Choose Real Photo", true, root);
 
         Button upload = styledButton("Upload to Azure Securely", true, root);
+        upload.setEnabled(false);
 
         Button four = styledButton("Camera-First 4 Photos", false, root);
         four.setOnClickListener(v -> startActivity(new Intent(this, RealFourPhotoActivity.class)));
@@ -140,7 +142,20 @@ public class ProfilePhotoActivity extends Activity {
         }
         try { getContentResolver().takePersistableUriPermission(selected, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) {}
         preview.setImageURI(selected);
-        status.setText("Photo selected. Tap Upload Securely.");
+        preview.setVisibility(android.view.View.VISIBLE);
+        Button uploadButton = findButtonByText("Upload to Azure Securely");
+        if (uploadButton != null) uploadButton.setEnabled(true);
+        status.setText("Photo selected. Tap Upload to Azure Securely.");
+    }
+
+    private Button findButtonByText(String label) {
+        if (!(preview.getParent() instanceof LinearLayout)) return null;
+        LinearLayout parent=(LinearLayout)preview.getParent();
+        for(int i=0;i<parent.getChildCount();i++){
+            android.view.View child=parent.getChildAt(i);
+            if(child instanceof Button && label.contentEquals(((Button)child).getText())) return (Button)child;
+        }
+        return null;
     }
 
     private void pickImage() {
