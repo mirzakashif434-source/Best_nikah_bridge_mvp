@@ -125,30 +125,26 @@ app.http("interestRespond",{
       );
       let mutual=false,conversationId=null;
       if(status==="accepted"){
-        const reverse=await client.query(
-          `SELECT id,status FROM interests
-           WHERE sender_user_id=$1 AND receiver_user_id=$2
-           FOR UPDATE`,[i.receiver_user_id,i.sender_user_id]
+        // Accepting a pending interest is the mutual-consent event.
+        // Create (or reuse) the canonical mutual conversation immediately;
+        // a second reverse interest is not required.
+        const conv=await client.query(
+          `INSERT INTO conversations(user_a_id,user_b_id,status)
+           VALUES($1,$2,'mutual')
+           ON CONFLICT DO NOTHING
+           RETURNING id`,[i.sender_user_id,i.receiver_user_id]
         );
-        if(reverse.rows[0]?.status==="accepted"){
-          const conv=await client.query(
-            `INSERT INTO conversations(user_a_id,user_b_id,status)
-             VALUES($1,$2,'mutual')
-             ON CONFLICT DO NOTHING
-             RETURNING id`,[i.sender_user_id,i.receiver_user_id]
+        if(conv.rows[0]) conversationId=conv.rows[0].id;
+        else {
+          const existing=await client.query(
+            `SELECT id FROM conversations
+             WHERE LEAST(user_a_id,user_b_id)=LEAST($1::uuid,$2::uuid)
+               AND GREATEST(user_a_id,user_b_id)=GREATEST($1::uuid,$2::uuid)
+             LIMIT 1`,[i.sender_user_id,i.receiver_user_id]
           );
-          if(conv.rows[0]) conversationId=conv.rows[0].id;
-          else {
-            const existing=await client.query(
-              `SELECT id FROM conversations
-               WHERE LEAST(user_a_id,user_b_id)=LEAST($1::uuid,$2::uuid)
-                 AND GREATEST(user_a_id,user_b_id)=GREATEST($1::uuid,$2::uuid)
-               LIMIT 1`,[i.sender_user_id,i.receiver_user_id]
-            );
-            conversationId=existing.rows[0]?.id||null;
-          }
-          mutual=Boolean(conversationId);
+          conversationId=existing.rows[0]?.id||null;
         }
+        mutual=Boolean(conversationId);
       }
       await client.query("COMMIT");
       return {status:200,jsonBody:{ok:true,interest:updated.rows[0],mutual,conversationId}};
