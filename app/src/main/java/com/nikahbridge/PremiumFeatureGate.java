@@ -15,7 +15,6 @@ public final class PremiumFeatureGate {
                 .setMessage("Sign in with Azure first so the app can verify your real account and premium access before opening this feature.")
                 .setPositiveButton("Sign in",(d,w)->{
                     a.startActivity(new Intent(a,AzureExternalAuthActivity.class));
-                    a.finish();
                 })
                 .setNegativeButton("Not now",(d,w)->a.finish())
                 .show();
@@ -40,7 +39,6 @@ public final class PremiumFeatureGate {
                         .setMessage("Your Azure session needs to be refreshed before this real feature can verify your account.")
                         .setPositiveButton("Sign in",(d,w)->{
                             a.startActivity(new Intent(a,AzureExternalAuthActivity.class));
-                            a.finish();
                         })
                         .setNegativeButton("Not now",(d,w)->a.finish())
                         .show();
@@ -62,7 +60,6 @@ public final class PremiumFeatureGate {
             .setMessage(requiredPlan+" is required for this advanced feature. Free matching, essential privacy/safety and basic Family Circle remain available.")
             .setPositiveButton("View Plans",(d,w)->{
                 a.startActivity(new Intent(a,PremiumPlansActivity.class));
-                a.finish();
             })
             .setNegativeButton("Not now",(d,w)->a.finish())
             .show();
