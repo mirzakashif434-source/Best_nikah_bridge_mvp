@@ -71,6 +71,8 @@ app.http("profilePut", {
       if(age===null) return {status:400,jsonBody:{ok:false,error:"DATE_OF_BIRTH_INVALID"}};
       if(age<18||age>100) return {status:400,jsonBody:{ok:false,error:"AGE_MUST_BE_18_TO_100"}};
       if(!["male","female"].includes(gender)) return {status:400,jsonBody:{ok:false,error:"GENDER_INVALID"}};
+      const preferredGender=text(b.preferredGender,20).toLowerCase();
+      if(!["male","female","any"].includes(preferredGender)) return {status:400,jsonBody:{ok:false,error:"PREFERRED_GENDER_REQUIRED"}};
       const min=b.minAge==null?null:Number(b.minAge), max=b.maxAge==null?null:Number(b.maxAge);
       if((min!=null&&(!Number.isInteger(min)||min<18||min>100))||(max!=null&&(!Number.isInteger(max)||max<18||max>100))||(min!=null&&max!=null&&min>max))
         return {status:400,jsonBody:{ok:false,error:"PARTNER_AGE_RANGE_INVALID"}};
@@ -90,12 +92,12 @@ app.http("profilePut", {
          b.readinessScore==null?null:Math.max(0,Math.min(100,Number(b.readinessScore))),
          Boolean(b.profileCompleted),Boolean(b.isVisible??true)]);
       await client.query(
-        `INSERT INTO partner_preferences(user_id,min_age,max_age,countries,cities,preferred_marriage_timeline,deal_breakers,preferences)
-         VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb)
-         ON CONFLICT(user_id) DO UPDATE SET min_age=EXCLUDED.min_age,max_age=EXCLUDED.max_age,
+        `INSERT INTO partner_preferences(user_id,min_age,max_age,preferred_gender,countries,cities,preferred_marriage_timeline,deal_breakers,preferences)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb)
+         ON CONFLICT(user_id) DO UPDATE SET min_age=EXCLUDED.min_age,max_age=EXCLUDED.max_age,preferred_gender=EXCLUDED.preferred_gender,
          countries=EXCLUDED.countries,cities=EXCLUDED.cities,preferred_marriage_timeline=EXCLUDED.preferred_marriage_timeline,
          deal_breakers=EXCLUDED.deal_breakers,preferences=EXCLUDED.preferences,updated_at=now()`,
-        [u.id,min,max,countries,cities,text(b.preferredMarriageTimeline,120)||null,
+        [u.id,min,max,preferredGender,countries,cities,text(b.preferredMarriageTimeline,120)||null,
          JSON.stringify(b.dealBreakers&&typeof b.dealBreakers==="object"?b.dealBreakers:{}),
          JSON.stringify(b.preferences&&typeof b.preferences==="object"?b.preferences:{})]);
       await client.query("COMMIT");
