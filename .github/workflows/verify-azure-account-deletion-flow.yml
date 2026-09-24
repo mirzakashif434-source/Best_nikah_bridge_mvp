@@ -1,0 +1,36 @@
+name: Verify Azure Account Deletion Flow
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'azure-backend/src/account.js'
+      - 'app/src/main/java/com/nikahbridge/AccountDeletionActivity.java'
+      - 'azure-backend/database/schema.sql'
+      - '.github/workflows/verify-azure-account-deletion-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-azure-account-deletion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v5
+
+      - name: Verify Azure deletion implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check azure-backend/src/account.js
+          test -f app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -q 'AzureApiClient.delete("/account"' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -q 'route: "account"' azure-backend/src/account.js
+          grep -q 'azure_subject' azure-backend/src/account.js
+          grep -q 'getProfilePhotosContainer' azure-backend/src/account.js
+          grep -q 'getVerificationDocumentsContainer' azure-backend/src/account.js
+          grep -q 'DELETE FROM users WHERE id=\$1' azure-backend/src/account.js
+          grep -q 'ON DELETE CASCADE' azure-backend/database/schema.sql
+          echo "Azure account deletion flow verified."
