@@ -237,6 +237,16 @@ jobs:
           grep -Fq 'WindowInsetsCompat.Type.systemBars()' "$APP/OwnerLiveAnalyticsActivity.java"
           grep -Fq 'route:"owner/live-analytics"' azure-backend/src/ownerAnalytics.js
 
+          # Step 4 final lock: safety reports must use a real Azure member chooser, never raw technical IDs.
+          ! grep -Fq 'Reported real user ID' "$APP/AzureHomeActivity.java"
+          ! grep -Fq 'Reported user ID required' "$APP/AzureHomeActivity.java"
+          grep -Fq 'Choose Member to Report' "$APP/AzureHomeActivity.java"
+          grep -Fq 'AzureApiClient.get("/matches"' "$APP/AzureHomeActivity.java"
+          grep -Fq 'selectedReportedUserId' "$APP/AzureHomeActivity.java"
+          grep -Fq 'AzureApiClient.post("/safety/reports"' "$APP/AzureHomeActivity.java"
+          grep -Fq 'route: "safety/reports"' azure-backend/src/safety.js
+          grep -Fq 'Button back=button("Back",false);back.setOnClickListener(v->home());' "$APP/AzureHomeActivity.java"
+
           # Step 36: successful wallet refresh and transaction refresh are explicit.
           grep -Fq 'Wallet refreshed from Azure' "$APP/AzureWalletActivity.java"
           grep -Fq 'Azure transactions refreshed' "$APP/AzureWalletActivity.java"
