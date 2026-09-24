@@ -182,6 +182,28 @@ jobs:
             exit 1
           fi
           echo "LIVE AZURE EXTERNAL ID CONFIGURATION CHECK: PASS"
+      - name: Verify live Azure AI Nikah Assistant route is registered
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
+          URL="https://${HOSTNAME}/api/ai/nikah-assistant"
+          echo "Checking Azure AI Nikah Assistant route registration at $URL"
+          for i in 1 2 3 4 5 6; do
+            HTTP_CODE="$(curl -sS -X POST -H 'Content-Type: application/json' -d '{"messages":[{"role":"user","content":"test"}]}' -o /tmp/ai-route.json -w "%{http_code}" "$URL" || true)"
+            echo "Attempt $i: HTTP $HTTP_CODE"
+            cat /tmp/ai-route.json || true
+            if [ "$HTTP_CODE" != "404" ] && [ "$HTTP_CODE" != "000" ]; then
+              echo "AZURE AI NIKAH ASSISTANT ROUTE: PASS (HTTP $HTTP_CODE)"
+              break
+            fi
+            if [ "$i" = "6" ]; then
+              echo "AZURE AI NIKAH ASSISTANT ROUTE: FAIL (HTTP $HTTP_CODE)"
+              exit 1
+            fi
+            sleep 10
+          done
+
       - name: Verify live owner wallet route is registered
         run: |
           set -euo pipefail
@@ -189,13 +211,20 @@ jobs:
           HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
           URL="https://${HOSTNAME}/api/admin/owner/earnings"
           echo "Checking owner wallet route registration at $URL"
-          HTTP_CODE="$(curl -sS -o /tmp/owner-wallet-route.json -w "%{http_code}" "$URL" || true)"
-          cat /tmp/owner-wallet-route.json || true
-          if [ "$HTTP_CODE" = "404" ] || [ "$HTTP_CODE" = "000" ]; then
-            echo "OWNER WALLET ROUTE REGISTRATION: FAIL (HTTP $HTTP_CODE)"
-            exit 1
-          fi
-          echo "OWNER WALLET ROUTE REGISTRATION: PASS (HTTP $HTTP_CODE)"
+          for i in 1 2 3 4 5 6; do
+            HTTP_CODE="$(curl -sS -o /tmp/owner-wallet-route.json -w "%{http_code}" "$URL" || true)"
+            echo "Attempt $i: HTTP $HTTP_CODE"
+            cat /tmp/owner-wallet-route.json || true
+            if [ "$HTTP_CODE" != "404" ] && [ "$HTTP_CODE" != "000" ]; then
+              echo "OWNER WALLET ROUTE REGISTRATION: PASS (HTTP $HTTP_CODE)"
+              break
+            fi
+            if [ "$i" = "6" ]; then
+              echo "OWNER WALLET ROUTE REGISTRATION: FAIL (HTTP $HTTP_CODE)"
+              exit 1
+            fi
+            sleep 10
+          done
       - name: Verify live health endpoint
         run: |
           set -euo pipefail
