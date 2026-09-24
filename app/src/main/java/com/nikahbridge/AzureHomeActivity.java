@@ -312,16 +312,31 @@ public class AzureHomeActivity extends Activity {
                         out.setText("No interests yet.");
                         return;
                     }
-                    StringBuilder s=new StringBuilder();
+                    out.setText("");
                     for(int i=0;i<Math.min(a.length(),100);i++){
                         JSONObject x=a.optJSONObject(i);if(x==null)continue;
-                        s.append(x.optString("direction","").equals("received")?"Received from: ":"Sent to: ")
-                         .append(x.optString("display_name","Member"))
-                         .append("\nStatus: ").append(x.optString("status","pending"))
-                         .append("\nCountry/City: ").append(x.optString("country","")).append(" ").append(x.optString("city",""))
-                         .append("\n\n");
+                        String direction=x.optString("direction","");
+                        String statusValue=x.optString("status","pending");
+                        String interestId=x.optString("id","");
+                        String label=(direction.equals("received")?"Received from: ":"Sent to: ")
+                                +x.optString("display_name","Member")
+                                +"\nStatus: "+statusValue
+                                +"\nCountry/City: "+x.optString("country","")+" "+x.optString("city","");
+                        TextView cardText=text(label,15,false);
+                        root.addView(cardText);
+
+                        if("pending".equalsIgnoreCase(statusValue) && !interestId.isEmpty()){
+                            if("received".equals(direction)){
+                                Button accept=button("Accept Interest",true);
+                                Button decline=button("Decline Interest",false);
+                                accept.setOnClickListener(v->respondToInterest(interestId,"accepted"));
+                                decline.setOnClickListener(v->respondToInterest(interestId,"declined"));
+                            }else{
+                                Button cancel=button("Cancel Sent Interest",false);
+                                cancel.setOnClickListener(v->respondToInterest(interestId,"cancelled"));
+                            }
+                        }
                     }
-                    out.setText(s.toString());
                 }catch(Exception e){out.setText("Interests could not be displayed.");}
             });}
             public void err(String m){runOnUiThread(()->out.setText("Interests unavailable: "+m));}
@@ -338,6 +353,19 @@ public class AzureHomeActivity extends Activity {
             });
         }catch(Exception e){toast("Invalid recipient.");}});
         Button back=button("Back",false);back.setOnClickListener(v->home());
+    }
+
+    private void respondToInterest(String interestId,String newStatus){
+        try{
+            JSONObject b=new JSONObject();b.put("status",newStatus);
+            AzureApiClient.patch("/interests/"+interestId,b.toString(),new AzureApiClient.Callback(){
+                public void ok(int code,String body){runOnUiThread(()->{
+                    toast("Interest "+newStatus+".");
+                    interests();
+                });}
+                public void err(String m){runOnUiThread(()->toast("Interest update failed: "+m));}
+            });
+        }catch(Exception e){toast("Interest update failed.");}
     }
 
     private void familyWali(){
