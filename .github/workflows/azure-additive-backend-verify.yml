@@ -72,6 +72,9 @@ jobs:
           grep -Eq 'route:[[:space:]]*"help/ask"' azure-backend/src/helpLine.js
           grep -Eq 'route:[[:space:]]*"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
           grep -Eq 'route:[[:space:]]*"premium/plans"' azure-backend/src/premiumPlans.js
+          grep -Fq 'plan_key = ANY($1::text[])' azure-backend/src/premiumPlans.js
+          grep -Fq "WHERE plan_key IN ('premium_monthly','premium_yearly')" azure-backend/database/schema.sql
+          grep -Eq "SET active = FALSE" azure-backend/database/schema.sql
           grep -Eq 'route:[[:space:]]*"community/messages"' azure-backend/src/community.js
           grep -Fq 'getProfilePhotosContainer' azure-backend/src/photos.js
           grep -Fq 'getVerificationDocumentsContainer' azure-backend/src/verification.js
