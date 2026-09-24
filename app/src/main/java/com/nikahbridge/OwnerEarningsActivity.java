@@ -112,7 +112,7 @@ public class OwnerEarningsActivity extends Activity {
         summary.setText("Loading secure Azure Owner Wallet…");
         refresh.setEnabled(false);refresh.setText("Loading Owner Wallet…");
         signIn.setVisibility(android.view.View.GONE);
-        AzureApiClient.get("/admin/owner/earnings",new AzureApiClient.Callback(){
+        AzureApiClient.get("/owner/earnings",new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){
                 runOnUiThread(()->{
                     refresh.setEnabled(true);refresh.setText("Refresh Owner Wallet");
@@ -267,7 +267,7 @@ public class OwnerEarningsActivity extends Activity {
     }
 
     private void showPayoutHistory(){
-        AzureApiClient.get("/admin/owner/earnings",new AzureApiClient.Callback(){
+        AzureApiClient.get("/owner/earnings",new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){
                 runOnUiThread(()->{
                     try{
