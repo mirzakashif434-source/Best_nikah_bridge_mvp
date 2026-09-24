@@ -70,7 +70,7 @@ jobs:
           grep -Eq 'route:[[:space:]]*"blocks"' azure-backend/src/blocks.js
           grep -Eq 'route:[[:space:]]*"admin/verifications"' azure-backend/src/verification.js
           grep -Eq 'route:[[:space:]]*"help/ask"' azure-backend/src/helpLine.js
-          grep -Eq 'route:[[:space:]]*"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Eq 'route:[[:space:]]*"owner/earnings"' azure-backend/src/ownerEarnings.js
           grep -Eq 'route:[[:space:]]*"journey/summary"' azure-backend/src/journeySummary.js
           grep -Eq 'route:[[:space:]]*"premium/plans"' azure-backend/src/premiumPlans.js
           grep -Fq 'plan_key = ANY($1::text[])' azure-backend/src/premiumPlans.js
@@ -125,7 +125,7 @@ jobs:
           grep -Fq 'AzureAuthManager' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
           grep -Fq 'AzureAuthManager' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -Fq 'AzureApiClient.post("/help/ask"' app/src/main/java/com/nikahbridge/HelpLineActivity.java
-          grep -Fq 'AzureApiClient.get("/admin/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.get("/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           grep -Fq 'AzureApiClient.get("/admin/verifications"' app/src/main/java/com/nikahbridge/VerificationAdminActivity.java
           grep -Fq 'AzureApiClient.get("/blocks"' app/src/main/java/com/nikahbridge/BlockedMembersActivity.java
           grep -Fq 'AUTH_TIMEOUT_MS=12000L' app/src/main/java/com/nikahbridge/AzureApiClient.java
