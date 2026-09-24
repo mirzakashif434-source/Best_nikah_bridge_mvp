@@ -112,7 +112,7 @@ jobs:
           grep -Fq '20' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
           grep -Fq '40' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
           grep -Fq '60' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
-          grep -Fq 'Permanently Delete My Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -Fq 'Permanently Delete Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
           grep -Fq 'Family / Wali Connect' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
           grep -Fq 'Privacy Control Center' app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
           grep -Fq 'Identity Verification' app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
