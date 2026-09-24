@@ -87,7 +87,7 @@ public class OwnerLiveAnalyticsActivity extends Activity {
         dynamic.removeAllViews();
         wallet.setVisibility(android.view.View.GONE);
         signIn.setVisibility(android.view.View.GONE);
-        AzureApiClient.get("/owner/live-analytics",new AzureApiClient.Callback(){
+        AzureApiClient.get("/admin/owner/live-analytics",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 refresh.setEnabled(true);refresh.setText("Refresh Live Dashboard");
                 signIn.setVisibility(android.view.View.GONE);
