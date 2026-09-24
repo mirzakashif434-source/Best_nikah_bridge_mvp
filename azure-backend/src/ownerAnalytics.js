@@ -16,7 +16,7 @@ async function requireOwnerAdmin(user){
 }
 
 app.http("ownerLiveAnalyticsAzure",{
-  methods:["GET"],authLevel:"anonymous",route:"admin/owner/live-analytics",
+  methods:["GET"],authLevel:"anonymous",route:"owner/live-analytics",
   handler:requireAuth(async(request,context,user)=>{
     try{
       await requireOwnerAdmin(user);
