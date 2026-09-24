@@ -170,11 +170,15 @@ blocked=contains(APP/"BlockedMembersActivity.java",
     'AzureApiClient.get("/blocks"',
     'AzureApiClient.delete("/blocks/"+userId',
     'Button unblock=button("Unblock",true)',
+    'unblock.setOnClickListener(v->unblock(target,row,unblock))',
+    'final String target=userId;',
     'Button refresh=button("Refresh",false)',
     'Button back=button("Back",false)',
     'ScrollView',
     'WindowInsetsCompat.Type.systemBars()')
 need("Blocked Members leaked a technical member ID", "Member ID:" not in blocked)
+need("Blocked Members contains malformed literal \\n after a // comment",
+     re.search(r'//[^\n]*\\\\n\s*(Button|TextView|LinearLayout|AzureApiClient)', blocked) is None)
 blocks_backend=contains(AZ/"blocks.js",
     'route:"blocks"',
     'route:"blocks/{userId}"',
