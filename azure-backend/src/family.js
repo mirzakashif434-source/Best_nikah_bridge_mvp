@@ -40,6 +40,33 @@ app.http("familyLinksList",{
   })
 });
 
+app.http("familyLinksPendingForWali",{
+  methods:["GET"],authLevel:"anonymous",route:"family-links/pending-for-wali",
+  handler:requireAuth(async(request,context,user)=>{
+    try{
+      const me=await ensureUser(user);
+      if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      const email=text(user.email,320).toLowerCase();
+      const phone=text(user.phone_number,30);
+      if(!email&&!phone) return {status:200,jsonBody:{ok:true,familyLinks:[]}};
+      const r=await query(
+        `SELECT fl.id,fl.wali_name,fl.wali_email,fl.wali_phone_e164,fl.status,fl.created_at,
+                u.email AS owner_email,COALESCE(p.display_name,'Member') AS owner_name
+           FROM family_links fl
+           JOIN users u ON u.id=fl.user_id
+           LEFT JOIN profiles p ON p.user_id=u.id
+          WHERE fl.status='pending'
+            AND (($1<>'' AND lower(COALESCE(fl.wali_email,''))=$1)
+              OR ($2<>'' AND COALESCE(fl.wali_phone_e164,'')=$2))
+          ORDER BY fl.created_at DESC
+          LIMIT 50`,
+        [email,phone]
+      );
+      return {status:200,jsonBody:{ok:true,familyLinks:r.rows}};
+    }catch(e){context.error("FAMILY_LINKS_PENDING_FOR_WALI_FAILED",e);return {status:500,jsonBody:{ok:false,error:"FAMILY_LINKS_PENDING_FOR_WALI_FAILED"}};}
+  })
+});
+
 app.http("familyLinkCreate",{
   methods:["POST"],authLevel:"anonymous",route:"family-links",
   handler:requireAuth(async(request,context,user)=>{
