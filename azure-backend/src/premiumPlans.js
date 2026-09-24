@@ -52,19 +52,35 @@ app.http("getPremiumPlans", {
   route: "premium/plans",
   handler: requireAuth(async () => {
     const plans = requireConfiguredPlans();
+    const planKeys = plans.map((plan) => plan.planKey);
     const result = await query(
       `SELECT plan_key, display_name, billing_period, features
          FROM premium_plans
         WHERE active = TRUE
-        ORDER BY sort_order ASC`
+          AND plan_key = ANY($1::text[])
+        ORDER BY sort_order ASC`,
+      [planKeys]
     );
+
+    const rowsByKey = new Map(result.rows.map((row) => [row.plan_key, row]));
+    const missingDbPlans = plans.filter((plan) => !rowsByKey.has(plan.planKey)).map((plan) => plan.planKey);
+    if (missingDbPlans.length > 0) {
+      return {
+        status: 503,
+        jsonBody: {
+          ok: false,
+          error: "Premium catalog is not fully deployed.",
+          missingDbPlans
+        }
+      };
+    }
 
     return {
       status: 200,
       jsonBody: {
         ok: true,
-        plans: result.rows.map((row) => {
-          const config = plans.find((plan) => plan.planKey === row.plan_key);
+        plans: plans.map((config) => {
+          const row = rowsByKey.get(config.planKey);
           return {
             planKey: row.plan_key,
             productId: config.productId,
