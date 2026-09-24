@@ -32,7 +32,7 @@ public class ProductionMainActivity extends Activity {
     }
 
     private void checkPrivilegedAccess(){
-        AzureApiClient.get("/admin/owner/live-analytics",new AzureApiClient.Callback(){
+        AzureApiClient.get("/owner/live-analytics",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{if(!ownerAuthorized){ownerAuthorized=true;home();}});}
             public void err(String message){}
         });
