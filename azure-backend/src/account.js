@@ -34,11 +34,14 @@ app.http("accountDelete", {
       const photos = await client.query("SELECT blob_key FROM photos WHERE user_id=$1", [userId]);
       const documents = await client.query("SELECT document_blob_key FROM verifications WHERE user_id=$1 AND document_blob_key IS NOT NULL", [userId]);
 
-      await deleteBlobs(getProfilePhotosContainer(), photos.rows.map(x => x.blob_key));
-      await deleteBlobs(getVerificationDocumentsContainer(), documents.rows.map(x => x.document_blob_key));
-
+      // First prove that the relational delete can succeed inside one transaction.
+      // Blob deletion happens before COMMIT but only after the cascaded DB delete
+      // has succeeded, avoiding the old state where files could disappear while
+      // the database account remained because of a later relational failure.
       await client.query("BEGIN");
       await client.query("DELETE FROM users WHERE id=$1", [userId]);
+      await deleteBlobs(getProfilePhotosContainer(), photos.rows.map(x => x.blob_key));
+      await deleteBlobs(getVerificationDocumentsContainer(), documents.rows.map(x => x.document_blob_key));
       await client.query("COMMIT");
 
       // Azure External ID accounts use Azure subject identity for app-data deletion.
