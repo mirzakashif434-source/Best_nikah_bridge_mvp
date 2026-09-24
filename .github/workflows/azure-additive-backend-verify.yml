@@ -191,7 +191,7 @@ jobs:
           grep -Fq 'AzureApiClient.get("/journey/summary"' "$APP/NikahJourneyActivity.java"
           grep -Eq 'route:[[:space:]]*"journey/summary"' azure-backend/src/journeySummary.js
 
-          # Steps 20-24 + Future Simulation + Step 30: View Plans keeps source Activity alive.
+          # Steps 20-24 + Future Simulation + Step 30: never return to an empty gated Activity.
           python3 - <<'PY'
           from pathlib import Path
           t=Path("app/src/main/java/com/nikahbridge/PremiumFeatureGate.java").read_text()
@@ -200,7 +200,7 @@ jobs:
           end=t.index('.setNegativeButton("Not now"', start)
           block=t[start:end]
           assert "PremiumPlansActivity.class" in block
-          assert "a.finish()" not in block, "View Plans still destroys source Activity"
+          assert "a.finish()" in block, "View Plans can still return to an empty gated Activity"
           print("PREMIUM BACK STACK: PASS")
           PY
 
