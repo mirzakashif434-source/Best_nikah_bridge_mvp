@@ -13,8 +13,11 @@ public final class PremiumFeatureGate {
             LanguageManager.dialog(a)
                 .setTitle("Sign in required")
                 .setMessage("Sign in with Azure first so the app can verify your real account and premium access before opening this feature.")
-                .setPositiveButton("Sign in",(d,w)->a.startActivity(new Intent(a,AzureExternalAuthActivity.class)))
-                .setNegativeButton("Not now",null)
+                .setPositiveButton("Sign in",(d,w)->{
+                    a.startActivity(new Intent(a,AzureExternalAuthActivity.class));
+                    a.finish();
+                })
+                .setNegativeButton("Not now",(d,w)->a.finish())
                 .show();
             return;
         }
@@ -35,15 +38,18 @@ public final class PremiumFeatureGate {
                     LanguageManager.dialog(a)
                         .setTitle("Sign in required")
                         .setMessage("Your Azure session needs to be refreshed before this real feature can verify your account.")
-                        .setPositiveButton("Sign in",(d,w)->a.startActivity(new Intent(a,AzureExternalAuthActivity.class)))
-                        .setNegativeButton("Not now",null)
+                        .setPositiveButton("Sign in",(d,w)->{
+                            a.startActivity(new Intent(a,AzureExternalAuthActivity.class));
+                            a.finish();
+                        })
+                        .setNegativeButton("Not now",(d,w)->a.finish())
                         .show();
                 }else{
                     LanguageManager.dialog(a)
                         .setTitle("Could not verify access")
                         .setMessage("Your plan could not be verified right now. Check your connection and try again. No purchase is required unless Azure confirms the feature is locked.")
                         .setPositiveButton("Retry",(d,w)->require(a,feature,requiredPlan,allowed))
-                        .setNegativeButton("Back",null)
+                        .setNegativeButton("Back",(d,w)->a.finish())
                         .show();
                 }
             });}
@@ -54,8 +60,11 @@ public final class PremiumFeatureGate {
         LanguageManager.dialog(a)
             .setTitle("Serious Nikah Plus")
             .setMessage(requiredPlan+" is required for this advanced feature. Free matching, essential privacy/safety and basic Family Circle remain available.")
-            .setPositiveButton("View Plans",(d,w)->a.startActivity(new Intent(a,PremiumPlansActivity.class)))
-            .setNegativeButton("Not now",null)
+            .setPositiveButton("View Plans",(d,w)->{
+                a.startActivity(new Intent(a,PremiumPlansActivity.class));
+                a.finish();
+            })
+            .setNegativeButton("Not now",(d,w)->a.finish())
             .show();
     }
 }
