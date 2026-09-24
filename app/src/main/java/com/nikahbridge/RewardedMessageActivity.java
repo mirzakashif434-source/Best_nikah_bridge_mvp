@@ -110,10 +110,16 @@ public class RewardedMessageActivity extends Activity {
                 }
             }
             @Override public void err(String message) { runOnUiThread(() -> {
+                watch.setEnabled(false);
                 if(message!=null&&message.contains("PREMIUM_AD_FREE")){
                     status.setText("Serious Nikah Plus is ad-free. Rewarded ads are disabled for your paid plan.");
-                    watch.setEnabled(false);
-                }else status.setText("Azure rewarded configuration unavailable.");
+                }else if(message!=null&&(message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("401"))){
+                    status.setText("Your Azure session needs attention. Tap Back, sign in again, then reopen this screen.");
+                }else if(message!=null&&message.contains("412")){
+                    status.setText("Your Azure account is not active yet. Complete account setup, then try again.");
+                }else{
+                    status.setText("Rewarded ad service could not be reached. Tap Back and try again after Azure reconnects.");
+                }
             }); }
         });
     }
