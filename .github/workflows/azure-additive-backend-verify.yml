@@ -152,6 +152,11 @@ jobs:
           ! grep -Fq 'Conversation ID from a real mutual connection' "$APP/SafeCommunicationActivity.java"
           ! grep -Fq 'Real matched member ID' "$APP/CompatibilityDealBreakerActivity.java"
           ! grep -Fq 'Real matched member ID' "$APP/CompatibilityTrafficLightActivity.java"
+          grep -Fq 'matchChoices.addView(choose' "$APP/SmartSeriousQuestionsActivity.java"
+          grep -Fq 'matchChoices.addView(choose' "$APP/FamilyCircleActivity.java"
+          grep -Fq 'matchChoices.addView(choose' "$APP/TrustPassportActivity.java"
+          grep -Fq 'matchChoices.addView(choose' "$APP/CompatibilityDealBreakerActivity.java"
+          grep -Fq 'matchChoices.addView(choose' "$APP/CompatibilityTrafficLightActivity.java"
 
           # Step 13: silent token refresh must not unexpectedly launch interactive auth.
           python3 - <<'PY'
