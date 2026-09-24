@@ -67,7 +67,7 @@ app.http("releaseReadiness",{
         ok:ready,
         ready,
         checks,
-        releaseGate:"2026-09-24-18-issue-final"
+        releaseGate:"2026-09-25-zero-known-issue-final"
       }};
     }catch(e){
       context.error("RELEASE_READINESS_FAILED",e);
