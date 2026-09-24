@@ -3,8 +3,10 @@ const { query } = require("./db");
 
 const REQUIRED_TABLES = [
   "users","profiles","privacy_settings","verifications","conversations","family_links",
-  "premium_plans","premium_entitlements","owner_earnings","owner_earnings_summary",
-  "owner_provider_settlements","wallet_accounts","wallet_ledger"
+  "living_compatibility","blocked_users","user_presence","like_events","messages",
+  "photo_verification_sets","safety_reports","premium_plans","premium_entitlements",
+  "owner_earnings","owner_earnings_summary","owner_settlement_profile",
+  "owner_settlements","owner_provider_settlements","wallet_accounts","wallet_ledger"
 ];
 
 async function tableExists(name){
@@ -54,9 +56,12 @@ app.http("releaseReadiness",{
       checks.premiumEnvironment=envNames.every(n=>String(process.env[n]||"").trim().length>0);
       checks.rewardedAdConfigured=/^ca-app-pub-\d{16}\/\d+$/.test(String(process.env.ADMOB_REWARDED_AD_UNIT_ID||"").trim());
 
+      const ownerAdmins=await query("SELECT count(*)::int AS count FROM users WHERE status='active' AND role IN ('admin','moderator')");
+      checks.ownerAdminCount=Number(ownerAdmins.rows[0]?.count||0);
+
       const allTables=Object.values(checks.tables).every(Boolean);
       const allOwnerCols=Object.values(checks.ownerUsdColumns).every(Boolean);
-      const ready=allTables && allOwnerCols && checks.premiumPlanCount===3 && checks.premiumEnvironment && checks.rewardedAdConfigured;
+      const ready=allTables && allOwnerCols && checks.premiumPlanCount===3 && checks.premiumEnvironment && checks.rewardedAdConfigured && checks.ownerAdminCount>0;
 
       return {status:ready?200:503,jsonBody:{
         ok:ready,
