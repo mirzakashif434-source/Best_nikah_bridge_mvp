@@ -247,6 +247,17 @@ jobs:
           grep -Fq 'route: "safety/reports"' azure-backend/src/safety.js
           grep -Fq 'Button back=button("Back",false);back.setOnClickListener(v->home());' "$APP/AzureHomeActivity.java"
 
+          # Step 5 final lock: no user-facing raw member/conversation identifiers anywhere in Android UI source.
+          ! grep -RInF 'Member ID:' "$APP" --include='*.java'
+          ! grep -RInF 'Real member ID' "$APP" --include='*.java'
+          ! grep -RInF 'Real matched member ID' "$APP" --include='*.java'
+          ! grep -RInF 'Reported real user ID' "$APP" --include='*.java'
+          ! grep -RInF 'Reported user ID required' "$APP" --include='*.java'
+          ! grep -RInF 'Conversation ID from a real mutual connection' "$APP" --include='*.java'
+          grep -Fq 'Secure member IDs stay hidden.' "$APP/FamilyCircleActivity.java"
+          grep -Fq 'Secure member IDs stay hidden.' "$APP/CompatibilityDealBreakerActivity.java"
+          grep -Fq 'Secure member IDs stay hidden.' "$APP/CompatibilityTrafficLightActivity.java"
+
           # Step 36: successful wallet refresh and transaction refresh are explicit.
           grep -Fq 'Wallet refreshed from Azure' "$APP/AzureWalletActivity.java"
           grep -Fq 'Azure transactions refreshed' "$APP/AzureWalletActivity.java"
