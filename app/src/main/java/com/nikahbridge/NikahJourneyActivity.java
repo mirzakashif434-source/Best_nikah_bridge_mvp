@@ -73,44 +73,38 @@ public class NikahJourneyActivity extends Activity {
     }
 
     private void load(){
-        profileReady=blueprintReady=verified=hasMatches=hasConversation=hasFamily=false;hadLoadError=false;refresh.setEnabled(true);stages.removeAllViews();summary.setText("Checking your real Azure progress…");
-        AzureApiClient.get("/profile",new AzureApiClient.Callback(){
-            public void ok(int c,String b){try{JSONObject p=new JSONObject(b).optJSONObject("profile");profileReady=p!=null&&p.optBoolean("profile_completed",false);}catch(Exception ignored){}loadLiving();}
-            public void err(String m){hadLoadError=true;loadLiving();}
-        });
-    }
-    private void loadLiving(){
-        AzureApiClient.get("/compatibility/living",new AzureApiClient.Callback(){
-            public void ok(int c,String b){try{JSONObject v=new JSONObject(b).optJSONObject("living");blueprintReady=v!=null&&!v.optString("marriage_timeline","").isEmpty()&&!v.optString("family_involvement","").isEmpty()&&!v.optString("children_expectation","").isEmpty();}catch(Exception ignored){}loadVerification();}
-            public void err(String m){hadLoadError=true;loadVerification();}
-        });
-    }
-    private void loadVerification(){
-        AzureApiClient.get("/verification",new AzureApiClient.Callback(){
-            public void ok(int c,String b){try{JSONArray a=new JSONObject(b).optJSONArray("verifications");if(a!=null)for(int i=0;i<a.length();i++)if("approved".equalsIgnoreCase(a.optJSONObject(i).optString("status")))verified=true;}catch(Exception ignored){}loadMatches();}
-            public void err(String m){hadLoadError=true;loadMatches();}
-        });
-    }
-    private void loadMatches(){
-        AzureApiClient.get("/matches",new AzureApiClient.Callback(){
-            public void ok(int c,String b){try{hasMatches=new JSONObject(b).optInt("count",0)>0;}catch(Exception ignored){}loadConversations();}
-            public void err(String m){
-                if(m!=null&&m.contains("PROFILE_NOT_READY")) hasMatches=false;
-                else hadLoadError=true;
-                loadConversations();
-            }
-        });
-    }
-    private void loadConversations(){
-        AzureApiClient.get("/conversations",new AzureApiClient.Callback(){
-            public void ok(int c,String b){try{JSONArray a=new JSONObject(b).optJSONArray("conversations");hasConversation=a!=null&&a.length()>0;}catch(Exception ignored){}loadFamily();}
-            public void err(String m){hadLoadError=true;loadFamily();}
-        });
-    }
-    private void loadFamily(){
-        AzureApiClient.get("/family-links",new AzureApiClient.Callback(){
-            public void ok(int c,String b){try{JSONArray a=new JSONObject(b).optJSONArray("familyLinks");hasFamily=a!=null&&a.length()>0;}catch(Exception ignored){}show();}
-            public void err(String m){hadLoadError=true;show();}
+        profileReady=blueprintReady=verified=hasMatches=hasConversation=hasFamily=false;
+        hadLoadError=false;
+        refresh.setEnabled(false);
+        refresh.setText("Loading My Journey…");
+        stages.removeAllViews();
+        summary.setText("Checking your real Azure progress…");
+        AzureApiClient.get("/journey/summary",new AzureApiClient.Callback(){
+            public void ok(int c,String b){runOnUiThread(()->{
+                try{
+                    JSONObject o=new JSONObject(b);
+                    profileReady=o.optBoolean("profileReady",false);
+                    blueprintReady=o.optBoolean("blueprintReady",false);
+                    verified=o.optBoolean("verified",false);
+                    hasMatches=o.optBoolean("hasMatches",false);
+                    hasConversation=o.optBoolean("hasConversation",false);
+                    hasFamily=o.optBoolean("hasFamily",false);
+                    refresh.setEnabled(true);
+                    refresh.setText("Refresh My Journey");
+                    show();
+                }catch(Exception e){
+                    hadLoadError=true;
+                    refresh.setEnabled(true);
+                    refresh.setText("Refresh My Journey");
+                    show();
+                }
+            });}
+            public void err(String m){runOnUiThread(()->{
+                hadLoadError=true;
+                refresh.setEnabled(true);
+                refresh.setText("Refresh My Journey");
+                show();
+            });}
         });
     }
 
