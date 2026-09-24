@@ -50,7 +50,9 @@ app.http("familyLinkCreate",{
       const name=text(b.waliName,120);
       const email=text(b.waliEmail,320).toLowerCase();
       const phone=text(b.waliPhoneE164,30);
-      if(!name || (!email && !phone)) return {status:400,jsonBody:{ok:false,error:"WALI_NAME_AND_CONTACT_REQUIRED"}};
+      if(name.length<2 || (!email && !phone)) return {status:400,jsonBody:{ok:false,error:"WALI_NAME_AND_CONTACT_REQUIRED"}};
+      if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return {status:400,jsonBody:{ok:false,error:"WALI_EMAIL_INVALID"}};
+      if(phone && !/^\+[1-9]\d{7,14}$/.test(phone)) return {status:400,jsonBody:{ok:false,error:"WALI_PHONE_E164_INVALID"}};
       if(email===me.email) return {status:400,jsonBody:{ok:false,error:"WALI_MUST_BE_SEPARATE_ACCOUNT"}};
       await query("UPDATE family_links SET status='revoked' WHERE user_id=$1 AND status IN ('pending','verified')",[me.id]);
       const r=await query(
