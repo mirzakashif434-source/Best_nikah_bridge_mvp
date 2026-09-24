@@ -38,6 +38,7 @@ public class TrustPassportActivity extends Activity {
     }
     private TextView txt(String x,int z,boolean bold){TextView t=new TextView(this);t.setText(x);t.setTextSize(z);t.setTextColor(bold?dark:gray);t.setPadding(dp(6),dp(8),dp(6),dp(10));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
     private Button btn(String x,boolean fill){Button b=new Button(this);b.setText(x);b.setAllCaps(false);b.setTextSize(16);b.setTextColor(fill?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(fill?green:Color.WHITE);g.setCornerRadius(dp(18));if(!fill)g.setStroke(dp(2),green);b.setBackground(g);root.addView(b,new LinearLayout.LayoutParams(-1,dp(62)));return b;}
+    private Button choiceBtn(String x){Button b=new Button(this);b.setText(x);b.setAllCaps(false);b.setTextSize(16);b.setTextColor(green);GradientDrawable g=new GradientDrawable();g.setColor(Color.WHITE);g.setCornerRadius(dp(18));g.setStroke(dp(2),green);b.setBackground(g);return b;}
     private EditText input(String h){EditText e=new EditText(this);e.setHint(h);e.setTextSize(16);root.addView(e,new LinearLayout.LayoutParams(-1,dp(62)));return e;}
 
     private void render(){
@@ -82,7 +83,8 @@ public class TrustPassportActivity extends Activity {
                         String id=m.optString("userId","").trim();if(id.isEmpty())continue;
                         String name=m.optString("displayName","Member").trim();
                         final String matchId=id,matchName=name.isEmpty()?"Member":name;
-                        Button choose=btn("Choose "+matchName,false);
+                        Button choose=choiceBtn("Choose "+matchName);
+                        matchChoices.addView(choose,new LinearLayout.LayoutParams(-1,dp(56)));
                         choose.setOnClickListener(v->{
                             selectedMatchId=matchId;
                             matchStatus.setText("Selected: "+matchName);
