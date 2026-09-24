@@ -19,8 +19,17 @@ jobs:
           set -euo pipefail
           grep -q 'api://4733ae40-3b89-4994-b99b-3890bf87e876/access_as_user' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           ! grep -q 'MsalUiRequiredException' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          grep -q 'Any silent-token failure' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          grep -q 'acquireTokenInteractive' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'Background API calls must never unexpectedly open' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -q 'static void acquireTokenInteractive' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path("app/src/main/java/com/nikahbridge/AzureAuthManager.java").read_text()
+          start=t.index("private static void acquireTokenSilentForWaiters()")
+          end=t.index("static void acquireTokenInteractive(", start)
+          silent=t[start:end]
+          assert "acquireTokenInteractiveForWaiters();" not in silent, "Silent token flow still auto-launches interactive sign-in"
+          print("SILENT TOKEN DOES NOT AUTO-NAVIGATE: PASS")
+          PY
           grep -q 'cachedAccessToken' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'clearCachedToken' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -q 'bindActivity' app/src/main/java/com/nikahbridge/AzureAuthManager.java
@@ -30,7 +39,7 @@ jobs:
           grep -q 'AzureAuthManager.bindActivity(this)' app/src/main/java/com/nikahbridge/AzureHomeActivity.java
           grep -q '"client_id": "f5fc2b11-420f-4741-9a52-65d60cbddb7b"' app/src/main/res/raw/auth_config.json
           grep -q '"type": "CIAM"' app/src/main/res/raw/auth_config.json
-          echo "AZURE AUTH LOCK: External ID + API scope + silent-first recovery + interactive fallback wiring preserved."
+          echo "AZURE AUTH LOCK: External ID + silent background auth + explicit user-initiated interactive recovery preserved."
 
       - name: Compile Android auth path
         shell: bash
