@@ -16,7 +16,10 @@ public class FamilyCircleActivity extends Activity {
     private LinearLayout root,membersBox,invitesBox,suggestionsBox;
     private TextView status;
     private Spinner role;
-    private EditText suggestedUser,note;
+    private EditText note;
+    private LinearLayout matchChoices;
+    private TextView selectedMatch;
+    private String selectedSuggestedUserId="";
     private String lastInviteLink,lastInviteShareUrl,myRole="";
 
     public static void savePendingInvite(android.content.Context c,String token){
@@ -101,9 +104,11 @@ public class FamilyCircleActivity extends Activity {
         membersBox=new LinearLayout(this);membersBox.setOrientation(LinearLayout.VERTICAL);root.addView(membersBox);
 
         root.addView(Premium2030Ui.section(this,"Suggest a Serious Match"));
-        suggestedUser=input("Real member ID");
+        selectedMatch=Premium2030Ui.subtitle(this,"Loading your real Azure matches…");root.addView(selectedMatch);
+        matchChoices=new LinearLayout(this);matchChoices.setOrientation(LinearLayout.VERTICAL);root.addView(matchChoices);
         note=input("Optional family note");
-        Button suggest=btn("Suggest Match to Circle Owner",true);suggest.setOnClickListener(v->suggest());
+        Button suggest=btn("Suggest Selected Match to Circle Owner",true);suggest.setOnClickListener(v->suggest());
+        loadSuggestionMatches();
 
         root.addView(Premium2030Ui.section(this,"Family Suggestions"));
         suggestionsBox=new LinearLayout(this);suggestionsBox.setOrientation(LinearLayout.VERTICAL);root.addView(suggestionsBox);
@@ -233,14 +238,43 @@ public class FamilyCircleActivity extends Activity {
         startActivity(Intent.createChooser(send,"Share Family Circle Invite"));
     }
 
+    private void loadSuggestionMatches(){
+        if(!AzureAuthManager.hasAccount(this))return;
+        AzureApiClient.get("/matches",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("matches");
+                    matchChoices.removeAllViews();
+                    if(a==null||a.length()==0){selectedMatch.setText("No real compatible matches are available yet.");return;}
+                    selectedMatch.setText("Choose a real match below. Secure member IDs stay hidden.");
+                    for(int i=0;i<Math.min(a.length(),50);i++){
+                        JSONObject m=a.optJSONObject(i);if(m==null)continue;
+                        String id=m.optString("userId","").trim();if(id.isEmpty())continue;
+                        String name=m.optString("displayName","Member").trim();
+                        final String matchId=id,matchName=name.isEmpty()?"Member":name;
+                        Button choose=btn("Choose "+matchName,false);
+                        choose.setOnClickListener(v->{selectedSuggestedUserId=matchId;selectedMatch.setText("Selected: "+matchName);});
+                    }
+                }catch(Exception e){selectedMatch.setText("Real Azure matches could not be displayed.");}
+            });}
+            public void err(String e){runOnUiThread(()->selectedMatch.setText("Real Azure matches are temporarily unavailable."));}
+        });
+    }
+
     private void suggest(){
-        String id=suggestedUser.getText().toString().trim();
-        if(id.isEmpty()){LanguageManager.setError(suggestedUser,"Real member ID required");return;}
+        String id=selectedSuggestedUserId.trim();
+        if(id.isEmpty()){status.setText("Status: choose a real match first");return;}
         try{
             JSONObject b=new JSONObject().put("suggestedUserId",id).put("note",note.getText().toString().trim());
             status.setText("Status: sending family suggestion…");
             AzureApiClient.post("/family-circle/suggestions",b.toString(),new AzureApiClient.Callback(){
-                public void ok(int c,String s){runOnUiThread(()->{suggestedUser.setText("");note.setText("");status.setText("Status: match suggestion stored securely");loadSuggestions();});}
+                public void ok(int c,String s){runOnUiThread(()->{
+                    selectedSuggestedUserId="";
+                    selectedMatch.setText("Choose another real match below.");
+                    note.setText("");
+                    status.setText("Status: match suggestion stored securely");
+                    loadSuggestions();
+                });}
                 public void err(String e){runOnUiThread(()->status.setText("Status: match suggestion failed")); }
             });
         }catch(Exception e){status.setText("Status: suggestion request error");}
