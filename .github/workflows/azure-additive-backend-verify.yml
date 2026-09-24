@@ -195,6 +195,13 @@ jobs:
           # Step 17: one reliable Azure summary endpoint replaces the fragile six-call chain.
           grep -Fq 'AzureApiClient.get("/journey/summary"' "$APP/NikahJourneyActivity.java"
           grep -Eq 'route:[[:space:]]*"journey/summary"' azure-backend/src/journeySummary.js
+          ! grep -Fq 'Some Azure journey data could not be loaded' "$APP/NikahJourneyActivity.java"
+          ! grep -Fq 'Currently visible:' "$APP/NikahJourneyActivity.java"
+          ! grep -Fq 'hadLoadError' "$APP/NikahJourneyActivity.java"
+          grep -Fq 'Journey service is temporarily unavailable. Tap Refresh My Journey.' "$APP/NikahJourneyActivity.java"
+          grep -Fq 'Journey progress:' "$APP/NikahJourneyActivity.java"
+          grep -Fq 'btn("Back",false)' "$APP/NikahJourneyActivity.java"
+          grep -Fq 'refresh=btn("Refresh My Journey",true)' "$APP/NikahJourneyActivity.java"
 
           # Steps 20-24 + Future Simulation + Step 30: keep source Activity alive so Back never lands on a blank screen.
           python3 - <<'PY'
