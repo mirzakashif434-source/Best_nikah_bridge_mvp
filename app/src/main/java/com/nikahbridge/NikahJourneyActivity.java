@@ -25,7 +25,7 @@ public class NikahJourneyActivity extends Activity {
         super.onCreate(b);
         AzureAuthManager.bindActivity(this);
         render();
-        if(!AzureAuthManager.hasAccount(this)) showAuthRecovery(); else load();
+        recoverAzureSessionAndLoad();
     }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private TextView txt(String s,int z,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(z);t.setTextColor(bold?dark:gray);t.setPadding(dp(6),dp(8),dp(6),dp(10));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
@@ -43,8 +43,24 @@ public class NikahJourneyActivity extends Activity {
         root.addView(txt("My Nikah Journey",27,true));root.addView(txt("Progress is based only on real Azure profile, verification, matching, conversation and family records.",15,false));
         summary=txt("Checking your real Azure progress…",18,true);root.addView(summary);
         stages=new LinearLayout(this);stages.setOrientation(LinearLayout.VERTICAL);root.addView(stages);
-        refresh=btn("Refresh My Journey",true);root.addView(refresh,new LinearLayout.LayoutParams(-1,dp(62)));refresh.setOnClickListener(v->{if(!AzureAuthManager.hasAccount(this))showAuthRecovery();else load();});
+        refresh=btn("Refresh My Journey",true);root.addView(refresh,new LinearLayout.LayoutParams(-1,dp(62)));refresh.setOnClickListener(v->recoverAzureSessionAndLoad());
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
+    }
+
+    private void recoverAzureSessionAndLoad(){
+        refresh.setEnabled(false);
+        summary.setText("Checking your Azure session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){
+                runOnUiThread(()->{
+                    refresh.setEnabled(true);
+                    load();
+                });
+            }
+            @Override public void err(String message){
+                runOnUiThread(()->showAuthRecovery());
+            }
+        });
     }
 
     private void showAuthRecovery(){
@@ -52,7 +68,7 @@ public class NikahJourneyActivity extends Activity {
         summary.setText("Azure sign in is required to load your real Nikah Journey.");
         refresh.setEnabled(false);
         Button signIn=btn("Sign in with Azure",true);
-        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        signIn.setOnClickListener(v->recoverAzureSessionAndLoad());
         stages.addView(signIn,new LinearLayout.LayoutParams(-1,dp(62)));
     }
 
