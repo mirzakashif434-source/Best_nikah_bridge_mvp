@@ -225,6 +225,23 @@ jobs:
             fi
             sleep 10
           done
+      - name: Verify live final repair routes are registered
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
+          for PATH in premium/plans admin/owner/live-analytics admin/owner/earnings wallet wallet/transactions family-links/pending-for-wali; do
+            URL="https://${HOSTNAME}/api/${PATH}"
+            CODE="$(curl -sS -o /tmp/final-route.json -w "%{http_code}" "$URL" || true)"
+            echo "$PATH -> HTTP $CODE"
+            cat /tmp/final-route.json || true
+            case "$CODE" in
+              200|400|401|403|405|409|412) ;;
+              *) echo "FINAL REPAIR LIVE ROUTE CHECK FAILED: $PATH HTTP $CODE"; exit 1 ;;
+            esac
+          done
+          echo "FINAL REPAIR LIVE ROUTES: PASS"
+
       - name: Verify live health endpoint
         run: |
           set -euo pipefail
