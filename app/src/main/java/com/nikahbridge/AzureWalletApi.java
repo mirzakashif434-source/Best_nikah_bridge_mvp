@@ -16,10 +16,10 @@ final class AzureWalletApi {
 
     interface Callback { void onSuccess(String body); void onError(String message); }
 
-    static void get(String path, Callback callback) { request("GET", path, null, callback); }
-    static void post(String path, String json, Callback callback) { request("POST", path, json, callback); }
+    static void get(String path, Callback callback) { request("GET", path, null, callback, false); }
+    static void post(String path, String json, Callback callback) { request("POST", path, json, callback, false); }
 
-    private static void request(String method, String path, String json, Callback callback) {
+    private static void request(String method, String path, String json, Callback callback, boolean retried) {
         AzureAuthManager.acquireToken(new AzureAuthManager.Callback() {
             @Override public void ok(String token) {
                 EXECUTOR.execute(() -> {
@@ -39,8 +39,21 @@ final class AzureWalletApi {
                         int code = c.getResponseCode();
                         InputStream stream = code >= 400 ? c.getErrorStream() : c.getInputStream();
                         String body = read(stream);
-                        if (code >= 200 && code < 300) callback.onSuccess(body);
-                        else callback.onError("HTTP " + code + (body.isEmpty() ? "" : ": " + body));
+                        if (code >= 200 && code < 300) {
+                            callback.onSuccess(body);
+                        } else if (code == 401 && !retried) {
+                            AzureAuthManager.clearCachedToken();
+                            request(method, path, json, callback, true);
+                        } else {
+                            String safe = "WALLET_REQUEST_FAILED";
+                            try {
+                                org.json.JSONObject o = new org.json.JSONObject(body);
+                                String server = o.optString("error","");
+                                if (!server.isEmpty()) safe = server;
+                            } catch (Exception ignored) {}
+                            if (code == 401) safe = "AZURE_SIGN_IN_REQUIRED";
+                            callback.onError(safe);
+                        }
                     } catch (Exception e) { callback.onError(e.getMessage() == null ? "NETWORK_ERROR" : e.getMessage()); }
                     finally { if (c != null) c.disconnect(); }
                 });
