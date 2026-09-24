@@ -2,16 +2,17 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import androidx.core.content.FileProvider;
+import java.io.File;
 import android.widget.*;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 
 public class IdentityVerificationActivity extends Activity{
- LinearLayout root;Spinner type;TextView status,fileLabel,selfieLabel;Uri selected;Bitmap selfie;
+ LinearLayout root;Spinner type;TextView status,fileLabel,selfieLabel;Uri selected,selfieUri;
  public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);build();load();}
  int dp(int v){return Premium2030Ui.dp(this,v);}
  Button btn(String s,boolean primary){Button b=primary?Premium2030Ui.primary(this,s):Premium2030Ui.secondary(this,s);Premium2030Ui.addButton(root,b);return b;}
@@ -38,9 +39,47 @@ public class IdentityVerificationActivity extends Activity{
    status=Premium2030Ui.subtitle(this,"Status: loading…");status.setGravity(android.view.Gravity.START);root.addView(status);
    Button back=btn("Back",false);back.setOnClickListener(v->finish());
  }
- void takeSelfie(){Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);if(i.resolveActivity(getPackageManager())==null){status.setText("Status: camera is unavailable");return;}startActivityForResult(i,42);}
- protected void onActivityResult(int r,int code,Intent data){super.onActivityResult(r,code,data);if(code!=RESULT_OK||data==null)return;if(r==41){selected=data.getData();fileLabel.setText(selected==null?"No document selected":"Document selected securely");}else if(r==42&&data.getExtras()!=null&&data.getExtras().get("data") instanceof Bitmap){selfie=(Bitmap)data.getExtras().get("data");selfieLabel.setText("Current camera selfie captured");}}
+ void takeSelfie(){
+   try{
+     File dir=new File(getCacheDir(),"verification-selfie");
+     if(!dir.exists()&&!dir.mkdirs()){status.setText("Status: secure selfie storage is unavailable");return;}
+     File file=File.createTempFile("selfie-", ".jpg", dir);
+     selfieUri=FileProvider.getUriForFile(this,getPackageName()+".fileprovider",file);
+     Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+     if(i.resolveActivity(getPackageManager())==null){status.setText("Status: camera is unavailable");return;}
+     i.putExtra(MediaStore.EXTRA_OUTPUT,selfieUri);
+     i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION);
+     startActivityForResult(i,42);
+   }catch(Exception e){status.setText("Status: camera could not start securely");}
+ }
+ protected void onActivityResult(int r,int code,Intent data){
+   super.onActivityResult(r,code,data);
+   if(code!=RESULT_OK)return;
+   if(r==41){
+     if(data==null)return;
+     selected=data.getData();
+     fileLabel.setText(selected==null?"No document selected":"Document selected securely");
+   }else if(r==42&&selfieUri!=null){
+     selfieLabel.setText("Full-resolution current camera selfie captured");
+   }
+ }
  void load(){AzureApiClient.get("/verification",new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->{try{org.json.JSONArray a=new org.json.JSONObject(s).optJSONArray("verifications");int approved=0,pending=0;if(a!=null)for(int i=0;i<a.length();i++){String st=a.optJSONObject(i).optString("status");if("approved".equals(st))approved++;if("pending".equals(st))pending++;}status.setText("Status: Azure verification loaded • approved "+approved+" • pending "+pending);}catch(Exception e){status.setText("Status: Azure verification loaded");}});}public void err(String e){runOnUiThread(()->status.setText("Status: Azure verification status unavailable"));}});}
  void submitDocument(){if(selected==null){status.setText("Status: choose a document first");return;}try{InputStream in=getContentResolver().openInputStream(selected);ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n,total=0;while((n=in.read(b))>0){total+=n;if(total>8*1024*1024)throw new Exception("Document too large");out.write(b,0,n);}in.close();String mime=getContentResolver().getType(selected);if(mime==null)mime="application/octet-stream";String name="verification-"+System.currentTimeMillis();String ext=mime.equals("application/pdf")?".pdf":mime.equals("image/png")?".png":".jpg";status.setText("Status: uploading ID securely to Azure…");AzureApiClient.multipart("/verification/identity","document",name+ext,mime,out.toByteArray(),new String[]{"documentType"},new String[]{String.valueOf(type.getSelectedItem())},new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->status.setText("Status: ID submitted to Azure — pending authorized review"));}public void err(String e){runOnUiThread(()->status.setText(e!=null&&e.contains("AGE_18_PLUS_REQUIRED")?"Status: ❌ Verification is only for age 18+.":"Status: Azure ID submission failed"));}});}catch(Exception e){status.setText("Status: document could not be prepared");}}
- void submitSelfie(){if(selfie==null){status.setText("Status: take a current selfie first");return;}ByteArrayOutputStream out=new ByteArrayOutputStream();selfie.compress(Bitmap.CompressFormat.JPEG,92,out);byte[] bytes=out.toByteArray();if(bytes.length==0||bytes.length>4*1024*1024){status.setText("Status: selfie size is invalid");return;}status.setText("Status: uploading current selfie securely to Azure…");AzureApiClient.multipart("/verification/selfie","selfie","selfie-"+System.currentTimeMillis()+".jpg","image/jpeg",bytes,new String[]{},new String[]{},new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->status.setText("Status: selfie submitted — pending authorized review"));}public void err(String e){runOnUiThread(()->status.setText(e!=null&&e.contains("AGE_18_PLUS_REQUIRED")?"Status: ❌ Verification is only for age 18+.":"Status: Azure selfie submission failed"));}});}
+ void submitSelfie(){
+   if(selfieUri==null){status.setText("Status: take a current selfie first");return;}
+   try{
+     InputStream in=getContentResolver().openInputStream(selfieUri);
+     if(in==null){status.setText("Status: selfie could not be read");return;}
+     ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n,total=0;
+     while((n=in.read(b))>0){total+=n;if(total>4*1024*1024){in.close();status.setText("Status: selfie is larger than 4 MB. Retake in normal camera quality.");return;}out.write(b,0,n);}
+     in.close();
+     byte[] bytes=out.toByteArray();
+     if(bytes.length==0){status.setText("Status: selfie size is invalid");return;}
+     status.setText("Status: uploading full-resolution current selfie securely to Azure…");
+     AzureApiClient.multipart("/verification/selfie","selfie","selfie-"+System.currentTimeMillis()+".jpg","image/jpeg",bytes,new String[]{},new String[]{},new AzureApiClient.Callback(){
+       public void ok(int c,String s){runOnUiThread(()->status.setText("Status: selfie submitted — pending authorized review"));}
+       public void err(String e){runOnUiThread(()->status.setText(e!=null&&e.contains("AGE_18_PLUS_REQUIRED")?"Status: ❌ Verification is only for age 18+.":"Status: Azure selfie submission failed"));}
+     });
+   }catch(Exception e){status.setText("Status: selfie could not be prepared securely");}
+ }
 }
