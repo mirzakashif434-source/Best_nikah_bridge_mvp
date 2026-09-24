@@ -265,6 +265,12 @@ jobs:
 
           echo "18-ISSUE FINAL REPAIR GATE: PASS"
 
+      - name: Locked feature regression contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_locked_feature_contracts.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
