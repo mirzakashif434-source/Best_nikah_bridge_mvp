@@ -35,11 +35,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq 'AzureApiClient.get("/admin/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.get("/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           grep -Fq 'AzureApiClient.post("/admin/owner/provider-settlement"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           grep -Fq 'AzureApiClient.delete("/account"' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
           grep -Eq 'route:[[:space:]]*"account"' azure-backend/src/account.js
-          grep -Eq 'route:[[:space:]]*"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Eq 'route:[[:space:]]*"owner/earnings"' azure-backend/src/ownerEarnings.js
           grep -Eq 'route:[[:space:]]*"admin/owner/provider-settlement"' azure-backend/src/ownerEarnings.js
           echo "STEP 7 AZURE OWNER/WALLET + ACCOUNT DELETE: PASS"
 
