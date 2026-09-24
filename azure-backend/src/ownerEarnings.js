@@ -10,7 +10,7 @@ function currency(v){const c=clean(v,10).toUpperCase();if(!["SAR","USD","PKR","U
 function validDestination(c,v){const d=clean(v,300);if(d.length<6)return false;if(c==="USDT"&&!(/^(T[1-9A-HJ-NP-Za-km-z]{33}|0x[a-fA-F0-9]{40})$/.test(d)))return false;return true;}
 async function admin(user){const r=await query("SELECT id,role,status FROM users WHERE (azure_subject=$1 OR firebase_uid=$1) AND status='active' LIMIT 1",[user.azure_subject||user.uid]);if(!r.rows[0]||!["admin","moderator"].includes(r.rows[0].role))throw Object.assign(new Error("ADMIN_REQUIRED"),{statusCode:403});return r.rows[0];}
 
-app.http("ownerEarningsDashboardAzure",{methods:["GET"],authLevel:"anonymous",route:"admin/owner/earnings",handler:requireAuth(async(request,context,user)=>{
+app.http("ownerEarningsDashboardAzure",{methods:["GET"],authLevel:"anonymous",route:"owner/earnings",handler:requireAuth(async(request,context,user)=>{
  try{await admin(user);const [s,rows,plans,settlements,providerPayouts]=await Promise.all([
   query("SELECT * FROM owner_earnings_summary WHERE id=true"),
   query("SELECT oe.id,oe.product_id,oe.order_id,oe.status,oe.plan_value_sar_minor,oe.created_at,oe.verified_at,u.azure_subject,u.email FROM owner_earnings oe LEFT JOIN users u ON u.id=oe.user_id ORDER BY oe.created_at DESC LIMIT 500"),
