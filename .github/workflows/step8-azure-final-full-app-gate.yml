@@ -159,6 +159,12 @@ jobs:
 
           echo "ZERO KNOWN ISSUE SOURCE GATE: PASS"
 
+      - name: Locked feature regression contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_locked_feature_contracts.py
+
       - name: Set up Node 22
         uses: actions/setup-node@v5
         with:
