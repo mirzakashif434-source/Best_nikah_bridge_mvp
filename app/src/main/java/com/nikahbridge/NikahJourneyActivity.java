@@ -94,7 +94,11 @@ public class NikahJourneyActivity extends Activity {
     private void loadMatches(){
         AzureApiClient.get("/matches",new AzureApiClient.Callback(){
             public void ok(int c,String b){try{hasMatches=new JSONObject(b).optInt("count",0)>0;}catch(Exception ignored){}loadConversations();}
-            public void err(String m){hadLoadError=true;loadConversations();}
+            public void err(String m){
+                if(m!=null&&m.contains("PROFILE_NOT_READY")) hasMatches=false;
+                else hadLoadError=true;
+                loadConversations();
+            }
         });
     }
     private void loadConversations(){
