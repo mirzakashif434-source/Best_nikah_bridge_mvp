@@ -431,20 +431,44 @@ public class AzureHomeActivity extends Activity {
                         out.setText("No Family/Wali connection yet.");
                         return;
                     }
-                    StringBuilder s=new StringBuilder();
+                    out.setText("");
                     for(int i=0;i<a.length();i++){
                         JSONObject x=a.optJSONObject(i);if(x==null)continue;
-                        s.append(x.optString("wali_name","Wali"))
-                         .append("\nStatus: ").append(x.optString("status","pending"));
-                        String email=x.optString("wali_email",""),phone=x.optString("wali_phone_e164","");
+                        String waliName=x.optString("wali_name","Wali");
+                        String linkStatus=x.optString("status","pending");
+                        String email=x.optString("wali_email","");
+                        String phone=x.optString("wali_phone_e164","");
+                        String familyLinkId=x.optString("id","");
+                        StringBuilder s=new StringBuilder();
+                        s.append(waliName).append("\nStatus: ").append(linkStatus);
                         if(!email.isEmpty())s.append("\nEmail: ").append(email);
                         if(!phone.isEmpty())s.append("\nPhone: ").append(phone);
-                        s.append("\nLink ID: ").append(x.optString("id","")).append("\n\n");
+                        s.append("\nLink ID: ").append(familyLinkId);
+                        root.addView(text(s.toString(),15,false));
+
+                        if(!familyLinkId.isEmpty() && !"revoked".equalsIgnoreCase(linkStatus)){
+                            Button revoke=button("Revoke Wali Connection",false);
+                            revoke.setOnClickListener(v->new AlertDialog.Builder(this)
+                                    .setTitle("Revoke Wali connection?")
+                                    .setMessage("This removes this Family/Wali link from your active Azure records. It does not delete the Wali's account.")
+                                    .setNegativeButton("Cancel",null)
+                                    .setPositiveButton("Revoke",(d,w)->revokeFamilyLink(familyLinkId,out))
+                                    .show());
+                        }
                     }
-                    out.setText(s.toString());
                 }catch(Exception e){out.setText("Family/Wali data could not be displayed.");}
             });}
             public void err(String m){runOnUiThread(()->out.setText("Family/Wali unavailable: "+m));}
+        });
+    }
+
+    private void revokeFamilyLink(String familyLinkId,TextView out){
+        AzureApiClient.delete("/family-links/"+familyLinkId,"{}",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                toast("Wali connection revoked.");
+                loadFamilyLinks(out);
+            });}
+            public void err(String m){runOnUiThread(()->toast("Wali revoke failed: "+m));}
         });
     }
 
