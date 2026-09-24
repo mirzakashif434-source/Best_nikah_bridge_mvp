@@ -138,7 +138,7 @@ public class PremiumPlansActivity extends Activity {
             products.clear();
             for (ProductDetails d : details.getProductDetailsList()) products.put(d.getProductId(), d);
             if (products.size() == 3) {
-                status.setText("All 3 real Google Play plans are available. Prices are supplied by Google Play.");
+                status.setText("All 3 Google Play plans are available. Live prices come from Google Play.");
             } else {
                 status.setText("Some plans are not active in Google Play yet. Activate the missing products in Play Console before selling.");
             }
