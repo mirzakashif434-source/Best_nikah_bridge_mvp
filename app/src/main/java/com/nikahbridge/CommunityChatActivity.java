@@ -30,21 +30,47 @@ public class CommunityChatActivity extends Activity {
     private final int green = Premium2030Ui.GREEN, dark = Premium2030Ui.TEXT, gray = Premium2030Ui.MUTED, light = Premium2030Ui.CREAM;
     private LinearLayout messages; private EditText composer; private ScrollView scroll; private final Set<String> mutedUids = new HashSet<>();
     private final Handler azureHandler = new Handler(Looper.getMainLooper());
-    private final Runnable azurePoll = new Runnable(){ @Override public void run(){ loadAzureCommunity(); azureHandler.postDelayed(this,5000); } };
+    private boolean chatBuilt=false;
+    private final Runnable azurePoll = new Runnable(){ @Override public void run(){ if(chatBuilt){ loadAzureCommunity(); azureHandler.postDelayed(this,5000); } } };
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         AzureAuthManager.bindActivity(this);
-        if(!AzureAuthManager.hasAccount(this)){
-            buildAuthRecovery();
-            return;
-        }
-        build();
-        loadAzureMutes();
-        loadAzureCommunity();
-        azureHandler.postDelayed(azurePoll,5000);
+        buildAuthLoading();
+        openChatWithFreshAzureSession();
     }
     @Override protected void onDestroy(){ azureHandler.removeCallbacksAndMessages(null); super.onDestroy(); }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
+
+    private void buildAuthLoading(){
+        LinearLayout root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18),dp(28),dp(18),dp(28));
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
+        root.setBackgroundColor(light);
+        TextView title=text("Global Community Chat",27,true); title.setGravity(Gravity.CENTER);
+        root.addView(title,new LinearLayout.LayoutParams(-1,dp(64)));
+        TextView info=text("Checking your secure Azure session…",16,false); info.setGravity(Gravity.CENTER);
+        root.addView(info,new LinearLayout.LayoutParams(-1,-2));
+        setContentView(root);
+    }
+
+    private void openChatWithFreshAzureSession(){
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String token){ runOnUiThread(()->{
+                if(chatBuilt)return;
+                build();
+                chatBuilt=true;
+                loadAzureMutes();
+                loadAzureCommunity();
+                azureHandler.removeCallbacks(azurePoll);
+                azureHandler.postDelayed(azurePoll,5000);
+            });}
+            @Override public void err(String message){ runOnUiThread(()->{
+                chatBuilt=false;
+                buildAuthRecovery();
+            });}
+        });
+    }
 
     private void buildAuthRecovery(){
         LinearLayout root=new LinearLayout(this);
@@ -73,7 +99,10 @@ public class CommunityChatActivity extends Activity {
         blp.setMargins(0,dp(8),0,0);
         root.addView(back,blp);
 
-        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        signIn.setOnClickListener(v->{
+            buildAuthLoading();
+            openChatWithFreshAzureSession();
+        });
         back.setOnClickListener(v->finish());
         setContentView(root);
     }
@@ -91,14 +120,12 @@ public class CommunityChatActivity extends Activity {
     }
     /** Primary production path: Azure External ID -> Azure Function -> PostgreSQL. Firebase chat remains below for rollback. */
     private void loadAzureMutes(){
-        if(!AzureAuthManager.hasAccount(this)) return;
         AzureApiClient.get("/community/mutes",new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){try{JSONArray a=new JSONObject(body).optJSONArray("mutedUids");mutedUids.clear();if(a!=null)for(int i=0;i<a.length();i++)mutedUids.add(a.getString(i));loadAzureCommunity();}catch(Exception e){toast("Azure safety settings could not be read.");}}
             @Override public void err(String message){toast("Azure safety settings failed.");}
         });
     }
     private void loadAzureCommunity(){
-        if(!AzureAuthManager.hasAccount(this)) return;
         AzureApiClient.get("/community/messages",new AzureApiClient.Callback(){
             @Override public void ok(int code,String body){try{JSONArray a=new JSONObject(body).optJSONArray("messages");messages.removeAllViews();if(a!=null)for(int i=0;i<a.length();i++)addAzureMessageCard(a.getJSONObject(i));scroll.post(()->scroll.fullScroll(View.FOCUS_DOWN));}catch(Exception e){toast("Community data could not be read.");}}
             @Override public void err(String message){if(messages.getChildCount()==0)toast("Azure Community Chat could not be loaded.");}
