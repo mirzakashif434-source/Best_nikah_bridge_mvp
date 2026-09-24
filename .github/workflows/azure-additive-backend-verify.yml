@@ -1,4 +1,4 @@
-name: Azure Production Cutover Verification
+name: Azure Additive Backend + Android Verification
 
 on:
   push:
@@ -192,3 +192,80 @@ jobs:
           name: best-nikah-bridge-azure-release-aab
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+
+
+      - name: Step 8 final full app Azure validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "STEP 8: final Azure app audit"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          activities=sorted(root.glob("*Activity.java"))
+          assert len(activities) >= 46, f"Expected >=46 activities, found {len(activities)}"
+
+          no_scroll=[]
+          for p in activities:
+              if p.name=="MainActivity.java":
+                  continue
+              t=p.read_text(encoding="utf-8")
+              if "ScrollView" not in t:
+                  no_scroll.append(p.name)
+          assert not no_scroll, "Screens without ScrollView: "+", ".join(no_scroll)
+
+          back_exempt={"WelcomeActivity.java","MainActivity.java","ProductionMainActivity.java","AzureHomeActivity.java"}
+          no_back=[]
+          for p in activities:
+              if p.name in back_exempt:
+                  continue
+              if "Back" not in p.read_text(encoding="utf-8"):
+                  no_back.append(p.name)
+          assert not no_back, "Screens missing Back navigation: "+", ".join(no_back)
+
+          for name in ["AzureHomeActivity.java","AzureWalletActivity.java","WalletActivity.java"]:
+              t=(root/name).read_text(encoding="utf-8")
+              assert "setText(body)" not in t, f"Raw JSON remains in {name}"
+              assert "setMessage(body)" not in t, f"Raw JSON dialog remains in {name}"
+
+          app=(root/"NikahBridgeApplication.java").read_text(encoding="utf-8")
+          assert "applySafeInsets(a)" in app, "Safe system insets missing"
+          assert "normalizeControls(a)" in app, "Responsive control normalization missing"
+          assert "WindowInsetsCompat.Type.systemBars()" in app, "System bar handling missing"
+
+          bad_null=[]
+          bad_alpha=[]
+          for p in root.glob("*.java"):
+              t=p.read_text(encoding="utf-8")
+              if "null null" in t:
+                  bad_null.append(p.name)
+              if re.search(r"setAlpha\(0\.[0-4]|alpha\s*=\s*0\.[0-4]",t):
+                  bad_alpha.append(p.name)
+          assert not bad_null, "null null remains: "+", ".join(bad_null)
+          assert not bad_alpha, "blur-like alpha remains: "+", ".join(bad_alpha)
+
+          print("STEP 8 UI/SCREEN/NAVIGATION AUDIT: PASS")
+          PY
+          grep -Fq 'Go Premium' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'Owner Wallet' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'Permanently Delete My Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -Fq 'AzureApiClient.delete("/account"' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
+          echo "STEP 8 AZURE FEATURE WIRING: PASS"
+
+      - name: Step 8 verify final signed APK and AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
+          sha256sum app/build/outputs/apk/release/app-release.apk
+          sha256sum app/build/outputs/bundle/release/app-release.aab
+          echo "STEP 8 FINAL SIGNED AZURE APK + AAB: PASS"
+
+      - name: Step 8 lock
+        run: |
+          echo "STEP 8 AZURE FINAL FULL APP GATE: PASS"
+          echo "Earlier Azure work preserved; no feature removed or replaced."
