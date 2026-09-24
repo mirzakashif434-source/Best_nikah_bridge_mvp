@@ -64,8 +64,27 @@ public class IdentityVerificationActivity extends Activity{
    }
  }
  void load(){AzureApiClient.get("/verification",new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->{try{org.json.JSONArray a=new org.json.JSONObject(s).optJSONArray("verifications");int approved=0,pending=0;if(a!=null)for(int i=0;i<a.length();i++){String st=a.optJSONObject(i).optString("status");if("approved".equals(st))approved++;if("pending".equals(st))pending++;}status.setText("Status: Azure verification loaded • approved "+approved+" • pending "+pending);}catch(Exception e){status.setText("Status: Azure verification loaded");}});}public void err(String e){runOnUiThread(()->status.setText("Status: Azure verification status unavailable"));}});}
- void submitDocument(){if(selected==null){status.setText("Status: choose a document first");return;}try{InputStream in=getContentResolver().openInputStream(selected);ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n,total=0;while((n=in.read(b))>0){total+=n;if(total>8*1024*1024)throw new Exception("Document too large");out.write(b,0,n);}in.close();String mime=getContentResolver().getType(selected);if(mime==null)mime="application/octet-stream";String name="verification-"+System.currentTimeMillis();String ext=mime.equals("application/pdf")?".pdf":mime.equals("image/png")?".png":".jpg";status.setText("Status: uploading ID securely to Azure…");AzureApiClient.multipart("/verification/identity","document",name+ext,mime,out.toByteArray(),new String[]{"documentType"},new String[]{String.valueOf(type.getSelectedItem())},new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->status.setText("Status: ID submitted to Azure — pending authorized review"));}public void err(String e){runOnUiThread(()->status.setText(e!=null&&e.contains("AGE_18_PLUS_REQUIRED")?"Status: ❌ Verification is only for age 18+.":"Status: Azure ID submission failed"));}});}catch(Exception e){status.setText("Status: document could not be prepared");}}
+ void submitDocument(){
+   if(!AzureAuthManager.hasAccount(this)){status.setText("Status: sign in with Azure first");return;}
+   if(selected==null){status.setText("Status: choose a document first");return;}
+   try{
+     String mime=getContentResolver().getType(selected);
+     if(mime==null || !(mime.equals("application/pdf")||mime.equals("image/png")||mime.equals("image/jpeg"))){
+       status.setText("Status: unsupported document type. Use PDF, JPG, or PNG.");return;
+     }
+     InputStream in=getContentResolver().openInputStream(selected);
+     if(in==null){status.setText("Status: document could not be read");return;}
+     ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n,total=0;
+     while((n=in.read(b))>0){total+=n;if(total>8*1024*1024){in.close();status.setText("Status: document is larger than 8 MB");return;}out.write(b,0,n);}
+     in.close();
+     if(out.size()==0){status.setText("Status: document is empty");return;}
+     String name="verification-"+System.currentTimeMillis();String ext=mime.equals("application/pdf")?".pdf":mime.equals("image/png")?".png":".jpg";
+     status.setText("Status: uploading ID securely to Azure…");
+     AzureApiClient.multipart("/verification/identity","document",name+ext,mime,out.toByteArray(),new String[]{"documentType"},new String[]{String.valueOf(type.getSelectedItem())},new AzureApiClient.Callback(){public void ok(int c,String s){runOnUiThread(()->status.setText("Status: ID submitted to Azure — pending authorized review"));}public void err(String e){runOnUiThread(()->status.setText(e!=null&&e.contains("AGE_18_PLUS_REQUIRED")?"Status: ❌ Verification is only for age 18+.":"Status: Azure ID submission failed"));}});
+   }catch(Exception e){status.setText("Status: document could not be prepared");}
+ }
  void submitSelfie(){
+   if(!AzureAuthManager.hasAccount(this)){status.setText("Status: sign in with Azure first");return;}
    if(selfieUri==null){status.setText("Status: take a current selfie first");return;}
    try{
      InputStream in=getContentResolver().openInputStream(selfieUri);
