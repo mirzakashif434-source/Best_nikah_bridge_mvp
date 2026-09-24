@@ -256,7 +256,7 @@ jobs:
 
           # Scan compiled DEX/resources, not only source, so stale release content cannot slip through.
           for bad in             'Family link ID'             'Wali phone (E.164)'             'Reported real user ID'             'Reported user ID required'             'Real recipient user ID'             'Real member ID'             'Real matched member ID'             'Member ID:'             'Conversation ID from a real mutual connection'             'Some Azure journey data could not be loaded'             'Currently visible:'             'Azure rewarded configuration unavailable.'             '/admin/owner/live-analytics'             'not available in this backend release'             'updating on Azure'             'null null'; do
-            if grep -aRIF "$bad" "$TMP" >/tmp/apk-forbidden-hit.txt 2>/dev/null; then
+            if grep -aRF "$bad" "$TMP" >/tmp/apk-forbidden-hit.txt 2>/dev/null; then
               echo "FORBIDDEN COMPILED APK CONTENT FOUND: $bad"
               cat /tmp/apk-forbidden-hit.txt || true
               exit 1
@@ -264,13 +264,13 @@ jobs:
           done
 
           # Required production strings must actually be compiled into the signed APK.
-          grep -aRIF '/owner/live-analytics' "$TMP" >/dev/null
-          grep -aRIF '/owner/earnings' "$TMP" >/dev/null
-          grep -aRIF '/journey/summary' "$TMP" >/dev/null
-          grep -aRIF '/family-links/pending-for-wali' "$TMP" >/dev/null
-          grep -aRIF '/safety/reports' "$TMP" >/dev/null
-          grep -aRIF 'Premium Plans' "$TMP" >/dev/null
-          grep -aRIF '20 / 40 / 60 SAR' "$TMP" >/dev/null
+          grep -aRFq '/owner/live-analytics' "$TMP"
+          grep -aRFq '/owner/earnings' "$TMP"
+          grep -aRFq '/journey/summary' "$TMP"
+          grep -aRFq '/family-links/pending-for-wali' "$TMP"
+          grep -aRFq '/safety/reports' "$TMP"
+          grep -aRFq 'Premium Plans' "$TMP"
+          grep -aRFq '20 / 40 / 60 SAR' "$TMP"
 
           echo "COMPILED APK FORENSIC GATE: PASS"
 
