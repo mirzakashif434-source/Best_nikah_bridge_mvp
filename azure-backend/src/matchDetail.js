@@ -50,22 +50,30 @@ app.http("matchDetail",{
                p.readiness_score,p.profile_completed,p.is_visible,
                pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,
+               COALESCE(ps.profile_discoverable,false) AS profile_discoverable,
+               COALESCE(ps.show_city,false) AS show_city,
                EXISTS(SELECT 1 FROM verifications v WHERE v.user_id=u.id AND v.status='approved') AS identity_verified,
                EXISTS(SELECT 1 FROM photos ph WHERE ph.user_id=u.id AND ph.moderation_status='approved') AS photo_present
         FROM users u
         JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
+        LEFT JOIN privacy_settings ps ON ps.user_id=u.id
         WHERE (u.azure_subject=$1 OR u.firebase_uid=$1 OR u.id::text=$1) AND u.status='active'
       `,[matchUserId]);
 
       if(!me.rows[0] || !me.rows[0].profile_completed || !me.rows[0].is_visible)
         return {status:409,jsonBody:{ok:false,error:"PROFILE_NOT_READY"}};
-      if(!candidate.rows[0] || !candidate.rows[0].profile_completed || !candidate.rows[0].is_visible)
+      if(!candidate.rows[0] || !candidate.rows[0].profile_completed || !candidate.rows[0].is_visible || !candidate.rows[0].profile_discoverable)
         return {status:404,jsonBody:{ok:false,error:"MATCH_NOT_FOUND"}};
       if(me.rows[0].id===candidate.rows[0].id)
         return {status:400,jsonBody:{ok:false,error:"SELF_MATCH_NOT_ALLOWED"}};
 
       const m=me.rows[0], c=candidate.rows[0];
+      const blocked=await query(
+        "SELECT 1 FROM blocked_users WHERE (blocker_user_id=$1 AND blocked_user_id=$2) OR (blocker_user_id=$2 AND blocked_user_id=$1) LIMIT 1",
+        [m.id,c.id]
+      );
+      if(blocked.rows[0]) return {status:404,jsonBody:{ok:false,error:"MATCH_NOT_FOUND"}};
       const myAge=Math.floor((Date.now()-new Date(m.date_of_birth+"T00:00:00Z").getTime())/31557600000);
       const theirAge=Math.floor((Date.now()-new Date(c.date_of_birth+"T00:00:00Z").getTime())/31557600000);
 
@@ -93,7 +101,7 @@ app.http("matchDetail",{
         age:theirAge,
         gender:c.gender,
         country:c.country,
-        city:c.city,
+        city:c.show_city?c.city:null,
         marriageIntention:c.marriage_intention,
         marriageTimeline:c.preferred_marriage_timeline,
         readinessScore:c.readiness_score,
