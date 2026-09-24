@@ -72,6 +72,7 @@ jobs:
           grep -Eq 'route:[[:space:]]*"help/ask"' azure-backend/src/helpLine.js
           grep -Eq 'route:[[:space:]]*"owner/earnings"' azure-backend/src/ownerEarnings.js
           grep -Eq 'route:[[:space:]]*"journey/summary"' azure-backend/src/journeySummary.js
+          grep -Fq 'releaseGate:"2026-09-25-zero-known-issue-final"' azure-backend/src/releaseReadiness.js
           grep -Eq 'route:[[:space:]]*"premium/plans"' azure-backend/src/premiumPlans.js
           grep -Fq 'plan_key = ANY($1::text[])' azure-backend/src/premiumPlans.js
           grep -Fq "WHERE plan_key IN ('premium_monthly','premium_yearly')" azure-backend/database/schema.sql
