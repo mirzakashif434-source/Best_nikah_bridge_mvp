@@ -107,7 +107,8 @@ public class BlockedMembersActivity extends Activity {
         LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(12),dp(10),dp(12),dp(10));
         GradientDrawable bg=new GradientDrawable();bg.setColor(Color.WHITE);bg.setCornerRadius(dp(14));row.setBackground(bg);
         row.addView(text(name.isEmpty()?"Blocked member":name,16,true));
-        // Keep the Azure member identifier internal; never expose technical IDs in the UI.\n        Button unblock=button("Unblock",true);row.addView(unblock,new LinearLayout.LayoutParams(-1,dp(50)));
+        // Keep the Azure member identifier internal; never expose technical IDs in the UI.
+        Button unblock=button("Unblock",true);row.addView(unblock,new LinearLayout.LayoutParams(-1,dp(50)));
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(5),0,dp(5));list.addView(row,lp);
         final String target=userId;
         unblock.setOnClickListener(v->unblock(target,row,unblock));
