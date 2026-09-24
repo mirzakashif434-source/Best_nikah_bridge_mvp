@@ -42,7 +42,7 @@ app.http("profileGet", {
       const r=await query(
         `SELECT u.id,u.email,u.status,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.bio,
                 p.marriage_intention,p.education,p.family_involvement,p.readiness_score,p.profile_completed,p.is_visible,
-                pp.min_age,pp.max_age,pp.countries,pp.cities,pp.preferred_marriage_timeline,
+                pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,pp.preferred_marriage_timeline,
                 pp.deal_breakers,pp.preferences
          FROM users u LEFT JOIN profiles p ON p.user_id=u.id
          LEFT JOIN partner_preferences pp ON pp.user_id=u.id WHERE u.id=$1`,[u.id]);
