@@ -19,18 +19,42 @@ function exactAgeFromIsoDate(dob) {
 
 async function ensureUser(user) {
   const email = text(user.email, 320).toLowerCase();
-  if (!email) throw new Error("AUTH_EMAIL_REQUIRED");
-  const r = await query(
-    `INSERT INTO users (firebase_uid, email, email_verified_at)
-     VALUES ($1,$2,CASE WHEN $3 THEN now() ELSE NULL END)
-     ON CONFLICT (firebase_uid) DO UPDATE SET
-       email=EXCLUDED.email,
-       email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),
-       updated_at=now()
-     RETURNING id,email,status`,
-    [user.uid,email,Boolean(user.email_verified)]
-  );
-  return r.rows[0];
+  if (!email) { const e=new Error("AUTH_EMAIL_REQUIRED"); e.statusCode=401; throw e; }
+  const azureSubject = typeof user.azure_subject==="string" && user.azure_subject.trim() ? user.azure_subject.trim() : null;
+  let row=null;
+  if (azureSubject) {
+    const existing=await query(
+      "SELECT id,email,status FROM users WHERE azure_subject=$1 OR firebase_uid=$2 LIMIT 1",
+      [azureSubject,user.uid||azureSubject]
+    );
+    if(existing.rows[0]){
+      await query(
+        "UPDATE users SET azure_subject=COALESCE(azure_subject,$1),email=$2,email_verified_at=COALESCE(email_verified_at,CASE WHEN $3 THEN now() ELSE NULL END),updated_at=now() WHERE id=$4",
+        [azureSubject,email,Boolean(user.email_verified),existing.rows[0].id]
+      );
+      row={...existing.rows[0],email};
+    }else{
+      const created=await query(
+        "INSERT INTO users(firebase_uid,azure_subject,email,email_verified_at) VALUES($1,$2,$3,CASE WHEN $4 THEN now() ELSE NULL END) RETURNING id,email,status",
+        [user.uid||azureSubject,azureSubject,email,Boolean(user.email_verified)]
+      );
+      row=created.rows[0];
+    }
+  } else {
+    if(!user.uid){ const e=new Error("AUTH_IDENTITY_REQUIRED"); e.statusCode=401; throw e; }
+    const r = await query(
+      `INSERT INTO users (firebase_uid, email, email_verified_at)
+       VALUES ($1,$2,CASE WHEN $3 THEN now() ELSE NULL END)
+       ON CONFLICT (firebase_uid) DO UPDATE SET
+         email=EXCLUDED.email,
+         email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),
+         updated_at=now()
+       RETURNING id,email,status`,
+      [user.uid,email,Boolean(user.email_verified)]
+    );
+    row=r.rows[0];
+  }
+  return row;
 }
 
 app.http("profileGet", {
@@ -49,7 +73,7 @@ app.http("profileGet", {
       return {status:200,jsonBody:{ok:true,profile:r.rows[0]||null}};
     } catch(e) {
       context.error("PROFILE_READ_FAILED",e);
-      return {status:500,jsonBody:{ok:false,error:"PROFILE_READ_FAILED"}};
+      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"PROFILE_READ_FAILED"}};
     }
   })
 });
@@ -105,7 +129,7 @@ app.http("profilePut", {
     } catch(e) {
       await client.query("ROLLBACK").catch(()=>{});
       context.error("PROFILE_WRITE_FAILED",e);
-      return {status:500,jsonBody:{ok:false,error:"PROFILE_WRITE_FAILED"}};
+      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"PROFILE_WRITE_FAILED"}};
     } finally { client.release(); }
   })
 });
