@@ -235,7 +235,7 @@ jobs:
           set -euo pipefail
           RESOURCE_GROUP="BestNikahBredge-Production"
           HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
-          URL="https://${HOSTNAME}/api/admin/owner/earnings"
+          URL="https://${HOSTNAME}/api/owner/earnings"
           echo "Checking owner wallet route registration at $URL"
           for i in 1 2 3 4 5 6; do
             HTTP_CODE="$(curl -sS -o /tmp/owner-wallet-route.json -w "%{http_code}" "$URL" || true)"
@@ -256,7 +256,7 @@ jobs:
           set -euo pipefail
           RESOURCE_GROUP="BestNikahBredge-Production"
           HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
-          for PATH in premium/plans admin/owner/live-analytics admin/owner/earnings wallet wallet/transactions family-links/pending-for-wali; do
+          for PATH in premium/plans owner/live-analytics owner/earnings wallet wallet/transactions family-links/pending-for-wali; do
             URL="https://${HOSTNAME}/api/${PATH}"
             CODE="$(curl -sS -o /tmp/final-route.json -w "%{http_code}" "$URL" || true)"
             echo "$PATH -> HTTP $CODE"
