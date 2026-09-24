@@ -2,6 +2,7 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.widget.*;
@@ -16,6 +17,7 @@ import com.android.billingclient.api.PendingPurchasesParams;
 import com.android.billingclient.api.ProductDetails;
 import com.android.billingclient.api.Purchase;
 import com.android.billingclient.api.QueryProductDetailsParams;
+import com.android.billingclient.api.QueryPurchasesParams;
 import java.util.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -109,6 +111,7 @@ public class PremiumPlansActivity extends Activity {
             @Override public void onBillingSetupFinished(BillingResult result) {
                 if (result.getResponseCode() == BillingClient.BillingResponseCode.OK) {
                     queryProducts();
+                    restoreExistingPurchases();
                 } else {
                     status.setText("Google Play Billing unavailable: " + result.getDebugMessage());
                 }
@@ -197,6 +200,15 @@ public class PremiumPlansActivity extends Activity {
     }
 
     private void buy(String productId) {
+        if (!AzureAuthManager.hasAccount(this)) {
+            LanguageManager.dialog(this)
+                    .setTitle("Sign in required")
+                    .setMessage("Sign in with Azure before purchasing so the verified Google Play subscription can be linked securely to your account.")
+                    .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+                    .setNegativeButton("Not now",null)
+                    .show();
+            return;
+        }
         ProductDetails details = products.get(productId);
         if (details == null) {
             LanguageManager.dialog(this).setTitle("Plan unavailable")
@@ -211,7 +223,15 @@ public class PremiumPlansActivity extends Activity {
                     .setPositiveButton("OK", null).show();
             return;
         }
-        String token = offers.get(0).getOfferToken();
+        String configuredBasePlan = azurePlanBasePlans.get(productId);
+        ProductDetails.SubscriptionOfferDetails selected = null;
+        if (configuredBasePlan != null && !configuredBasePlan.isEmpty()) {
+            for (ProductDetails.SubscriptionOfferDetails offer : offers) {
+                if (configuredBasePlan.equals(offer.getBasePlanId())) { selected = offer; break; }
+            }
+        }
+        if (selected == null) selected = offers.get(0);
+        String token = selected.getOfferToken();
         BillingFlowParams.ProductDetailsParams pd = BillingFlowParams.ProductDetailsParams.newBuilder()
                 .setProductDetails(details)
                 .setOfferToken(token)
@@ -223,6 +243,23 @@ public class PremiumPlansActivity extends Activity {
         if (result.getResponseCode() != BillingClient.BillingResponseCode.OK) {
             status.setText("Google Play purchase could not start: " + result.getDebugMessage());
         }
+    }
+
+    private void restoreExistingPurchases() {
+        if (billing == null || !billing.isReady() || !AzureAuthManager.hasAccount(this)) return;
+        billing.queryPurchasesAsync(
+                QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build(),
+                (result,purchases)->{
+                    if(result.getResponseCode()!=BillingClient.BillingResponseCode.OK || purchases==null) return;
+                    for(Purchase purchase:purchases){
+                        if(purchase.getPurchaseState()!=Purchase.PurchaseState.PURCHASED) continue;
+                        for(String productId:purchase.getProducts()){
+                            if(products.containsKey(productId) || azurePlanBasePlans.containsKey(productId)){
+                                verifyOnAzure(productId,purchase.getPurchaseToken());
+                            }
+                        }
+                    }
+                });
     }
 
     private void onPurchasesUpdated(BillingResult result, List<Purchase> purchases) {
