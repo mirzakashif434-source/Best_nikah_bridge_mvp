@@ -228,8 +228,7 @@ final class AzureAuthManager {
         try {
             List<IAccount> accounts = app.getAccounts();
             if (accounts == null || accounts.isEmpty()) {
-                if (rememberedSignedIn()) acquireTokenInteractiveForWaiters();
-                else finishTokenError("AZURE_SIGN_IN_REQUIRED");
+                finishTokenError(rememberedSignedIn() ? "AZURE_INTERACTION_REQUIRED" : "AZURE_SIGN_IN_REQUIRED");
                 return;
             }
 
@@ -255,18 +254,30 @@ final class AzureAuthManager {
                                 }
 
                                 @Override public void onError(MsalException exception) {
-                                    // Any silent-token failure means the cached/refreshable
-                                    // token is not usable for this API right now. Recover
-                                    // through one real interactive MSAL flow for all waiters.
-                                    acquireTokenInteractiveForWaiters();
+                                    // Background API calls must never unexpectedly open
+                                    // Microsoft sign-in / registration UI. The screen can
+                                    // offer an explicit user-initiated recovery action.
+                                    finishTokenError("AZURE_INTERACTION_REQUIRED");
                                 }
                             })
                             .build();
 
             app.acquireTokenSilentAsync(parameters);
         } catch (Exception e) {
-            acquireTokenInteractiveForWaiters();
+            finishTokenError("AZURE_INTERACTION_REQUIRED");
         }
+    }
+
+    static void acquireTokenInteractive(Context context, Callback callback) {
+        if (context instanceof Activity) bindActivity((Activity) context);
+        appContext = context.getApplicationContext();
+        synchronized (AzureAuthManager.class) {
+            tokenWaiters.add(callback);
+            if (tokenAcquisitionInFlight) return;
+            tokenAcquisitionInFlight = true;
+        }
+        initialize(appContext, AzureAuthManager::acquireTokenInteractiveForWaiters,
+                AzureAuthManager::finishTokenError);
     }
 
     private static void acquireTokenInteractiveForWaiters() {
