@@ -40,13 +40,25 @@ app.http("conversationsList",{
     try{
       const me=await ensureUser(user);
       const r=await query(
-        "SELECT c.id,c.status,c.created_at,CASE WHEN c.user_a_id=$1 THEN COALESCE(ub.azure_subject,ub.firebase_uid) ELSE COALESCE(ua.azure_subject,ua.firebase_uid) END AS other_user_id,CASE WHEN c.user_a_id=$1 THEN pb.display_name ELSE pa.display_name END AS other_display_name,(SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,(SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message_at FROM conversations c JOIN users ua ON ua.id=c.user_a_id JOIN users ub ON ub.id=c.user_b_id LEFT JOIN profiles pa ON pa.user_id=ua.id LEFT JOIN profiles pb ON pb.user_id=ub.id WHERE c.status='mutual' AND (c.user_a_id=$1 OR c.user_b_id=$1)
-         AND NOT EXISTS (
-           SELECT 1 FROM blocked_users b
-           WHERE (b.blocker_user_id=$1 AND b.blocked_user_id=CASE WHEN c.user_a_id=$1 THEN c.user_b_id ELSE c.user_a_id END)
-              OR (b.blocked_user_id=$1 AND b.blocker_user_id=CASE WHEN c.user_a_id=$1 THEN c.user_b_id ELSE c.user_a_id END)
-         )
-         ORDER BY COALESCE((SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1),c.created_at) DESC LIMIT 200",
+        `SELECT c.id,c.status,c.created_at,
+                CASE WHEN c.user_a_id=$1 THEN COALESCE(ub.azure_subject,ub.firebase_uid) ELSE COALESCE(ua.azure_subject,ua.firebase_uid) END AS other_user_id,
+                CASE WHEN c.user_a_id=$1 THEN pb.display_name ELSE pa.display_name END AS other_display_name,
+                (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
+                (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message_at
+           FROM conversations c
+           JOIN users ua ON ua.id=c.user_a_id
+           JOIN users ub ON ub.id=c.user_b_id
+           LEFT JOIN profiles pa ON pa.user_id=ua.id
+           LEFT JOIN profiles pb ON pb.user_id=ub.id
+          WHERE c.status='mutual'
+            AND (c.user_a_id=$1 OR c.user_b_id=$1)
+            AND NOT EXISTS (
+              SELECT 1 FROM blocked_users b
+               WHERE (b.blocker_user_id=$1 AND b.blocked_user_id=CASE WHEN c.user_a_id=$1 THEN c.user_b_id ELSE c.user_a_id END)
+                  OR (b.blocked_user_id=$1 AND b.blocker_user_id=CASE WHEN c.user_a_id=$1 THEN c.user_b_id ELSE c.user_a_id END)
+            )
+          ORDER BY COALESCE((SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1),c.created_at) DESC
+          LIMIT 200`,
         [me.id]);
       return {status:200,jsonBody:{ok:true,conversations:r.rows}};
     }catch(e){context.error("CONVERSATIONS_LIST_FAILED",e);return {status:500,jsonBody:{ok:false,error:"CONVERSATIONS_LIST_FAILED"}};}
