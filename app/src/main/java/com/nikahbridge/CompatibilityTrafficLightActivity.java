@@ -15,7 +15,7 @@ import org.json.JSONObject;
 
 /** Azure compatibility visualization from the real server-side match engine. */
 public class CompatibilityTrafficLightActivity extends Activity {
-    private LinearLayout root; private TextView result;
+    private LinearLayout root,matchChoices; private TextView result,matchStatus; private String selectedMatchId="";
     private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
     @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"advancedMatching","Plus 40 SAR or VIP 60 SAR",this::render);}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
@@ -35,12 +35,36 @@ public class CompatibilityTrafficLightActivity extends Activity {
     private Button btn(String x,boolean fill){Button b=new Button(this);b.setText(x);b.setAllCaps(false);b.setTextSize(16);b.setTextColor(fill?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(fill?green:Color.WHITE);g.setCornerRadius(dp(18));if(!fill)g.setStroke(dp(2),green);b.setBackground(g);root.addView(b,new LinearLayout.LayoutParams(-1,dp(62)));return b;}
     private void render(){
         base();root.addView(txt("Compatibility Traffic Light",27,true));root.addView(txt("Transparent Azure match data only. Green means stronger recorded alignment, yellow means discuss carefully, red means low recorded alignment. It is not a marriage verdict.",15,false));
-        EditText uid=new EditText(this);uid.setHint("Real matched member ID");root.addView(uid,new LinearLayout.LayoutParams(-1,dp(62)));
+        matchStatus=txt("Loading your real Azure matches…",15,false);root.addView(matchStatus);
+        matchChoices=new LinearLayout(this);matchChoices.setOrientation(LinearLayout.VERTICAL);root.addView(matchChoices);
         result=txt("",16,false);root.addView(result);
-        Button check=btn("Check Real Compatibility",true);check.setOnClickListener(v->check(uid.getText().toString().trim()));
+        Button check=btn("Check Selected Compatibility",true);check.setOnClickListener(v->check(selectedMatchId));
+        loadMatches();
         Button trust=btn("Open Trust Passport",false);trust.setOnClickListener(v->startActivity(new Intent(this,TrustPassportActivity.class)));
         Button back=btn("Back",false);back.setOnClickListener(v->finish());
     }
+    private void loadMatches(){
+        AzureApiClient.get("/matches",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("matches");
+                    matchChoices.removeAllViews();
+                    if(a==null||a.length()==0){matchStatus.setText("No real compatible matches are available yet.");return;}
+                    matchStatus.setText("Choose a real match. Secure member IDs stay hidden.");
+                    for(int i=0;i<Math.min(a.length(),50);i++){
+                        JSONObject m=a.optJSONObject(i);if(m==null)continue;
+                        String id=m.optString("userId","").trim();if(id.isEmpty())continue;
+                        String name=m.optString("displayName","Member").trim();
+                        final String matchId=id,matchName=name.isEmpty()?"Member":name;
+                        Button choose=btn("Choose "+matchName,false);
+                        choose.setOnClickListener(v->{selectedMatchId=matchId;matchStatus.setText("Selected: "+matchName);});
+                    }
+                }catch(Exception e){matchStatus.setText("Real Azure matches could not be displayed.");}
+            });}
+            public void err(String message){runOnUiThread(()->matchStatus.setText("Real Azure matches are temporarily unavailable."));}
+        });
+    }
+
     private void check(String id){
         if(!AzureAuthManager.hasAccount(this)){
             LanguageManager.dialog(this)
@@ -51,7 +75,7 @@ public class CompatibilityTrafficLightActivity extends Activity {
                 .show();
             return;
         }
-        if(id.isEmpty()){result.setText("Enter a real member ID.");return;}
+        if(id.isEmpty()){result.setText("Choose a real match first.");return;}
         result.setText("Loading real Azure compatibility…");
         AzureApiClient.get("/matches/"+id,new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
