@@ -346,18 +346,60 @@ public class AzureHomeActivity extends Activity {
             });}
             public void err(String m){runOnUiThread(()->out.setText("Interests unavailable: "+m));}
         });
-        EditText uid=input("Real recipient user ID");
-        Button send=button("Send Real Interest",true);
-        send.setOnClickListener(v->{try{
-            String receiverId=uid.getText().toString().trim();
-            if(receiverId.isEmpty()){LanguageManager.setError(uid,"Real recipient user ID required");uid.requestFocus();return;}
-            JSONObject b=new JSONObject();b.put("receiverUserId",receiverId);
-            AzureApiClient.post("/interests",b.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String body){runOnUiThread(()->toast("Real interest sent."));}
-                public void err(String m){runOnUiThread(()->toast("Interest rejected: "+m));}
-            });
-        }catch(Exception e){toast("Invalid recipient.");}});
+        sectionTitle("Send a New Interest");
+        TextView matchStatus=text("Loading your compatible Azure matches…",15,false);root.addView(matchStatus);
+        AzureApiClient.get("/matches",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray matches=new JSONObject(body).optJSONArray("matches");
+                    if(matches==null||matches.length()==0){
+                        matchStatus.setText("No compatible profiles are available right now.");
+                        return;
+                    }
+                    matchStatus.setText("Choose a real profile below. The secure member ID is handled automatically.");
+                    for(int i=0;i<Math.min(matches.length(),50);i++){
+                        JSONObject m=matches.optJSONObject(i);if(m==null)continue;
+                        String receiverId=m.optString("userId","").trim();
+                        if(receiverId.isEmpty())continue;
+                        String displayName=m.optString("displayName","Member").trim();
+                        if(displayName.isEmpty())displayName="Member";
+                        final String targetId=receiverId;
+                        final String targetName=displayName;
+                        Button send=button("Send Interest to "+targetName,true);
+                        send.setOnClickListener(v->sendInterestToMatch(targetId,targetName,send));
+                    }
+                }catch(Exception e){matchStatus.setText("Compatible profiles could not be displayed.");}
+            });}
+            public void err(String m){runOnUiThread(()->matchStatus.setText("Compatible profiles unavailable: "+m));}
+        });
         Button back=button("Back",false);back.setOnClickListener(v->home());
+    }
+
+    private void sendInterestToMatch(String receiverId,String displayName,Button button){
+        if(receiverId==null||receiverId.trim().isEmpty()){
+            toast("This profile cannot receive an interest yet.");
+            return;
+        }
+        try{
+            JSONObject b=new JSONObject().put("receiverUserId",receiverId);
+            button.setEnabled(false);
+            button.setText("Sending…");
+            AzureApiClient.post("/interests",b.toString(),new AzureApiClient.Callback(){
+                public void ok(int code,String body){runOnUiThread(()->{
+                    button.setText("Interest Sent to "+displayName);
+                    toast("Real interest sent to "+displayName+".");
+                });}
+                public void err(String m){runOnUiThread(()->{
+                    button.setEnabled(true);
+                    button.setText("Send Interest to "+displayName);
+                    toast("Interest could not be sent: "+m);
+                });}
+            });
+        }catch(Exception e){
+            button.setEnabled(true);
+            button.setText("Send Interest to "+displayName);
+            toast("Interest could not be sent.");
+        }
     }
 
     private void respondToInterest(String interestId,String newStatus){
