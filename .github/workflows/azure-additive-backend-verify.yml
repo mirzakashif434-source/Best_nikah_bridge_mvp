@@ -133,6 +133,77 @@ jobs:
           echo "SIX ANDROID CUTOVER SCREENS: PASS"
           echo "AZURE API CLIENT TIMEOUT GUARD: PASS"
 
+      - name: Verify 18-issue final repair gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=app/src/main/java/com/nikahbridge
+
+          # Step 4: premium catalog cannot map unknown legacy rows into runtime config.
+          grep -Fq 'plan_key = ANY($1::text[])' azure-backend/src/premiumPlans.js
+
+          # Steps 5/6/19/25/26/27: no raw technical IDs in user-facing fields.
+          ! grep -Fq 'Real recipient user ID' "$APP/AzureHomeActivity.java"
+          ! grep -Fq 'Family link ID' "$APP/AzureHomeActivity.java"
+          ! grep -Fq 'Wali phone E.164' "$APP/AzureHomeActivity.java"
+          ! grep -Fq 'Real matched member ID' "$APP/SmartSeriousQuestionsActivity.java"
+          ! grep -Fq 'Real member ID' "$APP/FamilyCircleActivity.java"
+          ! grep -Fq 'Real matched member ID' "$APP/TrustPassportActivity.java"
+          ! grep -Fq 'Conversation ID from a real mutual connection' "$APP/SafeCommunicationActivity.java"
+          ! grep -Fq 'Real matched member ID' "$APP/CompatibilityDealBreakerActivity.java"
+          ! grep -Fq 'Real matched member ID' "$APP/CompatibilityTrafficLightActivity.java"
+
+          # Step 13: silent token refresh must not unexpectedly launch interactive auth.
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path("app/src/main/java/com/nikahbridge/AzureAuthManager.java").read_text()
+          start=t.index("private static void acquireTokenSilentForWaiters()")
+          end=t.index("static void acquireTokenInteractive(", start)
+          silent=t[start:end]
+          assert "acquireTokenInteractiveForWaiters();" not in silent, "Silent auth still launches interactive sign-in"
+          print("SILENT AUTH NAVIGATION: PASS")
+          PY
+
+          # Step 14: rewarded config is account-level; no completed/visible-profile gate.
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path("azure-backend/src/rewardedAds.js").read_text()
+          start=t.index("async function activeRewardedUser")
+          end=t.index('app.http("getRewardedAdConfig"', start)
+          block=t[start:end]
+          assert "profile_completed" not in block
+          assert "is_visible" not in block
+          print("REWARDED ACCOUNT ELIGIBILITY: PASS")
+          PY
+          ! grep -Fq 'Azure rewarded configuration unavailable.' "$APP/RewardedMessageActivity.java"
+
+          # Step 16: Terms title must wrap rather than use clipped fixed-height title rows.
+          ! grep -Fq 'content.addView(title,new LinearLayout.LayoutParams(-1,dp(65)))' "$APP/TermsAndCommunityGuidelinesActivity.java"
+          grep -Fq 'title.setMaxLines(2)' "$APP/TermsAndCommunityGuidelinesActivity.java"
+
+          # Step 17: incomplete profile is a valid zero-match journey state, not a backend failure.
+          grep -Fq 'm.contains("PROFILE_NOT_READY")' "$APP/NikahJourneyActivity.java"
+
+          # Steps 20-24 + Future Simulation + Step 30: no empty gated activity left on Back.
+          grep -Fq 'a.startActivity(new Intent(a,PremiumPlansActivity.class));' "$APP/PremiumFeatureGate.java"
+          grep -Fq 'a.finish();' "$APP/PremiumFeatureGate.java"
+
+          # Step 31: Refresh must visibly confirm real Azure refresh.
+          grep -Fq 'Refreshed from Azure at' "$APP/NikahSuccessPlanActivity.java"
+          grep -Fq 'Real progress refreshed from Azure.' "$APP/NikahSuccessPlanActivity.java"
+
+          # Steps 34/35: stale backend-release/deployment placeholders are forbidden.
+          ! grep -Fq 'not available in this backend release' "$APP/OwnerLiveAnalyticsActivity.java"
+          ! grep -Fq 'updating on Azure' "$APP/OwnerEarningsActivity.java"
+          grep -Fq 'admin/owner/live-analytics' azure-backend/src/ownerAnalytics.js
+          grep -Fq 'admin/owner/earnings' azure-backend/src/ownerEarnings.js
+
+          # Step 36: successful wallet refresh and transaction refresh are explicit.
+          grep -Fq 'Wallet refreshed from Azure' "$APP/AzureWalletActivity.java"
+          grep -Fq 'Azure transactions refreshed' "$APP/AzureWalletActivity.java"
+
+          echo "18-ISSUE FINAL REPAIR GATE: PASS"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
