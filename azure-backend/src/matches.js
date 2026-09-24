@@ -40,7 +40,7 @@ app.http("matches",{
       const candidates=await query(`
         SELECT u.id,u.azure_subject,u.firebase_uid,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city,
-               COALESCE(ps.show_photo_to_matches,true) AS show_photo_to_matches,
+               COALESCE(ps.show_photo_to_matches,false) AS show_photo_to_matches,
                EXISTS(
                  SELECT 1 FROM premium_entitlements pe
                  WHERE pe.user_id=u.id AND pe.status='active' AND pe.expires_at>now()
@@ -64,7 +64,7 @@ app.http("matches",{
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
         WHERE u.status='active' AND p.profile_completed=true AND p.is_visible=true
-          AND COALESCE(ps.profile_discoverable,true)=true
+          AND COALESCE(ps.profile_discoverable,false)=true
           AND u.id<>$1
           AND NOT EXISTS (SELECT 1 FROM blocked_users b WHERE b.blocker_user_id=$1 AND b.blocked_user_id=u.id)
           AND NOT EXISTS (SELECT 1 FROM blocked_users b WHERE b.blocker_user_id=u.id AND b.blocked_user_id=$1)
