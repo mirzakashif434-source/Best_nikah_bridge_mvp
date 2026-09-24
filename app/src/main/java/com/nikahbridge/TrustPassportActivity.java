@@ -16,8 +16,10 @@ import org.json.JSONObject;
 /** Trust Passport built only from real Azure/PostgreSQL evidence. */
 public class TrustPassportActivity extends Activity {
     private LinearLayout root;
-    private LinearLayout results;
+    private LinearLayout results,matchChoices;
     private Button checkButton;
+    private TextView matchStatus;
+    private String selectedMatchId="";
     private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
 
     @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();}
@@ -41,7 +43,10 @@ public class TrustPassportActivity extends Activity {
     private void render(){
         base();root.addView(txt("Trust Passport",27,true));
         root.addView(txt("A transparent evidence card built from real Azure verification, photo and profile records. No fabricated badge or hidden personality score.",15,false));
-        EditText id=input("Real matched member ID");checkButton=btn("View Real Trust Passport",true);checkButton.setOnClickListener(v->load(id.getText().toString().trim()));
+        matchStatus=txt("Loading your real Azure matches…",15,false);root.addView(matchStatus);
+        matchChoices=new LinearLayout(this);matchChoices.setOrientation(LinearLayout.VERTICAL);root.addView(matchChoices);
+        checkButton=btn("View Selected Trust Passport",true);checkButton.setEnabled(false);checkButton.setOnClickListener(v->load(selectedMatchId));
+        loadMatchChoices();
         Button family=btn("Family Bridge 2.0",true);family.setOnClickListener(v->{
             if(!AzureAuthManager.hasAccount(this)){
                 LanguageManager.dialog(this)
@@ -56,6 +61,40 @@ public class TrustPassportActivity extends Activity {
         results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);root.addView(results);
     }
 
+    private void loadMatchChoices(){
+        if(!AzureAuthManager.hasAccount(this)){
+            matchStatus.setText("Azure sign in is required to choose a real match.");
+            return;
+        }
+        AzureApiClient.get("/matches",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("matches");
+                    matchChoices.removeAllViews();
+                    if(a==null||a.length()==0){
+                        matchStatus.setText("No real compatible matches are available yet.");
+                        checkButton.setEnabled(false);
+                        return;
+                    }
+                    matchStatus.setText("Choose a real match. Secure member IDs stay hidden.");
+                    for(int i=0;i<Math.min(a.length(),50);i++){
+                        JSONObject m=a.optJSONObject(i);if(m==null)continue;
+                        String id=m.optString("userId","").trim();if(id.isEmpty())continue;
+                        String name=m.optString("displayName","Member").trim();
+                        final String matchId=id,matchName=name.isEmpty()?"Member":name;
+                        Button choose=btn("Choose "+matchName,false);
+                        choose.setOnClickListener(v->{
+                            selectedMatchId=matchId;
+                            matchStatus.setText("Selected: "+matchName);
+                            checkButton.setEnabled(true);
+                        });
+                    }
+                }catch(Exception e){matchStatus.setText("Real Azure matches could not be displayed.");}
+            });}
+            public void err(String message){runOnUiThread(()->matchStatus.setText("Real Azure matches are temporarily unavailable."));}
+        });
+    }
+
     private void load(String id){
         if(!AzureAuthManager.hasAccount(this)){
             LanguageManager.dialog(this)
@@ -66,7 +105,7 @@ public class TrustPassportActivity extends Activity {
                 .show();
             return;
         }
-        if(id.isEmpty()){toast("Enter a real matched member ID.");return;}
+        if(id.isEmpty()){toast("Choose a real match first.");return;}
         results.removeAllViews();
         checkButton.setEnabled(false);
         checkButton.setText("Loading real Trust Passport…");
