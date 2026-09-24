@@ -252,7 +252,8 @@ public class FamilyCircleActivity extends Activity {
                         String id=m.optString("userId","").trim();if(id.isEmpty())continue;
                         String name=m.optString("displayName","Member").trim();
                         final String matchId=id,matchName=name.isEmpty()?"Member":name;
-                        Button choose=btn("Choose "+matchName,false);
+                        Button choose=Premium2030Ui.secondary(FamilyCircleActivity.this,"Choose "+matchName);
+                        matchChoices.addView(choose,new LinearLayout.LayoutParams(-1,dp(52)));
                         choose.setOnClickListener(v->{selectedSuggestedUserId=matchId;selectedMatch.setText("Selected: "+matchName);});
                     }
                 }catch(Exception e){selectedMatch.setText("Real Azure matches could not be displayed.");}
