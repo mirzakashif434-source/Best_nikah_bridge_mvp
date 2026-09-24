@@ -190,7 +190,10 @@ public class ProfilePhotoActivity extends Activity {
             }
             in.close();
             String mime = getContentResolver().getType(selected);
-            if (mime == null || !(mime.equals("image/jpeg") || mime.equals("image/png") || mime.equals("image/webp"))) mime = "image/jpeg";
+            if (mime == null || !(mime.equals("image/jpeg") || mime.equals("image/png") || mime.equals("image/webp"))) {
+                status.setText("Unsupported photo type. Please choose JPG, PNG, or WebP.");
+                return;
+            }
             final String finalMime = mime;
             status.setText("Uploading real photo to Azure securely…");
             AzureApiClient.multipart("/photos","photo","profile."+finalMime.substring(finalMime.indexOf('/')+1),finalMime,out.toByteArray(),
