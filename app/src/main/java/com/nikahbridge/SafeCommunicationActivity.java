@@ -15,10 +15,11 @@ import org.json.JSONObject;
 
 /** Production mutual-only communication through Azure conversations and PostgreSQL messages. */
 public class SafeCommunicationActivity extends Activity {
-    private LinearLayout root,conversationList;private EditText conversationId,message;private TextView status,history;
+    private LinearLayout root,conversationList;private EditText message;private TextView status,history,selectedConversation;
+    private String selectedConversationId="";
     private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
 
-    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();loadConversations();String openId=getIntent()!=null?getIntent().getStringExtra("conversationId"):null;if(openId!=null&&!openId.trim().isEmpty()){conversationId.setText(openId.trim());loadMessages();}}
+    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();loadConversations();String openId=getIntent()!=null?getIntent().getStringExtra("conversationId"):null;if(openId!=null&&!openId.trim().isEmpty()){selectedConversationId=openId.trim();selectedConversation.setText("Selected secure mutual conversation");loadMessages();}}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void base(){
         ScrollView s=new ScrollView(this);s.setFillViewport(true);s.setClipToPadding(false);s.setBackgroundColor(light);
@@ -39,7 +40,8 @@ public class SafeCommunicationActivity extends Activity {
     private void render(){
         base();root.addView(txt("Mutual-Only Safe Communication",27,true));root.addView(txt("Messages are available only inside real mutual Azure conversations. No direct unsolicited messaging and no demo chat.",15,false));
         conversationList=new LinearLayout(this);conversationList.setOrientation(LinearLayout.VERTICAL);root.addView(conversationList);
-        conversationId=input("Conversation ID from a real mutual connection");message=input("Write a respectful message");
+        selectedConversation=txt("Choose a mutual conversation above. Secure conversation IDs stay hidden.",15,false);root.addView(selectedConversation);
+        message=input("Write a respectful message");
         Button send=btn("Send Secure Azure Message",true);root.addView(send,new LinearLayout.LayoutParams(-1,dp(62)));send.setOnClickListener(v->send());
         Button load=btn("Load Recent Messages",false);root.addView(load,new LinearLayout.LayoutParams(-1,dp(62)));load.setOnClickListener(v->loadMessages());
         Button deleteBoth=btn("Delete Chat for Both",false);root.addView(deleteBoth,new LinearLayout.LayoutParams(-1,dp(62)));deleteBoth.setOnClickListener(v->confirmDeleteForBoth());
@@ -70,7 +72,7 @@ public class SafeCommunicationActivity extends Activity {
                 try{
                     JSONArray a=new JSONObject(body).optJSONArray("conversations");conversationList.removeAllViews();
                     if(a==null||a.length()==0){conversationList.addView(txt("No real mutual conversations yet.",15,false));return;}
-                    for(int i=0;i<a.length();i++){JSONObject c=a.optJSONObject(i);if(c==null)continue;String id=c.optString("id",""),name=c.optString("other_display_name","Mutual connection");Button choose=btn("Open: "+name,false);choose.setOnClickListener(v->{conversationId.setText(id);loadMessages();});conversationList.addView(choose,new LinearLayout.LayoutParams(-1,dp(56)));}
+                    for(int i=0;i<a.length();i++){JSONObject c=a.optJSONObject(i);if(c==null)continue;String id=c.optString("id",""),name=c.optString("other_display_name","Mutual connection");Button choose=btn("Open: "+name,false);choose.setOnClickListener(v->{selectedConversationId=id;selectedConversation.setText("Selected: "+name);loadMessages();});conversationList.addView(choose,new LinearLayout.LayoutParams(-1,dp(56)));}
                 }catch(Exception e){status.setText("Status: Azure conversation list could not be read");}
             });}
             public void err(String message){runOnUiThread(()->{if(authError(message))showSignInRecovery("load your mutual conversations");else status.setText("Status: Azure conversations are temporarily unavailable.");});}
@@ -78,7 +80,7 @@ public class SafeCommunicationActivity extends Activity {
     }
 
     private void send(){
-        String id=conversationId.getText().toString().trim(),body=message.getText().toString().trim();
+        String id=selectedConversationId.trim(),body=message.getText().toString().trim();
         if(id.isEmpty()||body.isEmpty()){status.setText("Status: choose a conversation and write a message");return;}
         try{
             JSONObject j=new JSONObject().put("body",body);status.setText("Status: sending securely through Azure…");
@@ -111,7 +113,7 @@ public class SafeCommunicationActivity extends Activity {
     }
 
     private void confirmDeleteForBoth(){
-        String id=conversationId.getText().toString().trim();
+        String id=selectedConversationId.trim();
         if(id.isEmpty()){status.setText("Status: choose a real conversation first");return;}
         LanguageManager.dialog(this)
             .setTitle("Delete this chat for both?")
@@ -125,7 +127,8 @@ public class SafeCommunicationActivity extends Activity {
         status.setText("Status: deleting chat for both…");
         AzureApiClient.delete("/conversations/"+id,"{}",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
-                conversationId.setText("");
+                selectedConversationId="";
+                selectedConversation.setText("Choose a mutual conversation above. Secure conversation IDs stay hidden.");
                 message.setText("");
                 history.setText("");
                 status.setText("Status: chat deleted for both people");
@@ -137,7 +140,7 @@ public class SafeCommunicationActivity extends Activity {
     }
 
     private void loadMessages(){
-        String id=conversationId.getText().toString().trim();if(id.isEmpty()){status.setText("Status: choose a real conversation");return;}
+        String id=selectedConversationId.trim();if(id.isEmpty()){status.setText("Status: choose a real conversation");return;}
         AzureApiClient.get("/conversations/"+id+"/messages",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
