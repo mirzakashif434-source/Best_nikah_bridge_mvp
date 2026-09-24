@@ -128,7 +128,7 @@ public class OwnerEarningsActivity extends Activity {
                     }else if(authError(message)){
                         showOwnerSignIn();
                     }else if(message!=null&&message.contains("404")){
-                        summary.setText("Owner Wallet service is updating on Azure. Tap Refresh Owner Wallet after the backend deploy completes.");
+                        summary.setText("Owner Wallet route could not be reached. Tap Refresh Owner Wallet.");
                     }else if(message!=null&&(message.contains("500")||message.contains("502")||message.contains("503")||message.contains("504"))){
                         summary.setText("Owner Wallet service is temporarily unavailable. Tap Refresh Owner Wallet.");
                     }else{
