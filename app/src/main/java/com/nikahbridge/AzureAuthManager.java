@@ -34,6 +34,8 @@ final class AzureAuthManager {
     private static WeakReference<Activity> activeActivity = new WeakReference<>(null);
     private static boolean initializing;
     private static String cachedAccessToken;
+    private static boolean tokenAcquisitionInFlight;
+    private static final java.util.ArrayList<Callback> tokenWaiters = new java.util.ArrayList<>();
     private static final java.util.ArrayList<Runnable> pending = new java.util.ArrayList<>();
 
     private AzureAuthManager() {}
@@ -49,9 +51,7 @@ final class AzureAuthManager {
         if (context instanceof Activity) bindActivity((Activity) context);
         appContext = context.getApplicationContext();
 
-        // Reuse the already verified in-memory production token while the
-        // current app session is alive. This prevents every feature request
-        // from restarting authentication/navigation.
+        // Reuse the verified token while it is still valid.
         synchronized (AzureAuthManager.class) {
             if (cachedAccessToken != null && !cachedAccessToken.trim().isEmpty()) {
                 if (isTokenUsable(cachedAccessToken)) {
@@ -60,10 +60,17 @@ final class AzureAuthManager {
                 }
                 cachedAccessToken = null;
             }
+
+            // One token acquisition serves every concurrent Azure request.
+            // This prevents several screens/API calls from opening duplicate
+            // MSAL refresh or interactive sign-in flows at the same time.
+            tokenWaiters.add(callback);
+            if (tokenAcquisitionInFlight) return;
+            tokenAcquisitionInFlight = true;
         }
 
-        initialize(appContext, () -> acquireTokenSilent(callback),
-                message -> callback.err(message));
+        initialize(appContext, AzureAuthManager::acquireTokenSilentForWaiters,
+                AzureAuthManager::finishTokenError);
     }
 
     static void acceptVerifiedAccessToken(String accessToken) {
@@ -71,6 +78,7 @@ final class AzureAuthManager {
         synchronized (AzureAuthManager.class) {
             cachedAccessToken = accessToken;
         }
+        setSignedInState(true);
     }
 
     static void clearCachedToken() {
@@ -157,22 +165,71 @@ final class AzureAuthManager {
 
     static boolean hasAccount(Context context) {
         try {
-            if (app == null) {
-                return context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
-                        .getBoolean("signed_in", false);
+            synchronized (AzureAuthManager.class) {
+                if (cachedAccessToken != null && isTokenUsable(cachedAccessToken)) return true;
             }
+            boolean remembered = context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                    .getBoolean("signed_in", false);
+            if (app == null) return remembered;
             List<IAccount> accounts = app.getAccounts();
-            return accounts != null && !accounts.isEmpty();
+            boolean cachedAccount = accounts != null && !accounts.isEmpty();
+            if (cachedAccount) {
+                setSignedInState(true);
+                return true;
+            }
+            // Do not throw away a verified app session merely because MSAL is
+            // still restoring its account cache. The next API call will run the
+            // real token acquisition and correct stale state if needed.
+            return remembered;
         } catch (Exception ignored) {
-            return false;
+            return context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                    .getBoolean("signed_in", false);
         }
     }
 
-    private static void acquireTokenSilent(Callback callback) {
+    private static boolean rememberedSignedIn() {
+        Context context = appContext;
+        return context != null && context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                .getBoolean("signed_in", false);
+    }
+
+    private static void setSignedInState(boolean signedIn) {
+        Context context = appContext;
+        if (context != null) {
+            context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                    .edit().putBoolean("signed_in", signedIn).apply();
+        }
+    }
+
+    private static void finishTokenSuccess(String token) {
+        java.util.ArrayList<Callback> callbacks;
+        synchronized (AzureAuthManager.class) {
+            cachedAccessToken = token;
+            tokenAcquisitionInFlight = false;
+            callbacks = new java.util.ArrayList<>(tokenWaiters);
+            tokenWaiters.clear();
+        }
+        setSignedInState(true);
+        for (Callback callback : callbacks) callback.ok(token);
+    }
+
+    private static void finishTokenError(String message) {
+        java.util.ArrayList<Callback> callbacks;
+        synchronized (AzureAuthManager.class) {
+            tokenAcquisitionInFlight = false;
+            callbacks = new java.util.ArrayList<>(tokenWaiters);
+            tokenWaiters.clear();
+        }
+        if ("AZURE_SIGN_IN_REQUIRED".equals(message)) setSignedInState(false);
+        for (Callback callback : callbacks) callback.err(message);
+    }
+
+    private static void acquireTokenSilentForWaiters() {
         try {
             List<IAccount> accounts = app.getAccounts();
             if (accounts == null || accounts.isEmpty()) {
-                callback.err("AZURE_SIGN_IN_REQUIRED");
+                if (rememberedSignedIn()) acquireTokenInteractiveForWaiters();
+                else finishTokenError("AZURE_SIGN_IN_REQUIRED");
                 return;
             }
 
@@ -191,37 +248,31 @@ final class AzureAuthManager {
                                 @Override public void onSuccess(IAuthenticationResult result) {
                                     String token = result.getAccessToken();
                                     if (token == null || token.trim().isEmpty()) {
-                                        callback.err("AZURE_ACCESS_TOKEN_UNAVAILABLE");
+                                        finishTokenError("AZURE_ACCESS_TOKEN_UNAVAILABLE");
                                     } else {
-                                        synchronized (AzureAuthManager.class) {
-                                            cachedAccessToken = token;
-                                        }
-                                        callback.ok(token);
+                                        finishTokenSuccess(token);
                                     }
                                 }
 
                                 @Override public void onError(MsalException exception) {
                                     // Any silent-token failure means the cached/refreshable
                                     // token is not usable for this API right now. Recover
-                                    // through the real interactive MSAL flow instead of
-                                    // leaving the user on the generic silent-token error.
-                                    acquireTokenInteractive(callback);
+                                    // through one real interactive MSAL flow for all waiters.
+                                    acquireTokenInteractiveForWaiters();
                                 }
                             })
                             .build();
 
             app.acquireTokenSilentAsync(parameters);
         } catch (Exception e) {
-            // If silent acquisition cannot even be started, recover through the
-            // foreground MSAL flow rather than exposing a stale generic error.
-            acquireTokenInteractive(callback);
+            acquireTokenInteractiveForWaiters();
         }
     }
 
-    private static void acquireTokenInteractive(Callback callback) {
+    private static void acquireTokenInteractiveForWaiters() {
         Activity activity = activeActivity.get();
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
-            callback.err("AZURE_INTERACTION_REQUIRED");
+            finishTokenError("AZURE_INTERACTION_REQUIRED");
             return;
         }
 
@@ -232,21 +283,18 @@ final class AzureAuthManager {
                     @Override public void onSuccess(IAuthenticationResult result) {
                         String token = result.getAccessToken();
                         if (token == null || token.trim().isEmpty()) {
-                            callback.err("AZURE_ACCESS_TOKEN_UNAVAILABLE");
+                            finishTokenError("AZURE_ACCESS_TOKEN_UNAVAILABLE");
                         } else {
-                            synchronized (AzureAuthManager.class) {
-                                cachedAccessToken = token;
-                            }
-                            callback.ok(token);
+                            finishTokenSuccess(token);
                         }
                     }
 
                     @Override public void onError(MsalException exception) {
-                        callback.err("AZURE_INTERACTIVE_TOKEN_FAILED");
+                        finishTokenError("AZURE_INTERACTIVE_TOKEN_FAILED");
                     }
 
                     @Override public void onCancel() {
-                        callback.err("AZURE_AUTH_CANCELLED");
+                        finishTokenError("AZURE_AUTH_CANCELLED");
                     }
                 })
                 .build();
