@@ -26,7 +26,25 @@ public class BlockedMembersActivity extends Activity {
         super.onCreate(state);
         AzureAuthManager.bindActivity(this);
         build();
-        loadBlocked();
+        recoverAzureSessionAndLoad();
+    }
+
+    private void recoverAzureSessionAndLoad(){
+        status.setText("Status: checking secure Azure session…");
+        signIn.setVisibility(android.view.View.GONE);
+        list.removeAllViews();
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){
+                runOnUiThread(()->loadBlocked());
+            }
+            @Override public void err(String message){
+                runOnUiThread(()->{
+                    status.setText("Status: Azure sign in required");
+                    signIn.setVisibility(android.view.View.VISIBLE);
+                    list.removeAllViews();
+                });
+            }
+        });
     }
 
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
@@ -55,18 +73,12 @@ public class BlockedMembersActivity extends Activity {
         status=text("Status: loading…",14,false);root.addView(status);
         list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);root.addView(list);
 
-        signIn=button("Sign in with Azure",true);signIn.setVisibility(android.view.View.GONE);signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));root.addView(signIn,new LinearLayout.LayoutParams(-1,dp(56)));
-        Button refresh=button("Refresh",false);refresh.setOnClickListener(v->loadBlocked());root.addView(refresh,new LinearLayout.LayoutParams(-1,dp(54)));
+        signIn=button("Sign in with Azure",true);signIn.setVisibility(android.view.View.GONE);signIn.setOnClickListener(v->recoverAzureSessionAndLoad());root.addView(signIn,new LinearLayout.LayoutParams(-1,dp(56)));
+        Button refresh=button("Refresh",false);refresh.setOnClickListener(v->recoverAzureSessionAndLoad());root.addView(refresh,new LinearLayout.LayoutParams(-1,dp(54)));
         Button back=button("Back",false);back.setOnClickListener(v->finish());LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(54));bp.setMargins(0,dp(8),0,0);root.addView(back,bp);
     }
 
     private void loadBlocked(){
-        if(!AzureAuthManager.hasAccount(this)){
-            status.setText("Status: Azure sign in required");
-            signIn.setVisibility(android.view.View.VISIBLE);
-            list.removeAllViews();
-            return;
-        }
         signIn.setVisibility(android.view.View.GONE);
         status.setText("Status: loading real Azure blocked members…");list.removeAllViews();
         AzureApiClient.get("/blocks",new AzureApiClient.Callback(){
