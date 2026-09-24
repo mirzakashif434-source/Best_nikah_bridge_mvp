@@ -1,6 +1,6 @@
 const { app } = require("@azure/functions");
 const { SignJWT, importPKCS8 } = require("jose");
-const { query } = require("./db");
+const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
 
 const PACKAGE_NAME = () => String(process.env.PLAY_PACKAGE_NAME || "com.nikahbridge").trim();
@@ -137,6 +137,10 @@ app.http("verifyPremiumPurchase", {
       }
 
       const item = extractLineItem(purchase, productId);
+      const purchasedBasePlanId = String(item?.offerDetails?.basePlanId || "").trim();
+      if (allowed.basePlanId && purchasedBasePlanId && purchasedBasePlanId !== allowed.basePlanId) {
+        return { status: 400, jsonBody: { ok: false, error: "Base plan mismatch." } };
+      }
       const state = String(purchase.subscriptionState || "");
       const activeStates = new Set(["SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"]);
       if (!item || !activeStates.has(state)) {
@@ -151,20 +155,33 @@ app.http("verifyPremiumPurchase", {
       const purchaseTokenHash = require("crypto").createHash("sha256").update(purchaseToken).digest("hex");
       const orderId = String(purchase.latestOrderId || item.latestSuccessfulOrderId || "").trim();
 
-      await query("BEGIN");
+      const client = await getPool().connect();
       try {
-        await query(
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["play-token:" + purchaseTokenHash]);
+
+        const existingToken = await client.query(
+          "SELECT user_id FROM premium_purchase_tokens WHERE purchase_token_hash=$1 FOR UPDATE",
+          [purchaseTokenHash]
+        );
+        if (existingToken.rows[0] && String(existingToken.rows[0].user_id) !== String(user.id)) {
+          const e = new Error("Purchase token is already linked to another account.");
+          e.statusCode = 409;
+          throw e;
+        }
+
+        await client.query(
           `INSERT INTO premium_purchase_tokens
              (purchase_token_hash, user_id, product_id, base_plan_id, order_id, subscription_state, expiry_time, last_verified_at)
            VALUES ($1,$2,$3,$4,$5,$6,$7,now())
            ON CONFLICT (purchase_token_hash) DO UPDATE SET
-             user_id=EXCLUDED.user_id, product_id=EXCLUDED.product_id, base_plan_id=EXCLUDED.base_plan_id,
+             product_id=EXCLUDED.product_id, base_plan_id=EXCLUDED.base_plan_id,
              order_id=EXCLUDED.order_id, subscription_state=EXCLUDED.subscription_state,
              expiry_time=EXCLUDED.expiry_time, last_verified_at=now()`,
-          [purchaseTokenHash, user.id, productId, allowed.basePlanId, orderId || null, state, expiryTime.toISOString()]
+          [purchaseTokenHash, user.id, productId, allowed.basePlanId || purchasedBasePlanId || null, orderId || null, state, expiryTime.toISOString()]
         );
 
-        await query(
+        await client.query(
           `INSERT INTO premium_entitlements
              (user_id, plan_key, product_id, base_plan_id, purchase_token_hash, order_id, status, expires_at, updated_at)
            VALUES ($1,$2,$3,$4,$5,$6,'active',$7,now())
@@ -172,18 +189,19 @@ app.http("verifyPremiumPurchase", {
              plan_key=EXCLUDED.plan_key, product_id=EXCLUDED.product_id, base_plan_id=EXCLUDED.base_plan_id,
              purchase_token_hash=EXCLUDED.purchase_token_hash, order_id=EXCLUDED.order_id,
              status='active', expires_at=EXCLUDED.expires_at, updated_at=now()`,
-          [user.id, allowed.planKey, productId, allowed.basePlanId, purchaseTokenHash, orderId || null, expiryTime.toISOString()]
+          [user.id, allowed.planKey, productId, allowed.basePlanId || purchasedBasePlanId || null, purchaseTokenHash, orderId || null, expiryTime.toISOString()]
         );
 
-        await query(
-          "UPDATE entitlements SET paid_tier = $2, updated_at = now() WHERE user_id = $1",
+        await client.query(
+          `INSERT INTO entitlements(user_id,paid_tier,updated_at)
+           VALUES($1,$2,now())
+           ON CONFLICT(user_id) DO UPDATE SET paid_tier=EXCLUDED.paid_tier,updated_at=now()`,
           [user.id, allowed.planKey]
         );
 
-        // Step 2: record the verified Google Play sale in the Azure owner ledger.
         const planValueSarMinor = { premium_basic_20: 2000, premium_plus_40: 4000, premium_vip_60: 6000 }[allowed.planKey] || 0;
         if (planValueSarMinor > 0) {
-          const sale = await query(
+          const sale = await client.query(
             `INSERT INTO owner_earnings
                (purchase_token_hash, purchase_id, user_id, product_id, order_id, status, plan_value_sar_minor, verified_at)
              VALUES ($1,$2,$3,$4,$5,'verified_sale',$6,now())
@@ -192,7 +210,7 @@ app.http("verifyPremiumPurchase", {
             [purchaseTokenHash, purchaseTokenHash, user.id, productId, orderId || null, planValueSarMinor]
           );
           if (sale.rows.length) {
-            await query(
+            await client.query(
               `UPDATE owner_earnings_summary
                  SET verified_sales_count = verified_sales_count + 1,
                      verified_plan_value_sar_minor = verified_plan_value_sar_minor + $1,
@@ -203,10 +221,12 @@ app.http("verifyPremiumPurchase", {
           }
         }
 
-        await query("COMMIT");
+        await client.query("COMMIT");
       } catch (e) {
-        await query("ROLLBACK");
+        await client.query("ROLLBACK").catch(()=>{});
         throw e;
+      } finally {
+        client.release();
       }
 
       if (String(purchase.acknowledgementState || "") !== "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED") {
