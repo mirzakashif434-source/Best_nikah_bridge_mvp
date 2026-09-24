@@ -26,6 +26,18 @@ public class WalletActivity extends Activity {
         refresh.setOnClickListener(v->load());premium.setOnClickListener(v->startActivity(new Intent(this,PremiumPlansActivity.class)));withdraw.setOnClickListener(v->withdrawDialog());history.setOnClickListener(v->history());owner.setOnClickListener(v->startActivity(new Intent(this,OwnerEarningsActivity.class)));back.setOnClickListener(v->finish());load();
     }
 
+    private String safeWalletError(String e){
+        String m=e==null?"":e;
+        if(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("UNAUTHENTICATED")) return "Please sign in with Azure, then try again.";
+        if(m.contains("INSUFFICIENT_BALANCE")) return "Insufficient wallet balance for this withdrawal.";
+        if(m.contains("MINIMUM_WITHDRAWAL_IS_10")) return "Minimum withdrawal is 10.";
+        if(m.contains("WALLET_CURRENCY_MISMATCH")) return "Wallet currency does not match the requested withdrawal currency.";
+        if(m.contains("UNSUPPORTED_CURRENCY")) return "This payout currency is not supported.";
+        if(m.contains("PAYOUT_DETAILS_REQUIRED")) return "Enter valid payout details.";
+        if(m.contains("ACCOUNT_NOT_ACTIVE")) return "This account is not active.";
+        return "Wallet service is temporarily unavailable. Please try again.";
+    }
+
     private void load(){
         balance.setText("Loading wallet…");
         AzureWalletApi.get("/wallet",new AzureWalletApi.Callback(){
@@ -36,7 +48,7 @@ public class WalletActivity extends Activity {
                     balance.setText("Balance: "+w.optString("balance","0")+" "+w.optString("currency","SAR"));
                 }catch(Exception e){balance.setText("Wallet response could not be displayed.");}
             });}
-            public void onError(String e){runOnUiThread(()->balance.setText("Azure wallet unavailable: "+e));}
+            public void onError(String e){runOnUiThread(()->balance.setText(safeWalletError(e)));}
         });
     }
 
@@ -54,7 +66,7 @@ public class WalletActivity extends Activity {
             String json="{\"amount\":"+quote(a)+",\"currency\":"+quote(cur)+",\"country\":"+quote(countryValue)+",\"destination\":"+quote(dest)+"}";
             AzureWalletApi.post("/wallet/withdrawals",json,new AzureWalletApi.Callback(){
                 public void onSuccess(String body){runOnUiThread(()->{String msg="Withdrawal request submitted.";try{JSONObject x=new JSONObject(body).optJSONObject("withdrawal");if(x!=null)msg="Withdrawal submitted\nAmount: "+x.optString("amount")+" "+x.optString("currency")+"\nStatus: "+x.optString("status","pending");}catch(Exception ignored){}LanguageManager.dialog(WalletActivity.this).setTitle("Withdrawal submitted").setMessage(msg).setPositiveButton("OK",null).show();load();});}
-                public void onError(String e){runOnUiThread(()->LanguageManager.dialog(WalletActivity.this).setTitle("Withdrawal not submitted").setMessage(e).setPositiveButton("Close",null).show());}
+                public void onError(String e){runOnUiThread(()->LanguageManager.dialog(WalletActivity.this).setTitle("Withdrawal not submitted").setMessage(safeWalletError(e)).setPositiveButton("Close",null).show());}
             });
           }).setNegativeButton("Cancel",null).show();
     }
@@ -72,7 +84,7 @@ public class WalletActivity extends Activity {
                     LanguageManager.dialog(WalletActivity.this).setTitle("Azure Wallet Transactions").setMessage(s.toString()).setPositiveButton("Close",null).show();
                 }catch(Exception e){LanguageManager.dialog(WalletActivity.this).setTitle("History unavailable").setMessage("Transactions could not be displayed.").setPositiveButton("Close",null).show();}
             });}
-            public void onError(String e){runOnUiThread(()->LanguageManager.dialog(WalletActivity.this).setTitle("History unavailable").setMessage(e).setPositiveButton("Close",null).show());}
+            public void onError(String e){runOnUiThread(()->LanguageManager.dialog(WalletActivity.this).setTitle("History unavailable").setMessage(safeWalletError(e)).setPositiveButton("Close",null).show());}
         });
     }
 }
