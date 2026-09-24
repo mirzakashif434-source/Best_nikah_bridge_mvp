@@ -70,7 +70,8 @@ jobs:
           grep -Eq 'route:[[:space:]]*"blocks"' azure-backend/src/blocks.js
           grep -Eq 'route:[[:space:]]*"admin/verifications"' azure-backend/src/verification.js
           grep -Eq 'route:[[:space:]]*"help/ask"' azure-backend/src/helpLine.js
-          grep -Eq 'route:[[:space:]]*"owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Eq 'route:[[:space:]]*"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Eq 'route:[[:space:]]*"journey/summary"' azure-backend/src/journeySummary.js
           grep -Eq 'route:[[:space:]]*"premium/plans"' azure-backend/src/premiumPlans.js
           grep -Fq 'plan_key = ANY($1::text[])' azure-backend/src/premiumPlans.js
           grep -Fq "WHERE plan_key IN ('premium_monthly','premium_yearly')" azure-backend/database/schema.sql
@@ -124,7 +125,7 @@ jobs:
           grep -Fq 'AzureAuthManager' app/src/main/java/com/nikahbridge/ProductionMainActivity.java
           grep -Fq 'AzureAuthManager' app/src/main/java/com/nikahbridge/MainActivity.java
           grep -Fq 'AzureApiClient.post("/help/ask"' app/src/main/java/com/nikahbridge/HelpLineActivity.java
-          grep -Fq 'AzureApiClient.get("/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.get("/admin/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           grep -Fq 'AzureApiClient.get("/admin/verifications"' app/src/main/java/com/nikahbridge/VerificationAdminActivity.java
           grep -Fq 'AzureApiClient.get("/blocks"' app/src/main/java/com/nikahbridge/BlockedMembersActivity.java
           grep -Fq 'AUTH_TIMEOUT_MS=12000L' app/src/main/java/com/nikahbridge/AzureApiClient.java
@@ -186,12 +187,22 @@ jobs:
           ! grep -Fq 'content.addView(title,new LinearLayout.LayoutParams(-1,dp(65)))' "$APP/TermsAndCommunityGuidelinesActivity.java"
           grep -Fq 'title.setMaxLines(2)' "$APP/TermsAndCommunityGuidelinesActivity.java"
 
-          # Step 17: incomplete profile is a valid zero-match journey state, not a backend failure.
-          grep -Fq 'm.contains("PROFILE_NOT_READY")' "$APP/NikahJourneyActivity.java"
+          # Step 17: one reliable Azure summary endpoint replaces the fragile six-call chain.
+          grep -Fq 'AzureApiClient.get("/journey/summary"' "$APP/NikahJourneyActivity.java"
+          grep -Eq 'route:[[:space:]]*"journey/summary"' azure-backend/src/journeySummary.js
 
-          # Steps 20-24 + Future Simulation + Step 30: no empty gated activity left on Back.
-          grep -Fq 'a.startActivity(new Intent(a,PremiumPlansActivity.class));' "$APP/PremiumFeatureGate.java"
-          grep -Fq 'a.finish();' "$APP/PremiumFeatureGate.java"
+          # Steps 20-24 + Future Simulation + Step 30: View Plans keeps source Activity alive.
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path("app/src/main/java/com/nikahbridge/PremiumFeatureGate.java").read_text()
+          marker='.setPositiveButton("View Plans"'
+          start=t.index(marker)
+          end=t.index('.setNegativeButton("Not now"', start)
+          block=t[start:end]
+          assert "PremiumPlansActivity.class" in block
+          assert "a.finish()" not in block, "View Plans still destroys source Activity"
+          print("PREMIUM BACK STACK: PASS")
+          PY
 
           # Step 31: Refresh must visibly confirm real Azure refresh.
           grep -Fq 'Refreshed from Azure at' "$APP/NikahSuccessPlanActivity.java"
