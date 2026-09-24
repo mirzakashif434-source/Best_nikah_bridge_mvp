@@ -275,6 +275,13 @@ ON CONFLICT (plan_key) DO UPDATE SET
   sort_order = EXCLUDED.sort_order,
   updated_at = now();
 
+-- Legacy two-tier catalog rows are preserved for history but must never be sold.
+UPDATE premium_plans
+   SET active = FALSE,
+       updated_at = now()
+ WHERE plan_key IN ('premium_monthly','premium_yearly')
+   AND active = TRUE;
+
 
 -- Firebase migration #3: additive Azure wallet ledger.
 -- No existing tables or data are removed or replaced.
