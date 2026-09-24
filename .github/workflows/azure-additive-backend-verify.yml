@@ -226,6 +226,17 @@ jobs:
           grep -Fq 'owner/live-analytics' azure-backend/src/ownerAnalytics.js
           grep -Fq 'owner/earnings' azure-backend/src/ownerEarnings.js
 
+          # Step 3 final lock: Owner Live Analytics must use the real GET route and complete screen controls.
+          grep -Fq 'AzureApiClient.get("/owner/live-analytics"' "$APP/OwnerLiveAnalyticsActivity.java"
+          ! grep -Fq 'AzureApiClient.get("/admin/owner/live-analytics"' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'button("Refresh Live Dashboard",true)' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'button("Open Owner Wallet / Payout",true)' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'button("Back",false)' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'back.setOnClickListener(v->finish())' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'ScrollView' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'WindowInsetsCompat.Type.systemBars()' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'route:"owner/live-analytics"' azure-backend/src/ownerAnalytics.js
+
           # Step 36: successful wallet refresh and transaction refresh are explicit.
           grep -Fq 'Wallet refreshed from Azure' "$APP/AzureWalletActivity.java"
           grep -Fq 'Azure transactions refreshed' "$APP/AzureWalletActivity.java"
