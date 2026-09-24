@@ -168,6 +168,32 @@ jobs:
         with:
           app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
           package: azure-backend
+      - name: Restart Function App and sync deployed triggers
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+          az functionapp restart --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --only-show-errors
+          az rest --method post \
+            --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Web/sites/${AZURE_FUNCTIONAPP_NAME}/syncfunctiontriggers?api-version=2016-08-01" \
+            --only-show-errors >/dev/null
+          for i in 1 2 3 4 5 6; do
+            FUNCTIONS="$(az functionapp function list --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query "[].name" -o tsv || true)"
+            echo "$FUNCTIONS"
+            if echo "$FUNCTIONS" | grep -q 'ownerEarningsDashboardAzure' && \
+               echo "$FUNCTIONS" | grep -q 'ownerLiveAnalyticsAzure' && \
+               echo "$FUNCTIONS" | grep -q 'walletGet'; then
+              echo "FUNCTION TRIGGER SYNC: PASS"
+              break
+            fi
+            if [ "$i" = "6" ]; then
+              echo "FUNCTION TRIGGER SYNC: FAIL"
+              exit 1
+            fi
+            sleep 10
+          done
+
       - name: Verify live Azure External ID configuration
         run: |
           set -euo pipefail
