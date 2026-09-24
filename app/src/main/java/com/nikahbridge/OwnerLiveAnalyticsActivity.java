@@ -102,7 +102,7 @@ public class OwnerLiveAnalyticsActivity extends Activity {
                 }else if(authError(m)){
                     showOwnerSignIn();
                 }else if(m!=null&&m.contains("404")){
-                    status.setText("Owner analytics service is not available in this backend release.");
+                    status.setText("Owner analytics route could not be reached. Tap Refresh Live Dashboard.");
                 }else if(m!=null&&(m.contains("500")||m.contains("502")||m.contains("503")||m.contains("504"))){
                     status.setText("Owner analytics service is temporarily unavailable. Tap Refresh Live Dashboard.");
                 }else{
