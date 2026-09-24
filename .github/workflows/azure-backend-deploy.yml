@@ -268,6 +268,28 @@ jobs:
           done
           echo "FINAL REPAIR LIVE ROUTES: PASS"
 
+      - name: Verify live release readiness
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
+          URL="https://${HOSTNAME}/api/release/readiness"
+          echo "Checking $URL"
+          for i in 1 2 3 4 5 6; do
+            HTTP_CODE="$(curl -sS -o /tmp/release-readiness.json -w "%{http_code}" "$URL" || true)"
+            echo "Attempt $i: HTTP $HTTP_CODE"
+            cat /tmp/release-readiness.json || true
+            if [ "$HTTP_CODE" = "200" ] && grep -q '"ready":true' /tmp/release-readiness.json; then
+              echo "LIVE RELEASE READINESS: PASS"
+              break
+            fi
+            if [ "$i" = "6" ]; then
+              echo "LIVE RELEASE READINESS: FAIL"
+              exit 1
+            fi
+            sleep 10
+          done
+
       - name: Verify live health endpoint
         run: |
           set -euo pipefail
