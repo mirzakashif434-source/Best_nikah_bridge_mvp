@@ -42,12 +42,23 @@ public class RewardedMessageActivity extends Activity {
         super.onCreate(state);
         AzureAuthManager.bindActivity(this);
         base();
-        if (!AzureAuthManager.hasAccount(this)) {
-            showAzureRecovery();
-            return;
-        }
-        status.setText("Preparing a real rewarded ad…");
-        loadConfig();
+        recoverAzureSessionAndLoad();
+    }
+
+    private void recoverAzureSessionAndLoad() {
+        status.setText("Checking your secure Azure session…");
+        watch.setEnabled(false);
+        AzureAuthManager.acquireToken(this, new AzureAuthManager.Callback() {
+            @Override public void ok(String accessToken) {
+                runOnUiThread(() -> {
+                    status.setText("Preparing a real rewarded ad…");
+                    loadConfig();
+                });
+            }
+            @Override public void err(String message) {
+                runOnUiThread(() -> showAzureRecovery());
+            }
+        });
     }
 
     private void base() {
@@ -74,11 +85,13 @@ public class RewardedMessageActivity extends Activity {
         watch.setEnabled(false);
         Button signIn = Premium2030Ui.primary(this,"Sign in with Azure");
         Premium2030Ui.addButton(root,signIn);
-        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        signIn.setOnClickListener(v -> {
+            root.removeView(signIn);
+            recoverAzureSessionAndLoad();
+        });
     }
 
     private void loadConfig() {
-        if (!AzureAuthManager.hasAccount(this)) { status.setText("Please sign in with Azure."); return; }
         AzureApiClient.get("/admob/rewarded/config", new AzureApiClient.Callback() {
             @Override public void ok(int code, String body) {
                 try {
