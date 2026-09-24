@@ -25,7 +25,7 @@ app.http("privacyGet",{
     try{
       const me=await ensureUser(user);
       const r=await query("SELECT profile_discoverable,show_city,show_photo_to_matches,updated_at FROM privacy_settings WHERE user_id=$1",[me.id]);
-      return {status:200,jsonBody:{ok:true,privacy:r.rows[0]||{profile_discoverable:true,show_city:true,show_photo_to_matches:true}}};
+      return {status:200,jsonBody:{ok:true,privacy:r.rows[0]||{profile_discoverable:false,show_city:false,show_photo_to_matches:false}}};
     }catch(e){context.error("PRIVACY_GET_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"PRIVACY_GET_FAILED"}};}
   })
 });
@@ -36,9 +36,12 @@ app.http("privacyUpdate",{
     try{
       const me=await ensureUser(user);
       const b=await request.json();
-      const profileDiscoverable=typeof b.profileDiscoverable==="boolean"?b.profileDiscoverable:true;
-      const showCity=typeof b.showCity==="boolean"?b.showCity:true;
-      const showPhotoToMatches=typeof b.showPhotoToMatches==="boolean"?b.showPhotoToMatches:true;
+      if(typeof b.profileDiscoverable!=="boolean" || typeof b.showCity!=="boolean" || typeof b.showPhotoToMatches!=="boolean"){
+        return {status:400,jsonBody:{ok:false,error:"INVALID_PRIVACY_SETTINGS"}};
+      }
+      const profileDiscoverable=b.profileDiscoverable;
+      const showCity=b.showCity;
+      const showPhotoToMatches=b.showPhotoToMatches;
       const r=await query(
         "INSERT INTO privacy_settings(user_id,profile_discoverable,show_city,show_photo_to_matches) VALUES($1,$2,$3,$4) ON CONFLICT(user_id) DO UPDATE SET profile_discoverable=EXCLUDED.profile_discoverable,show_city=EXCLUDED.show_city,show_photo_to_matches=EXCLUDED.show_photo_to_matches,updated_at=now() RETURNING profile_discoverable,show_city,show_photo_to_matches,updated_at",
         [me.id,profileDiscoverable,showCity,showPhotoToMatches]
