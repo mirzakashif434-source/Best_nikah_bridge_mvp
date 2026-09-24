@@ -1,6 +1,7 @@
 package com.nikahbridge;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -83,9 +84,9 @@ public class UpgradeActivity extends Activity {
         root.addView(text(sb.toString(), 15, false));
         Button upgrade = button("Upgrade • " + name, true);
         upgrade.setOnClickListener(v -> {
-            // Payment provider hook: connect this productKey to Google Play Billing.
-            // Never report success locally; backend must verify the Play purchase first.
-            LanguageManager.toast(this, "Secure Google Play payment setup is required for plan " + productKey + ".", Toast.LENGTH_LONG).show();
+            Intent realBilling = new Intent(this, PremiumPlansActivity.class);
+            realBilling.putExtra("requestedPlan", productKey);
+            startActivity(realBilling);
         });
     }
 }
