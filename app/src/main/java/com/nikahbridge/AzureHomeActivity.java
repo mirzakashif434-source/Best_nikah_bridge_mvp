@@ -188,6 +188,7 @@ public class AzureHomeActivity extends Activity {
         EditText name=input("Display name");
         EditText dob=input("Date of birth YYYY-MM-DD");
         EditText gender=input("Gender: male or female");
+        EditText preferredGender=input("Looking for: male, female, or any");
         EditText country=input("Country");
         EditText city=input("City");
         EditText education=input("Education");
@@ -202,6 +203,7 @@ public class AzureHomeActivity extends Activity {
                     name.setText(valueOrEmpty(p,"display_name"));
                     dob.setText(valueOrEmpty(p,"date_of_birth"));
                     gender.setText(valueOrEmpty(p,"gender"));
+                    preferredGender.setText(valueOrEmpty(p,"preferred_gender"));
                     country.setText(valueOrEmpty(p,"country"));
                     city.setText(valueOrEmpty(p,"city"));
                     education.setText(valueOrEmpty(p,"education"));
@@ -217,6 +219,7 @@ public class AzureHomeActivity extends Activity {
                 String displayName=name.getText().toString().trim();
                 String birthDate=dob.getText().toString().trim();
                 String profileGender=gender.getText().toString().trim().toLowerCase(java.util.Locale.US);
+                String lookingFor=preferredGender.getText().toString().trim().toLowerCase(java.util.Locale.US);
 
                 if(displayName.length()<2){LanguageManager.setError(name,"Display name is required");name.requestFocus();return;}
                 if(!birthDate.matches("\\d{4}-\\d{2}-\\d{2}")){LanguageManager.setError(dob,"Use YYYY-MM-DD, for example 1990-05-21");dob.requestFocus();return;}
@@ -231,11 +234,13 @@ public class AzureHomeActivity extends Activity {
                 if(today.get(java.util.Calendar.DAY_OF_YEAR)<birth.get(java.util.Calendar.DAY_OF_YEAR)) age--;
                 if(age<18||age>100){LanguageManager.setError(dob,"Age must be between 18 and 100");dob.requestFocus();return;}
                 if(!"male".equals(profileGender)&&!"female".equals(profileGender)){LanguageManager.setError(gender,"Enter male or female");gender.requestFocus();return;}
+                if(!"male".equals(lookingFor)&&!"female".equals(lookingFor)&&!"any".equals(lookingFor)){LanguageManager.setError(preferredGender,"Enter male, female, or any");preferredGender.requestFocus();return;}
 
                 JSONObject b=new JSONObject();
                 b.put("displayName",displayName);
                 b.put("dateOfBirth",birthDate);
                 b.put("gender",profileGender);
+                b.put("preferredGender",lookingFor);
                 b.put("country",country.getText().toString().trim());
                 b.put("city",city.getText().toString().trim());
                 b.put("education",education.getText().toString().trim());
