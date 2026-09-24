@@ -165,7 +165,23 @@ for p in activities:
     need(f"{p.name}: blur-like low alpha regression",
          re.search(r"setAlpha\(0\.[0-4]|alpha\s*=\s*0\.[0-4]",t) is None)
 
-# CONTRACT 12 — Azure-only runtime and release safety.
+# CONTRACT 12 — Blocked Members: IDs stay internal, real Azure list/delete remain wired.
+blocked=contains(APP/"BlockedMembersActivity.java",
+    'AzureApiClient.get("/blocks"',
+    'AzureApiClient.delete("/blocks/"+userId',
+    'Button unblock=button("Unblock",true)',
+    'Button refresh=button("Refresh",false)',
+    'Button back=button("Back",false)',
+    'ScrollView',
+    'WindowInsetsCompat.Type.systemBars()')
+need("Blocked Members leaked a technical member ID", "Member ID:" not in blocked)
+blocks_backend=contains(AZ/"blocks.js",
+    'route:"blocks"',
+    'route:"blocks/{userId}"',
+    'CANNOT_BLOCK_SELF',
+    'BLOCK_NOT_FOUND')
+
+# CONTRACT 13 — Azure-only runtime and release safety.
 all_java="\n".join(read(p) for p in APP.glob("*.java"))
 for bad in ("FirebaseAuth","FirebaseFirestore","FirebaseFunctions","FirebaseStorage","getHttpsCallable","com.google.firebase"):
     need(f"Firebase runtime regression returned: {bad}",bad not in all_java)
@@ -173,11 +189,7 @@ manifest=contains(ROOT/"app/src/main/AndroidManifest.xml",
     'android:usesCleartextTraffic="false"',
     'android:allowBackup="false"')
 
-# Intentionally NOT checked here:
-# 1) BlockedMembersActivity user-facing "Member ID:" (known pending issue)
-# 2) ProductionMainActivity privileged owner analytics route (known pending issue)
-# Those two are handled in the next repair step, not hidden by this lock.
-
+# Intentionally not checked yet: ProductionMainActivity privileged owner analytics route.\n# It is handled in the next repair step, not hidden by this lock.\n
 if fail:
     print("LOCKED FEATURE CONTRACTS: FAIL")
     for x in fail: print(" -",x)
