@@ -423,17 +423,17 @@ public class AzureHomeActivity extends Activity {
         sectionTitle("Create / Update Wali Connection");
         EditText name=input("Wali full name");
         EditText email=input("Wali email (optional)");
-        EditText phone=input("Wali phone E.164 (optional)");
+        EditText phone=input("Wali phone with country code (optional)");
         Button create=button("Connect Real Wali",true);
         create.setOnClickListener(v->{try{
             String waliName=name.getText().toString().trim(); String waliEmail=email.getText().toString().trim(); String waliPhone=phone.getText().toString().trim();
             if(waliName.length()<2){LanguageManager.setError(name,"Wali full name required");name.requestFocus();return;}
-            if(waliEmail.isEmpty() && waliPhone.isEmpty()){LanguageManager.setError(email,"Email or E.164 phone required");email.requestFocus();return;}
+            if(waliEmail.isEmpty() && waliPhone.isEmpty()){LanguageManager.setError(email,"Email or phone number required");email.requestFocus();return;}
             if(!waliEmail.isEmpty() && !android.util.Patterns.EMAIL_ADDRESS.matcher(waliEmail).matches()){
                 LanguageManager.setError(email,"Enter a valid email address");email.requestFocus();return;
             }
             if(!waliPhone.isEmpty() && !waliPhone.matches("^\\+[1-9]\\d{7,14}$")){
-                LanguageManager.setError(phone,"Use E.164 format, for example +9665XXXXXXXX");phone.requestFocus();return;
+                LanguageManager.setError(phone,"Include country code, for example +9665XXXXXXXX");phone.requestFocus();return;
             }
             JSONObject b=new JSONObject();b.put("waliName",waliName);b.put("waliEmail",waliEmail);b.put("waliPhoneE164",waliPhone);
             AzureApiClient.post("/family-links",b.toString(),new AzureApiClient.Callback(){
@@ -442,17 +442,46 @@ public class AzureHomeActivity extends Activity {
             });
         }catch(Exception e){toast("Wali information is invalid.");}});
 
-        sectionTitle("Wali Verification");
-        EditText linkId=input("Family link ID");
-        Button verify=button("Verify This Wali Account",false);
-        verify.setOnClickListener(v->{String id=linkId.getText().toString().trim();if(id.isEmpty()){LanguageManager.setError(linkId,"Family link ID required");return;}
-            AzureApiClient.post("/family-links/"+id+"/verify","{}",new AzureApiClient.Callback(){
-                public void ok(int code,String body){runOnUiThread(()->{toast("Wali identity verified in Azure.");loadFamilyLinks(out);});}
-                public void err(String m){runOnUiThread(()->toast("Wali verification failed: "+m));}
-            });
-        });
+        sectionTitle("Wali Requests Sent to Me");
+        TextView waliRequests=text("Checking for requests linked to your signed-in email or phone…",15,false);root.addView(waliRequests);
+        loadPendingWaliRequests(waliRequests,out);
 
         Button back=button("Back",false);back.setOnClickListener(v->home());
+    }
+
+    private void loadPendingWaliRequests(TextView out,TextView ownerLinks){
+        AzureApiClient.get("/family-links/pending-for-wali",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("familyLinks");
+                    if(a==null||a.length()==0){
+                        out.setText("No Wali verification requests are waiting for this account.");
+                        return;
+                    }
+                    out.setText("Verify only requests you recognize. The secure link ID is handled automatically.");
+                    for(int i=0;i<a.length();i++){
+                        JSONObject x=a.optJSONObject(i);if(x==null)continue;
+                        String id=x.optString("id","").trim();
+                        if(id.isEmpty())continue;
+                        String ownerName=x.optString("owner_name","Member").trim();
+                        String ownerEmail=x.optString("owner_email","").trim();
+                        String label="Request from: "+(ownerName.isEmpty()?"Member":ownerName);
+                        if(!ownerEmail.isEmpty())label+="\nAccount: "+ownerEmail;
+                        root.addView(text(label,15,false));
+                        final String requestId=id;
+                        Button verify=button("Verify This Wali Request",true);
+                        verify.setOnClickListener(v->AzureApiClient.post("/family-links/"+requestId+"/verify","{}",new AzureApiClient.Callback(){
+                            public void ok(int c,String response){runOnUiThread(()->{
+                                toast("Wali identity verified in Azure.");
+                                familyWali();
+                            });}
+                            public void err(String m){runOnUiThread(()->toast("Wali verification failed: "+m));}
+                        }));
+                    }
+                }catch(Exception e){out.setText("Wali requests could not be displayed.");}
+            });}
+            public void err(String m){runOnUiThread(()->out.setText("Wali requests unavailable: "+m));}
+        });
     }
 
     private void sectionTitle(String v){root.addView(text(v,19,true));}
@@ -490,7 +519,6 @@ public class AzureHomeActivity extends Activity {
                         s.append(waliName).append("\nStatus: ").append(linkStatus);
                         if(!email.isEmpty())s.append("\nEmail: ").append(email);
                         if(!phone.isEmpty())s.append("\nPhone: ").append(phone);
-                        s.append("\nLink ID: ").append(familyLinkId);
                         root.addView(text(s.toString(),15,false));
 
                         if(!familyLinkId.isEmpty() && !"revoked".equalsIgnoreCase(linkStatus)){
