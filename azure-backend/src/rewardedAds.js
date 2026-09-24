@@ -1,6 +1,6 @@
 const { app } = require("@azure/functions");
 const crypto = require("crypto");
-const { query } = require("./db");
+const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
 const { entitlementForUser } = require("./premiumAccess");
 
@@ -132,41 +132,50 @@ app.http("admobRewardedSsv", {
       const rewardAmount = Number(params.get("reward_amount") || 0);
       const rewardItem = String(params.get("reward_item") || "message_credit");
 
-      await query("BEGIN");
+      const premium=await entitlementForUser(user.id);
+      if(premium.active) return {status:200,body:"OK"};
+
+      const client=await getPool().connect();
       try {
-        const existing = await query(
+        await client.query("BEGIN");
+        const today = new Date().toISOString().slice(0, 10);
+        await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["reward:" + user.id + ":" + today]);
+
+        const existing = await client.query(
           "SELECT transaction_id FROM rewarded_ad_transactions WHERE transaction_id = $1 FOR UPDATE",
           [transactionId]
         );
         if (existing.rowCount > 0) {
-          await query("COMMIT");
+          await client.query("COMMIT");
           return { status: 200, body: "OK" };
         }
 
-        const today = new Date().toISOString().slice(0, 10);
-        const daily = await query(
+        const daily = await client.query(
           "SELECT claim_count FROM daily_reward_claims WHERE user_id = $1 AND claim_date = $2 FOR UPDATE",
           [user.id, today]
         );
         const used = Number(daily.rows[0]?.claim_count || 0);
-        if (used >= 2) throw new Error("Daily rewarded limit reached.");
+        if (used >= 2) {
+          await client.query("COMMIT");
+          return {status:200,body:"OK"};
+        }
 
-        await query(
+        await client.query(
           `INSERT INTO rewarded_ad_transactions
              (transaction_id, user_id, ad_unit, reward_amount, reward_item, verified_at)
            VALUES ($1,$2,$3,$4,$5,now())`,
           [transactionId, user.id, adUnit, rewardAmount, rewardItem]
         );
 
-        await query(
+        await client.query(
           `INSERT INTO daily_reward_claims (user_id, claim_date, claim_count, updated_at)
            VALUES ($1,$2,1,now())
            ON CONFLICT (user_id, claim_date)
-           DO UPDATE SET claim_count = daily_reward_claims.claim_count + 1, updated_at = now()`,
+           DO UPDATE SET claim_count = LEAST(2,daily_reward_claims.claim_count + 1), updated_at = now()`,
           [user.id, today]
         );
 
-        await query(
+        await client.query(
           `INSERT INTO entitlements (user_id, message_credits, updated_at)
            VALUES ($1,1,now())
            ON CONFLICT (user_id)
@@ -174,10 +183,12 @@ app.http("admobRewardedSsv", {
           [user.id]
         );
 
-        await query("COMMIT");
+        await client.query("COMMIT");
       } catch (error) {
-        await query("ROLLBACK");
+        await client.query("ROLLBACK").catch(()=>{});
         throw error;
+      } finally {
+        client.release();
       }
 
       return { status: 200, body: "OK" };
