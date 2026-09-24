@@ -6,12 +6,37 @@ const text = (value, max) => typeof value === "string" ? value.trim().slice(0, m
 
 async function ensureUser(user) {
   const email = text(user.email, 320).toLowerCase();
-  if (!user.uid || !email) throw new Error("AUTH_IDENTITY_REQUIRED");
-  const result = await query(
-    "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status,email",
-    [user.uid, email, Boolean(user.email_verified)]
-  );
-  return result.rows[0];
+  if (!email) { const e=new Error("AUTH_IDENTITY_REQUIRED"); e.statusCode=401; throw e; }
+  const azureSubject=typeof user.azure_subject==="string"&&user.azure_subject.trim()?user.azure_subject.trim():null;
+  let row=null;
+  if(azureSubject){
+    const existing=await query(
+      "SELECT id,status,email FROM users WHERE azure_subject=$1 OR firebase_uid=$2 LIMIT 1",
+      [azureSubject,user.uid||azureSubject]
+    );
+    if(existing.rows[0]){
+      await query(
+        "UPDATE users SET azure_subject=COALESCE(azure_subject,$1),email=$2,email_verified_at=COALESCE(email_verified_at,CASE WHEN $3 THEN now() ELSE NULL END),updated_at=now() WHERE id=$4",
+        [azureSubject,email,Boolean(user.email_verified),existing.rows[0].id]
+      );
+      row={...existing.rows[0],email};
+    }else{
+      const created=await query(
+        "INSERT INTO users(firebase_uid,azure_subject,email,email_verified_at) VALUES($1,$2,$3,CASE WHEN $4 THEN now() ELSE NULL END) RETURNING id,status,email",
+        [user.uid||azureSubject,azureSubject,email,Boolean(user.email_verified)]
+      );
+      row=created.rows[0];
+    }
+  }else{
+    if(!user.uid){ const e=new Error("AUTH_IDENTITY_REQUIRED"); e.statusCode=401; throw e; }
+    const result=await query(
+      "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status,email",
+      [user.uid,email,Boolean(user.email_verified)]
+    );
+    row=result.rows[0];
+  }
+  if(!row||row.status!=="active"){ const e=new Error("ACCOUNT_NOT_ACTIVE"); e.statusCode=403; throw e; }
+  return row;
 }
 
 app.http("walletGet", {
@@ -29,7 +54,7 @@ app.http("walletGet", {
       return { status: 200, jsonBody: { ok: true, wallet: result.rows[0] } };
     } catch (error) {
       context.error("WALLET_GET_FAILED", error);
-      return { status: 500, jsonBody: { ok: false, error: "WALLET_GET_FAILED" } };
+      return { status: error.statusCode||500, jsonBody: { ok: false, error: error.statusCode?error.message:"WALLET_GET_FAILED" } };
     }
   })
 });
@@ -48,7 +73,7 @@ app.http("walletTransactions", {
       return { status: 200, jsonBody: { ok: true, transactions: result.rows } };
     } catch (error) {
       context.error("WALLET_TRANSACTIONS_FAILED", error);
-      return { status: 500, jsonBody: { ok: false, error: "WALLET_TRANSACTIONS_FAILED" } };
+      return { status: error.statusCode||500, jsonBody: { ok: false, error: error.statusCode?error.message:"WALLET_TRANSACTIONS_FAILED" } };
     }
   })
 });
@@ -123,7 +148,7 @@ app.http("walletWithdrawalCreate", {
     } catch (error) {
       if (client) await client.query("ROLLBACK").catch(() => {});
       context.error("WALLET_WITHDRAWAL_FAILED", error);
-      return { status: 500, jsonBody: { ok: false, error: "WALLET_WITHDRAWAL_FAILED" } };
+      return { status: error.statusCode||500, jsonBody: { ok: false, error: error.statusCode?error.message:"WALLET_WITHDRAWAL_FAILED" } };
     } finally {
       if (client) client.release();
     }
