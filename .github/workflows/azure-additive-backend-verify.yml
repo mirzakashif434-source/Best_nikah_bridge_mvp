@@ -249,7 +249,7 @@ jobs:
           PY
           grep -Fq 'Go Premium' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
           grep -Fq 'Owner Wallet' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
-          grep -Fq 'Permanently Delete My Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -Fq 'Permanently Delete Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
           grep -Fq 'AzureApiClient.delete("/account"' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
           ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
           echo "STEP 8 AZURE FEATURE WIRING: PASS"
