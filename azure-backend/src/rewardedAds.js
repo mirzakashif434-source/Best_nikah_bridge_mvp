@@ -22,16 +22,15 @@ function requireAdMobUnit() {
 
 async function activeRewardedUser(authUser) {
   const result = await query(
-    `SELECT u.id, u.email, u.email_verified_at, u.status, p.profile_completed, p.is_visible
+    `SELECT u.id, u.email, u.email_verified_at, u.status
        FROM users u
-       LEFT JOIN profiles p ON p.user_id = u.id
       WHERE u.azure_subject = $1
       LIMIT 1`,
     [authUser.azure_subject]
   );
   const user = result.rows[0];
-  if (!user || user.status !== "active" || user.profile_completed !== true || user.is_visible !== true) {
-    const error = new Error("An active profile is required.");
+  if (!user || user.status !== "active") {
+    const error = new Error("An active Azure account is required.");
     error.statusCode = 412;
     throw error;
   }
