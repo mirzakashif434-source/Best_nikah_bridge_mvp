@@ -224,13 +224,22 @@ public class PremiumPlansActivity extends Activity {
             return;
         }
         String configuredBasePlan = azurePlanBasePlans.get(productId);
-        ProductDetails.SubscriptionOfferDetails selected = null;
-        if (configuredBasePlan != null && !configuredBasePlan.isEmpty()) {
-            for (ProductDetails.SubscriptionOfferDetails offer : offers) {
-                if (configuredBasePlan.equals(offer.getBasePlanId())) { selected = offer; break; }
-            }
+        if (configuredBasePlan == null || configuredBasePlan.isEmpty()) {
+            LanguageManager.dialog(this).setTitle("Plan verification unavailable")
+                    .setMessage("Azure has not verified this plan configuration yet. Tap Refresh Premium Status and try again.")
+                    .setPositiveButton("OK",null).show();
+            return;
         }
-        if (selected == null) selected = offers.get(0);
+        ProductDetails.SubscriptionOfferDetails selected = null;
+        for (ProductDetails.SubscriptionOfferDetails offer : offers) {
+            if (configuredBasePlan.equals(offer.getBasePlanId())) { selected = offer; break; }
+        }
+        if (selected == null) {
+            LanguageManager.dialog(this).setTitle("Plan unavailable")
+                    .setMessage("Google Play did not return the configured base plan. No purchase has started.")
+                    .setPositiveButton("OK",null).show();
+            return;
+        }
         String token = selected.getOfferToken();
         BillingFlowParams.ProductDetailsParams pd = BillingFlowParams.ProductDetailsParams.newBuilder()
                 .setProductDetails(details)
