@@ -16,9 +16,10 @@ import org.json.JSONObject;
 
 /** Real discussion-question generator from safe Azure match facts only. */
 public class SmartSeriousQuestionsActivity extends Activity {
-    private LinearLayout root;private EditText uidInput;
-    private LinearLayout results;
+    private LinearLayout root,results,matchChoices;
+    private TextView matchStatus;
     private Button generate;
+    private String selectedMatchId="";
     private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
@@ -41,24 +42,65 @@ public class SmartSeriousQuestionsActivity extends Activity {
         ViewCompat.requestApplyInsets(sc);
         TextView title=txt("Smart Serious Questions",27,true);title.setGravity(Gravity.CENTER);root.addView(title);
         root.addView(txt("Questions are generated from real, safe Azure match facts only. Private hidden profile data is not exposed.",15,false));
-        uidInput=new EditText(this);uidInput.setHint("Real matched member ID");uidInput.setSingleLine(true);root.addView(uidInput,new LinearLayout.LayoutParams(-1,dp(62)));
-        generate=btn("Generate Questions",true);root.addView(generate,new LinearLayout.LayoutParams(-1,dp(62)));generate.setOnClickListener(v->generate());
+        matchStatus=txt("Loading your real Azure matches…",15,false);root.addView(matchStatus);
+        matchChoices=new LinearLayout(this);matchChoices.setOrientation(LinearLayout.VERTICAL);root.addView(matchChoices);
+        generate=btn("Generate Questions",true);generate.setEnabled(false);root.addView(generate,new LinearLayout.LayoutParams(-1,dp(62)));generate.setOnClickListener(v->generate());
+        loadMatchChoices();
         Button health=btn("Conversation Health",true);root.addView(health,new LinearLayout.LayoutParams(-1,dp(62)));health.setOnClickListener(v->startActivity(new Intent(this,ConversationHealthActivity.class)));
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
         results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);root.addView(results);
     }
 
     private void showAuthRecovery(){
-        uidInput.setEnabled(false);
         generate.setEnabled(false);
+        if(matchStatus!=null)matchStatus.setText("Azure sign in is required to choose a real match.");
         Button signIn=btn("Sign in with Azure",true);
         signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
         root.addView(signIn,new LinearLayout.LayoutParams(-1,dp(62)));
     }
 
+    private void loadMatchChoices(){
+        if(!AzureAuthManager.hasAccount(this))return;
+        AzureApiClient.get("/matches",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                try{
+                    JSONArray a=new JSONObject(body).optJSONArray("matches");
+                    matchChoices.removeAllViews();
+                    if(a==null||a.length()==0){
+                        matchStatus.setText("No real compatible matches are available yet.");
+                        generate.setEnabled(false);
+                        return;
+                    }
+                    matchStatus.setText("Choose a real match. Secure member IDs stay hidden.");
+                    for(int i=0;i<Math.min(a.length(),50);i++){
+                        JSONObject m=a.optJSONObject(i);if(m==null)continue;
+                        String id=m.optString("userId","").trim();
+                        if(id.isEmpty())continue;
+                        String name=m.optString("displayName","Member").trim();
+                        final String matchId=id,matchName=name.isEmpty()?"Member":name;
+                        Button choose=btn("Choose "+matchName,false);
+                        choose.setOnClickListener(v->{
+                            selectedMatchId=matchId;
+                            matchStatus.setText("Selected: "+matchName);
+                            generate.setEnabled(true);
+                        });
+                        matchChoices.addView(choose,new LinearLayout.LayoutParams(-1,dp(58)));
+                    }
+                }catch(Exception e){
+                    matchStatus.setText("Real Azure matches could not be displayed.");
+                    generate.setEnabled(false);
+                }
+            });}
+            public void err(String message){runOnUiThread(()->{
+                matchStatus.setText("Real Azure matches are temporarily unavailable.");
+                generate.setEnabled(false);
+            });}
+        });
+    }
+
     private void generate(){
         if(!AzureAuthManager.hasAccount(this)){showAuthRecovery();return;}
-        String id=uidInput.getText().toString().trim();if(id.isEmpty()){LanguageManager.toast(this,"Enter a real matched member ID.",Toast.LENGTH_LONG).show();return;}
+        String id=selectedMatchId.trim();if(id.isEmpty()){LanguageManager.toast(this,"Choose a real match first.",Toast.LENGTH_LONG).show();return;}
         results.removeAllViews();
         generate.setEnabled(false);
         generate.setText("Loading real match…");
