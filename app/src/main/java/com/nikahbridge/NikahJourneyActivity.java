@@ -18,7 +18,6 @@ public class NikahJourneyActivity extends Activity {
     private LinearLayout root,stages;private TextView summary;
     private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
     private boolean profileReady,blueprintReady,verified,hasMatches,hasConversation,hasFamily;
-    private boolean hadLoadError=false;
     private Button refresh;
 
     @Override public void onCreate(Bundle b){
@@ -74,7 +73,6 @@ public class NikahJourneyActivity extends Activity {
 
     private void load(){
         profileReady=blueprintReady=verified=hasMatches=hasConversation=hasFamily=false;
-        hadLoadError=false;
         refresh.setEnabled(false);
         refresh.setText("Loading My Journey…");
         stages.removeAllViews();
@@ -93,17 +91,19 @@ public class NikahJourneyActivity extends Activity {
                     refresh.setText("Refresh My Journey");
                     show();
                 }catch(Exception e){
-                    hadLoadError=true;
                     refresh.setEnabled(true);
                     refresh.setText("Refresh My Journey");
-                    show();
+                    showLoadFailure("Journey data could not be displayed. Tap Refresh My Journey.");
                 }
             });}
             public void err(String m){runOnUiThread(()->{
-                hadLoadError=true;
                 refresh.setEnabled(true);
                 refresh.setText("Refresh My Journey");
-                show();
+                if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401"))){
+                    showAuthRecovery();
+                }else{
+                    showLoadFailure("Journey service is temporarily unavailable. Tap Refresh My Journey.");
+                }
             });}
         });
     }
@@ -118,9 +118,13 @@ public class NikahJourneyActivity extends Activity {
             done+=add("5. Have a mutual conversation",hasConversation,"A real mutual Azure conversation exists.");
             done+=add("6. Involve family / Wali",hasFamily,"A real family/Wali link exists in Azure.");
             add("7. Prepare for Nikah",false,"Never auto-completed. This requires real-life mutual agreement and appropriate family/legal/religious steps.");
-            if(hadLoadError) summary.setText("Some Azure journey data could not be loaded. Tap Refresh My Journey before relying on this progress.\n\nCurrently visible: "+done+" / 7 stages.");
-            else summary.setText("Journey progress: "+done+" / 7 stages recorded as complete\n\nThis is a progress aid, not a prediction or guarantee of marriage.");
+            summary.setText("Journey progress: "+done+" / 7 stages recorded as complete\n\nThis is a progress aid, not a prediction or guarantee of marriage.");
         });
     }
+    private void showLoadFailure(String message){
+        stages.removeAllViews();
+        summary.setText(message);
+    }
+
     private int add(String title,boolean complete,String detail){stages.addView(txt((complete?"✓ ":"○ ")+title+"\n"+detail,16,complete));return complete?1:0;}
 }
