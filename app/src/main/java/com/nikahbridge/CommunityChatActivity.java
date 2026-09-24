@@ -72,6 +72,21 @@ public class CommunityChatActivity extends Activity {
         });
     }
 
+    private void openChatWithInteractiveAzureSession(){
+        AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String token){ runOnUiThread(()->{
+                if(chatBuilt)return;
+                build();
+                chatBuilt=true;
+                loadAzureMutes();
+                loadAzureCommunity();
+                azureHandler.removeCallbacks(azurePoll);
+                azureHandler.postDelayed(azurePoll,5000);
+            });}
+            @Override public void err(String message){ runOnUiThread(()->buildAuthRecovery()); }
+        });
+    }
+
     private void buildAuthRecovery(){
         LinearLayout root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -101,7 +116,7 @@ public class CommunityChatActivity extends Activity {
 
         signIn.setOnClickListener(v->{
             buildAuthLoading();
-            openChatWithFreshAzureSession();
+            openChatWithInteractiveAzureSession();
         });
         back.setOnClickListener(v->finish());
         setContentView(root);
