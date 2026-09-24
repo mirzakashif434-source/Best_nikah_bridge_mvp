@@ -32,6 +32,11 @@ public class RealFourPhotoActivity extends Activity {
     private TextView poseStatus;
     private ImageView[] previews=new ImageView[4];
     private PoseGuideView[] poseGuides=new PoseGuideView[4];
+    private final ArrayList<View> poseCards=new ArrayList<>();
+    private Button completeGenderButton;
+    private Button cameraButton;
+    private Button galleryButton;
+    private Button submitButton;
     private String profileGender="";
     private final ArrayList<Uri> galleryUris=new ArrayList<>();
     private Uri cameraUri;
@@ -75,27 +80,51 @@ public class RealFourPhotoActivity extends Activity {
         }
     }
 
+    private void setVerificationEnabled(boolean enabled){
+        if(cameraButton!=null)cameraButton.setEnabled(enabled);
+        if(galleryButton!=null)galleryButton.setEnabled(enabled);
+        if(submitButton!=null)submitButton.setEnabled(enabled);
+        if(completeGenderButton!=null)completeGenderButton.setVisibility(enabled?View.GONE:View.VISIBLE);
+        for(View card:poseCards)card.setVisibility(enabled?View.VISIBLE:View.GONE);
+    }
+
     private void loadPoseGender(){
-        if(!AzureAuthManager.hasAccount(this)){poseStatus.setText("Complete your profile gender to load your pose guide.");return;}
+        if(!AzureAuthManager.hasAccount(this)){
+            profileGender="";
+            poseStatus.setText("Sign in with Azure, then complete your profile gender to load the correct pose guide.");
+            setVerificationEnabled(false);
+            return;
+        }
         AzureApiClient.get("/profile",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
                     org.json.JSONObject p=new org.json.JSONObject(body).optJSONObject("profile");
                     profileGender=p==null?"":p.optString("gender","").trim().toLowerCase(java.util.Locale.US);
                     if(!"male".equals(profileGender)&&!"female".equals(profileGender)){
-                        poseStatus.setText("Complete your profile gender to load your pose guide.");
+                        poseStatus.setText("Complete your profile gender first. Then this screen will load the correct male or female pose guide.");
                         profileGender="";
+                        setVerificationEnabled(false);
                     }else{
                         poseStatus.setText(("female".equals(profileGender)?"Female":"Male")+" pose guide loaded from your real Azure profile.");
+                        setVerificationEnabled(true);
                     }
                     for(PoseGuideView v:poseGuides)if(v!=null)v.setGender(profileGender);
-                }catch(Exception e){poseStatus.setText("Complete your profile gender to load your pose guide.");}
+                }catch(Exception e){
+                    profileGender="";
+                    poseStatus.setText("Complete your profile gender first. Then this screen will load the correct pose guide.");
+                    setVerificationEnabled(false);
+                }
             });}
-            public void err(String m){runOnUiThread(()->poseStatus.setText("Pose guide could not load your profile gender."));}
+            public void err(String m){runOnUiThread(()->{
+                profileGender="";
+                poseStatus.setText("Could not load profile gender from Azure. Open your profile, save gender, then return here.");
+                setVerificationEnabled(false);
+            });}
         });
     }
 
     @Override protected void onCreate(Bundle state){super.onCreate(state);AzureAuthManager.bindActivity(this);build();loadStatus();}
+    @Override protected void onResume(){super.onResume();if(poseStatus!=null)loadPoseGender();}
 
     private TextView text(String value,int size,boolean bold){
         TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(Color.rgb(30,45,41));
@@ -117,6 +146,7 @@ public class RealFourPhotoActivity extends Activity {
         previews[slot]=new ImageView(this);previews[slot].setScaleType(ImageView.ScaleType.CENTER_CROP);previews[slot].setBackgroundColor(Color.rgb(238,243,241));
         card.addView(previews[slot],new LinearLayout.LayoutParams(-1,dp(185)));
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.setMargins(0,dp(6),0,dp(10));root.addView(card,lp);
+        poseCards.add(card);
     }
 
     private void build(){
@@ -136,15 +166,20 @@ public class RealFourPhotoActivity extends Activity {
         status=text("Status: start with Photo 1.",15,true);root.addView(status);
         poseStatus=text("Loading your pose guide from your real profile…",14,false);root.addView(poseStatus);
 
+        completeGenderButton=button("Complete Profile Gender",false);
+        completeGenderButton.setOnClickListener(v->startActivity(new Intent(this,AzureHomeActivity.class)));
+        completeGenderButton.setVisibility(View.GONE);
+
         guide("Photo 1 — MAIN PHOTO • CAMERA REQUIRED","Look straight at the camera. Good light, one face only, no sunglasses, no heavy filter. This becomes your verified main profile photo.",0);
         guide("Photo 2 — GALLERY","Choose a clear recent photo of the same person. Turn slightly to your left while keeping both eyes visible.",1);
         guide("Photo 3 — GALLERY","Choose another clear recent photo of the same person. Turn slightly to your right; avoid masks and strong filters.",2);
         guide("Photo 4 — GALLERY","Choose one more clear recent photo of the same person with a natural smile. No group photo; one visible face only.",3);
-        loadPoseGender();
 
-        Button camera=button("1. Take Main Photo with Camera",true);camera.setOnClickListener(v->startSetThenCamera());
-        Button gallery=button("2. Choose Exactly 3 Gallery Photos",true);gallery.setOnClickListener(v->chooseRemainingPhotos());
-        Button submit=button("3. Upload 4 Photos & Verify Profile",true);submit.setOnClickListener(v->uploadAll());
+        cameraButton=button("1. Take Main Photo with Camera",true);cameraButton.setOnClickListener(v->startSetThenCamera());
+        galleryButton=button("2. Choose Exactly 3 Gallery Photos",true);galleryButton.setOnClickListener(v->chooseRemainingPhotos());
+        submitButton=button("3. Upload 4 Photos & Verify Profile",true);submitButton.setOnClickListener(v->uploadAll());
+        setVerificationEnabled(false);
+        loadPoseGender();
         Button refresh=button("Refresh Verification Status",false);refresh.setOnClickListener(v->loadStatus());
         Button back=button("Back",false);back.setOnClickListener(v->finish());
     }
