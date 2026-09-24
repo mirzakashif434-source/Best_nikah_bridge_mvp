@@ -181,7 +181,17 @@ blocks_backend=contains(AZ/"blocks.js",
     'CANNOT_BLOCK_SELF',
     'BLOCK_NOT_FOUND')
 
-# CONTRACT 13 — Azure-only runtime and release safety.
+# CONTRACT 13 — Production owner access: real owner analytics route only.
+prod=contains(APP/"ProductionMainActivity.java",
+    'AzureApiClient.get("/owner/live-analytics"',
+    'AzureApiClient.get("/admin/verifications"')
+need("ProductionMainActivity reverted to wrong admin owner analytics route",
+     '/admin/owner/live-analytics' not in prod)
+owner_backend=contains(AZ/"ownerAnalytics.js",
+    'route:"owner/live-analytics"',
+    'ADMIN_REQUIRED')
+
+# CONTRACT 14 — Azure-only runtime and release safety.
 all_java="\n".join(read(p) for p in APP.glob("*.java"))
 for bad in ("FirebaseAuth","FirebaseFirestore","FirebaseFunctions","FirebaseStorage","getHttpsCallable","com.google.firebase"):
     need(f"Firebase runtime regression returned: {bad}",bad not in all_java)
