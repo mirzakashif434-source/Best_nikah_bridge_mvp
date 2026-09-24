@@ -118,6 +118,47 @@ jobs:
           grep -Fq 'Identity Verification' app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
           echo "CRITICAL FINAL FEATURES: PASS"
 
+      - name: Zero Known Issue source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=app/src/main/java/com/nikahbridge
+
+          # No known raw technical identifiers or old broken user-facing states anywhere.
+          for bad in             'Family link ID'             'Wali phone (E.164)'             'Reported real user ID'             'Reported user ID required'             'Real recipient user ID'             'Real member ID'             'Real matched member ID'             'Member ID:'             'Conversation ID from a real mutual connection'             'Some Azure journey data could not be loaded'             'Currently visible:'             'Azure rewarded configuration unavailable.'             'not available in this backend release'             'updating on Azure'             'null null'; do
+            if grep -RInF "$bad" "$APP" --include='*.java'; then
+              echo "FORBIDDEN USER-FACING STATE FOUND: $bad"
+              exit 1
+            fi
+          done
+
+          # Real production routes and automatic selectors must remain aligned.
+          grep -Fq 'AzureApiClient.get("/owner/live-analytics"' "$APP/OwnerLiveAnalyticsActivity.java"
+          ! grep -Fq 'AzureApiClient.get("/admin/owner/live-analytics"' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'AzureApiClient.get("/owner/earnings"' "$APP/OwnerEarningsActivity.java"
+          grep -Fq 'AzureApiClient.get("/journey/summary"' "$APP/NikahJourneyActivity.java"
+          grep -Fq 'AzureApiClient.get("/family-links/pending-for-wali"' "$APP/FamilyBridge2Activity.java"
+          grep -Fq 'AzureApiClient.post("/safety/reports"' "$APP/AzureHomeActivity.java"
+          grep -Fq 'AzureApiClient.get("/matches"' "$APP/AzureHomeActivity.java"
+
+          # Premium Back must keep the source activity alive.
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path("app/src/main/java/com/nikahbridge/PremiumFeatureGate.java").read_text()
+          marker='.setPositiveButton("View Plans"'
+          start=t.index(marker)
+          end=t.index('.setNegativeButton("Not now"', start)
+          block=t[start:end]
+          assert "PremiumPlansActivity.class" in block
+          assert "a.finish()" not in block, "Premium View Plans still destroys source activity"
+          PY
+
+          # Manifest release safety.
+          grep -Fq 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+
+          echo "ZERO KNOWN ISSUE SOURCE GATE: PASS"
+
       - name: Set up Node 22
         uses: actions/setup-node@v5
         with:
@@ -203,6 +244,35 @@ jobs:
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
           sha256sum app/build/outputs/apk/release/app-release.apk > app-release-apk.sha256
           sha256sum app/build/outputs/bundle/release/app-release.aab > app-release-aab.sha256
+
+      - name: Forensic scan compiled final APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          TMP="$(mktemp -d)"
+          unzip -q "$APK" -d "$TMP"
+
+          # Scan compiled DEX/resources, not only source, so stale release content cannot slip through.
+          for bad in             'Family link ID'             'Wali phone (E.164)'             'Reported real user ID'             'Reported user ID required'             'Real recipient user ID'             'Real member ID'             'Real matched member ID'             'Member ID:'             'Conversation ID from a real mutual connection'             'Some Azure journey data could not be loaded'             'Currently visible:'             'Azure rewarded configuration unavailable.'             '/admin/owner/live-analytics'             'not available in this backend release'             'updating on Azure'             'null null'; do
+            if grep -aRIF "$bad" "$TMP" >/tmp/apk-forbidden-hit.txt 2>/dev/null; then
+              echo "FORBIDDEN COMPILED APK CONTENT FOUND: $bad"
+              cat /tmp/apk-forbidden-hit.txt || true
+              exit 1
+            fi
+          done
+
+          # Required production strings must actually be compiled into the signed APK.
+          grep -aRIF '/owner/live-analytics' "$TMP" >/dev/null
+          grep -aRIF '/owner/earnings' "$TMP" >/dev/null
+          grep -aRIF '/journey/summary' "$TMP" >/dev/null
+          grep -aRIF '/family-links/pending-for-wali' "$TMP" >/dev/null
+          grep -aRIF '/safety/reports' "$TMP" >/dev/null
+          grep -aRIF 'Premium Plans' "$TMP" >/dev/null
+          grep -aRIF '20 / 40 / 60 SAR' "$TMP" >/dev/null
+
+          echo "COMPILED APK FORENSIC GATE: PASS"
 
       - name: Upload Step 8 final Azure build
         uses: actions/upload-artifact@v6
