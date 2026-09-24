@@ -679,24 +679,82 @@ public class AzureHomeActivity extends Activity {
     }
 
     private void createReport(){
-        EditText uid=input("Reported real user ID");
+        sectionTitle("Choose Member to Report");
+        TextView matchStatus=text("Loading your compatible Azure members…",15,false);root.addView(matchStatus);
+        LinearLayout reportChoices=new LinearLayout(this);
+        reportChoices.setOrientation(LinearLayout.VERTICAL);
+        root.addView(reportChoices);
+        final String[] selectedReportedUserId={""};
+        final String[] selectedReportedName={""};
+
+        sectionTitle("Report Details");
         EditText reason=input("Reason: harassment / scam / impersonation / inappropriate_content / unsafe_request / other");
         EditText details=input("Details");
-        Button send=button("Submit Real Report",true);
+        TextView selected=text("No member selected yet.",14,false);root.addView(selected);
+        Button send=button("Submit Safety Report",true);
+        send.setEnabled(false);
+
+        AzureApiClient.get("/matches",new AzureApiClient.Callback(){
+            public void ok(int code,String body){runOnUiThread(()->{
+                reportChoices.removeAllViews();
+                try{
+                    JSONArray matches=new JSONObject(body).optJSONArray("matches");
+                    if(matches==null||matches.length()==0){
+                        matchStatus.setText("No compatible members are available to report from this screen.");
+                        return;
+                    }
+                    matchStatus.setText("Choose the member you want to report. The secure member ID is handled automatically.");
+                    for(int i=0;i<Math.min(matches.length(),50);i++){
+                        JSONObject m=matches.optJSONObject(i);if(m==null)continue;
+                        String id=m.optString("userId","").trim();if(id.isEmpty())continue;
+                        String displayName=m.optString("displayName","Member").trim();
+                        if(displayName.isEmpty())displayName="Member";
+                        int age=m.optInt("age",0);
+                        final String targetId=id;
+                        final String targetName=displayName;
+                        String label="Report "+displayName+(age>0?" • "+age:"");
+                        Button choose=button(label,false);
+                        choose.setOnClickListener(v->{
+                            selectedReportedUserId[0]=targetId;
+                            selectedReportedName[0]=targetName;
+                            selected.setText("Selected member: "+targetName);
+                            send.setEnabled(true);
+                        });
+                    }
+                }catch(Exception e){
+                    matchStatus.setText("Members could not be displayed. Tap Back and try again.");
+                }
+            });}
+            public void err(String m){runOnUiThread(()->{
+                if(m!=null&&m.contains("PROFILE_NOT_READY")){
+                    matchStatus.setText("Complete your real profile before creating a safety report from matches.");
+                }else{
+                    matchStatus.setText("Members are temporarily unavailable. Tap Back and try again.");
+                }
+            });}
+        });
+
         send.setOnClickListener(v->{try{
-            String reportedUserId=uid.getText().toString().trim();
+            String reportedUserId=selectedReportedUserId[0];
             String reportReason=reason.getText().toString().trim().toLowerCase(java.util.Locale.US);
             String reportDetails=details.getText().toString().trim();
-            if(reportedUserId.isEmpty()){LanguageManager.setError(uid,"Reported user ID required");uid.requestFocus();return;}
+            if(reportedUserId.isEmpty()){toast("Choose a member to report first.");return;}
             java.util.Set<String> allowedReasons=new java.util.HashSet<>(java.util.Arrays.asList("harassment","scam","impersonation","inappropriate_content","unsafe_request","other"));
             if(!allowedReasons.contains(reportReason)){LanguageManager.setError(reason,"Use harassment, scam, impersonation, inappropriate_content, unsafe_request, or other");reason.requestFocus();return;}
             if(reportDetails.length()<5){LanguageManager.setError(details,"Please add a short safety detail");details.requestFocus();return;}
+            send.setEnabled(false);
             JSONObject b=new JSONObject();b.put("reportedUserId",reportedUserId);b.put("reason",reportReason);b.put("details",reportDetails);
             AzureApiClient.post("/safety/reports",b.toString(),new AzureApiClient.Callback(){
-                public void ok(int code,String body){runOnUiThread(()->toast("Safety report securely stored in Azure."));}
-                public void err(String m){runOnUiThread(()->toast("Report rejected: "+m));}
+                public void ok(int code,String body){runOnUiThread(()->{
+                    toast("Safety report securely stored in Azure.");
+                    safety();
+                });}
+                public void err(String m){runOnUiThread(()->{
+                    send.setEnabled(true);
+                    toast("Safety report could not be submitted. Please try again.");
+                });}
             });
-        }catch(Exception e){toast("Invalid report.");}});
+        }catch(Exception e){send.setEnabled(true);toast("Invalid report.");}});
     }
 
     private void ai(){
