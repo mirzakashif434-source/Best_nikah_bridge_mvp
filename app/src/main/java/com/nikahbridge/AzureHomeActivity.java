@@ -448,7 +448,7 @@ public class AzureHomeActivity extends Activity {
 
                         if(!familyLinkId.isEmpty() && !"revoked".equalsIgnoreCase(linkStatus)){
                             Button revoke=button("Revoke Wali Connection",false);
-                            revoke.setOnClickListener(v->new AlertDialog.Builder(this)
+                            revoke.setOnClickListener(v->new AlertDialog.Builder(AzureHomeActivity.this)
                                     .setTitle("Revoke Wali connection?")
                                     .setMessage("This removes this Family/Wali link from your active Azure records. It does not delete the Wali's account.")
                                     .setNegativeButton("Cancel",null)
