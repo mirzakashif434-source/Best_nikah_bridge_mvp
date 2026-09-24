@@ -40,7 +40,7 @@ public class TermsAndCommunityGuidelinesActivity extends Activity {
     private void buildTermsScreen(){
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(22),dp(20),dp(22),dp(28));root.setBackgroundColor(light);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);scroll.setBackgroundColor(light);LinearLayout content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);
-        TextView title=text("Terms & Community Guidelines",27,true);title.setGravity(Gravity.CENTER);content.addView(title,new LinearLayout.LayoutParams(-1,dp(65)));
+        TextView title=text("Terms & Community Guidelines",27,true);title.setGravity(Gravity.CENTER);title.setSingleLine(false); title.setMaxLines(2); title.setPadding(dp(4),dp(12),dp(4),dp(12)); content.addView(title,new LinearLayout.LayoutParams(-1,-2));
         content.addView(text("This is a serious Muslim matrimonial service. It is not a dating app. These rules apply before you create or upload user-generated content.",16,false));
         content.addView(text("You agree that:\n\n• You will use the service only for genuine marriage/Nikah intentions.\n• You will provide truthful information and will not impersonate another person.\n• You will not post or upload sexual, exploitative, abusive, hateful, fraudulent, or illegal content.\n• You will not request money, passwords, OTPs, banking details, or other sensitive credentials from members.\n• You will not use the service for scams, spam, harassment, stalking, promotion, or unwanted contact.\n• You will not upload another person's photo or private material without permission.\n• Community posts and profile photos may be reviewed, reported, blocked, removed, or restricted for safety and policy enforcement.\n• Use Report and Block tools when you see harmful content.\n• Limited safety/legal records may be preserved where required by law or necessary to prevent fraud and abuse.\n• Accounts that violate these rules may be restricted, suspended, or removed.\n\nChild sexual abuse and exploitation material is strictly prohibited and is handled according to applicable law and platform safety procedures.",15,false));
         content.addView(text("Current policy version: "+TERMS_VERSION,13,false));
@@ -70,7 +70,7 @@ public class TermsAndCommunityGuidelinesActivity extends Activity {
 
         TextView title=text("Terms & Community Guidelines",27,true);
         title.setGravity(Gravity.CENTER);
-        root.addView(title,new LinearLayout.LayoutParams(-1,dp(70)));
+        title.setSingleLine(false); title.setMaxLines(2); title.setPadding(dp(4),dp(12),dp(4),dp(12)); root.addView(title,new LinearLayout.LayoutParams(-1,-2));
 
         TextView info=text("Your Azure session is not active. Sign in again to open the Terms & Community Guidelines.",16,false);
         info.setGravity(Gravity.CENTER);
