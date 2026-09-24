@@ -180,7 +180,7 @@ jobs:
           for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
             HTTP_CODE="$(curl -sS -o /tmp/release-readiness.json -w "%{http_code}" "$URL" || true)"
             cat /tmp/release-readiness.json || true
-            if [ "$HTTP_CODE" = "200" ] && grep -q '"ready":true' /tmp/release-readiness.json; then
+            if [ "$HTTP_CODE" = "200" ] && grep -q '"ready":true' /tmp/release-readiness.json && grep -q '"releaseGate":"2026-09-25-zero-known-issue-final"' /tmp/release-readiness.json; then
               echo "LIVE AZURE RELEASE READINESS: PASS"
               break
             fi
