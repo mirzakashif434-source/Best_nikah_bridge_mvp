@@ -178,7 +178,7 @@ blocked=contains(APP/"BlockedMembersActivity.java",
     'WindowInsetsCompat.Type.systemBars()')
 need("Blocked Members leaked a technical member ID", "Member ID:" not in blocked)
 need("Blocked Members contains malformed literal \\n after a // comment",
-     re.search(r'//[^\n]*\\\\n\s*(Button|TextView|LinearLayout|AzureApiClient)', blocked) is None)
+     re.search(r'//[^\n]*\\n\s*(Button|TextView|LinearLayout|AzureApiClient)', blocked) is None)
 blocks_backend=contains(AZ/"blocks.js",
     'route:"blocks"',
     'route:"blocks/{userId}"',
@@ -203,7 +203,6 @@ manifest=contains(ROOT/"app/src/main/AndroidManifest.xml",
     'android:usesCleartextTraffic="false"',
     'android:allowBackup="false"')
 
-# Intentionally not checked yet: ProductionMainActivity privileged owner analytics route.\n# It is handled in the next repair step, not hidden by this lock.\n
 if fail:
     print("LOCKED FEATURE CONTRACTS: FAIL")
     for x in fail: print(" -",x)
