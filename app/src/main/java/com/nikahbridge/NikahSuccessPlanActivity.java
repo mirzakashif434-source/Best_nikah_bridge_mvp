@@ -89,7 +89,9 @@ public class NikahSuccessPlanActivity extends Activity {
             complete+=add("4. Enter the real match pool",discoverable,"Your Azure profile is visible for matching.");
             complete+=add("5. Progress a real connection",connection,"At least one real mutual Azure conversation exists.");
             complete+=add("6. Have serious platform activity",activity,"Real interests or mutual conversations are recorded.");
-            summary.setText("Real progress: "+complete+" / 6 outcome stages\n\nInterests recorded: "+interestCount+"\nMutual conversations: "+conversationCount+"\n\nBest Nikah Bridge does not manufacture success or predict a marriage outcome.");
+            String refreshedAt=new java.text.SimpleDateFormat("HH:mm:ss",java.util.Locale.getDefault()).format(new java.util.Date());
+            summary.setText("✓ Refreshed from Azure at "+refreshedAt+"\n\nReal progress: "+complete+" / 6 outcome stages\n\nInterests recorded: "+interestCount+"\nMutual conversations: "+conversationCount+"\n\nBest Nikah Bridge does not manufacture success or predict a marriage outcome.");
+            LanguageManager.toast(NikahSuccessPlanActivity.this,"Real progress refreshed from Azure.",Toast.LENGTH_SHORT).show();
         });
     }
     private int add(String title,boolean complete,String detail){stages.addView(txt((complete?"✓ ":"○ ")+title+"\n"+detail,16,complete));return complete?1:0;}
