@@ -1,0 +1,203 @@
+name: Step 8 Azure Final Full App + Play Store Gate
+
+on:
+  push:
+    branches: [azure-backend-additive]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  step8-azure-final:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact Azure production branch
+        uses: actions/checkout@v5
+
+      - name: Verify Azure-only production path
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d azure-backend
+          test ! -d functions
+          test ! -e firebase.json
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
+          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
+          grep -Fq 'verifyAzureExternalIdToken' azure-backend/src/auth.js
+          grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
+          echo "AZURE-ONLY RUNTIME: PASS"
+
+      - name: Verify Step 7 owner wallet and account deletion paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'AzureApiClient.get("/admin/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.post("/admin/owner/provider-settlement"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.delete("/account"' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -Eq 'route:[[:space:]]*"account"' azure-backend/src/account.js
+          grep -Eq 'route:[[:space:]]*"admin/owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Eq 'route:[[:space:]]*"admin/owner/provider-settlement"' azure-backend/src/ownerEarnings.js
+          echo "STEP 7 AZURE OWNER/WALLET + ACCOUNT DELETE: PASS"
+
+      - name: Audit all final Android screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          activities=sorted(root.glob("*Activity.java"))
+          assert len(activities) >= 46, f"Expected >=46 activities, found {len(activities)}"
+
+          no_scroll=[]
+          for p in activities:
+              if p.name=="MainActivity.java":
+                  continue
+              text=p.read_text(encoding="utf-8")
+              if "ScrollView" not in text:
+                  no_scroll.append(p.name)
+          assert not no_scroll, "Screens without ScrollView: "+", ".join(no_scroll)
+
+          back_exempt={"WelcomeActivity.java","MainActivity.java","ProductionMainActivity.java","AzureHomeActivity.java"}
+          no_back=[]
+          for p in activities:
+              if p.name in back_exempt:
+                  continue
+              if "Back" not in p.read_text(encoding="utf-8"):
+                  no_back.append(p.name)
+          assert not no_back, "Screens missing Back navigation: "+", ".join(no_back)
+
+          for name in ["AzureHomeActivity.java","AzureWalletActivity.java","WalletActivity.java"]:
+              t=(root/name).read_text(encoding="utf-8")
+              assert "setText(body)" not in t, f"Raw JSON setText(body) remains in {name}"
+              assert "setMessage(body)" not in t, f"Raw JSON setMessage(body) remains in {name}"
+
+          owner=(root/"OwnerLiveAnalyticsActivity.java").read_text(encoding="utf-8")
+          assert "dynamic.removeAllViews()" in owner
+          assert "Open Owner Wallet / Payout" in owner
+
+          welcome=(root/"WelcomeArtworkView.java").read_text(encoding="utf-8")
+          assert "Canvas" in welcome and "Paint.ANTI_ALIAS_FLAG" in welcome
+
+          app=(root/"NikahBridgeApplication.java").read_text(encoding="utf-8")
+          assert "applySafeInsets(a)" in app
+          assert "normalizeControls(a)" in app
+          assert "WindowInsetsCompat.Type.systemBars()" in app
+
+          bad_null=[]
+          bad_alpha=[]
+          for p in root.glob("*.java"):
+              t=p.read_text(encoding="utf-8")
+              if "null null" in t:
+                  bad_null.append(p.name)
+              if re.search(r"setAlpha\(0\.[0-4]|alpha\s*=\s*0\.[0-4]", t):
+                  bad_alpha.append(p.name)
+          assert not bad_null, "null null text remains: "+", ".join(bad_null)
+          assert not bad_alpha, "blur-like alpha remains: "+", ".join(bad_alpha)
+
+          print("STEP 8 UI AUDIT PASS:",len(activities),"activities")
+          PY
+
+      - name: Verify critical final feature buttons and routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'Owner Wallet' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'Go Premium' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq '20' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq '40' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq '60' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'Permanently Delete My Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -Fq 'Family / Wali Connect' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
+          grep -Fq 'Privacy Control Center' app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
+          grep -Fq 'Identity Verification' app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
+          echo "CRITICAL FINAL FEATURES: PASS"
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax and module load
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE BACKEND LOAD: PASS')"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile and lint final Android app
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac :app:lintDebug --stacktrace
+
+      - name: Prepare real release signing and Azure redirect URI
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+          HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
+          python3 - "$HASH" <<'PY'
+          import json, pathlib, re, sys
+          h=sys.argv[1]
+          p=pathlib.Path("app/src/main/res/raw/auth_config.json")
+          d=json.loads(p.read_text())
+          d["redirect_uri"]="msauth://com.nikahbridge/"+h.replace("=", "%3D")
+          p.write_text(json.dumps(d, indent=2)+"\n")
+          p=pathlib.Path("app/src/main/AndroidManifest.xml")
+          s=p.read_text()
+          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(")', rf'\g<1>{h}\g<2>', s)
+          p.write_text(s)
+          PY
+
+      - name: Build final signed Azure APK and AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew clean :app:assembleRelease :app:bundleRelease --stacktrace
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
+          sha256sum app/build/outputs/apk/release/app-release.apk > app-release-apk.sha256
+          sha256sum app/build/outputs/bundle/release/app-release.aab > app-release-aab.sha256
+
+      - name: Upload Step 8 final Azure build
+        uses: actions/upload-artifact@v6
+        with:
+          name: best-nikah-bridge-step8-azure-final
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            app-release-apk.sha256
+            app-release-aab.sha256
+          if-no-files-found: error
+
+      - name: Step 8 result
+        run: |
+          echo "STEP 8 AZURE FINAL GATE PASSED."
+          echo "Final signed APK + AAB built from azure-backend-additive."
+          echo "Only one real-device end-to-end test and Play Console submission remain external."
