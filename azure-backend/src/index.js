@@ -17,6 +17,7 @@ app.http("health", {
 
 // Additive production readiness endpoints. Existing health endpoint remains unchanged.
 require("./databaseHealth");
+require("./releaseReadiness");
 require("./storageHealth");
 
 // Additive authenticated API foundation. Existing endpoints remain unchanged.
