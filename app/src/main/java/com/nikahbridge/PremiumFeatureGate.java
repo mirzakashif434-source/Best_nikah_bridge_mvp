@@ -29,7 +29,24 @@ public final class PremiumFeatureGate {
                     showUpgrade(a,requiredPlan);
                 });
             }
-            public void err(String message){a.runOnUiThread(()->showUpgrade(a,requiredPlan));}
+            public void err(String message){a.runOnUiThread(()->{
+                String m=message==null?"":message;
+                if(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("UNAUTHENTICATED")||m.contains("ERR_JWT_EXPIRED")||m.contains("AZURE_AUTH")){
+                    LanguageManager.dialog(a)
+                        .setTitle("Sign in required")
+                        .setMessage("Your Azure session needs to be refreshed before this real feature can verify your account.")
+                        .setPositiveButton("Sign in",(d,w)->a.startActivity(new Intent(a,AzureExternalAuthActivity.class)))
+                        .setNegativeButton("Not now",null)
+                        .show();
+                }else{
+                    LanguageManager.dialog(a)
+                        .setTitle("Could not verify access")
+                        .setMessage("Your plan could not be verified right now. Check your connection and try again. No purchase is required unless Azure confirms the feature is locked.")
+                        .setPositiveButton("Retry",(d,w)->require(a,feature,requiredPlan,allowed))
+                        .setNegativeButton("Back",null)
+                        .show();
+                }
+            });}
         });
     }
 
