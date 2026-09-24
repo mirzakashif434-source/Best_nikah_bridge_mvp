@@ -61,7 +61,7 @@ public class AzureWalletActivity extends Activity {
                     if(w==null){status.setText("Wallet data is not available yet.");return;}
                     String balance=w.optString("balance","0.00");
                     String currency=w.optString("currency","SAR");
-                    status.setText("Balance: "+balance+" "+currency);
+                    status.setText("✓ Wallet refreshed from Azure\nBalance: "+balance+" "+currency);
                 }catch(Exception e){status.setText("Wallet response could not be displayed.");}
             });}
             public void err(String m){runOnUiThread(()->{
@@ -90,8 +90,8 @@ public class AzureWalletActivity extends Activity {
                             try{a=new JSONArray(value);}catch(Exception ignored){}
                         }
                     }
-                    if(a==null||a.length()==0){status.setText("No wallet transactions yet.");return;}
-                    StringBuilder out=new StringBuilder("Recent transactions\n\n");
+                    if(a==null||a.length()==0){status.setText("✓ Azure transactions refreshed\nNo wallet transactions yet.");return;}
+                    StringBuilder out=new StringBuilder("✓ Azure transactions refreshed\n\nRecent transactions\n\n");
                     for(int i=0;i<Math.min(a.length(),50);i++){
                         JSONObject x=a.optJSONObject(i);if(x==null)continue;
                         out.append(x.optString("type",x.optString("kind","Transaction")))
