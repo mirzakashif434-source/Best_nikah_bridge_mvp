@@ -73,7 +73,22 @@ public class BlockedMembersActivity extends Activity {
         status=text("Status: loading…",14,false);root.addView(status);
         list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);root.addView(list);
 
-        signIn=button("Sign in with Azure",true);signIn.setVisibility(android.view.View.GONE);signIn.setOnClickListener(v->recoverAzureSessionAndLoad());root.addView(signIn,new LinearLayout.LayoutParams(-1,dp(56)));
+        signIn=button("Sign in with Azure",true);signIn.setVisibility(android.view.View.GONE);signIn.setOnClickListener(v->{
+            signIn.setEnabled(false);
+            signIn.setText("Opening Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Azure");
+                    recoverAzureSessionAndLoad();
+                });}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Azure");
+                    status.setText("Status: Azure sign in was not completed");
+                });}
+            });
+        });root.addView(signIn,new LinearLayout.LayoutParams(-1,dp(56)));
         Button refresh=button("Refresh",false);refresh.setOnClickListener(v->recoverAzureSessionAndLoad());root.addView(refresh,new LinearLayout.LayoutParams(-1,dp(54)));
         Button back=button("Back",false);back.setOnClickListener(v->finish());LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-1,dp(54));bp.setMargins(0,dp(8),0,0);root.addView(back,bp);
     }
