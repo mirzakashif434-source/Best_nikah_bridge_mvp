@@ -24,8 +24,10 @@ public class SmartSeriousQuestionsActivity extends Activity {
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         AzureAuthManager.bindActivity(this);
-        render();
-        recoverAzureSessionAndLoadMatches();
+        PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",()->{
+            render();
+            recoverAzureSessionAndLoadMatches();
+        });
     }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private TextView txt(String s,int size,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(bold?dark:gray);t.setPadding(dp(6),dp(8),dp(6),dp(10));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
