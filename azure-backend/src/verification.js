@@ -2,6 +2,7 @@ const { app } = require("@azure/functions");
 const crypto = require("crypto");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
+const { accessForAuth } = require("./premiumAccess");
 const { getVerificationDocumentsContainer } = require("./storage");
 const { requireAdultProfile } = require("./ageGate");
 
