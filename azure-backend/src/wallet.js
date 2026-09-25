@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { getPool, query } = require("./db");
 const { requireAuth } = require("./auth");
+const { entitlementForUser, capabilitiesFor } = require("./premiumAccess");
 
 const text = (value, max) => typeof value === "string" ? value.trim().slice(0, max) : "";
 
@@ -46,6 +47,8 @@ app.http("walletGet", {
   handler: requireAuth(async (request, context, user) => {
     try {
       const me = await ensureUser(user);
+      const premium = await entitlementForUser(me.id);
+      if (!capabilitiesFor(premium).paid20Features) return { status: 402, jsonBody: { ok: false, error: "PREMIUM_BASIC_REQUIRED", locked: true } };
       await query("INSERT INTO wallet_accounts(user_id) VALUES($1) ON CONFLICT(user_id) DO NOTHING", [me.id]);
       const result = await query(
         "SELECT user_id,balance,currency,created_at,updated_at FROM wallet_accounts WHERE user_id=$1",
@@ -66,6 +69,8 @@ app.http("walletTransactions", {
   handler: requireAuth(async (request, context, user) => {
     try {
       const me = await ensureUser(user);
+      const premium = await entitlementForUser(me.id);
+      if (!capabilitiesFor(premium).paid20Features) return { status: 402, jsonBody: { ok: false, error: "PREMIUM_BASIC_REQUIRED", locked: true } };
       const result = await query(
         "SELECT id,entry_type,amount,currency,reference_id,description,created_at FROM wallet_ledger WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100",
         [me.id]
@@ -87,6 +92,8 @@ app.http("walletWithdrawalCreate", {
     let client;
     try {
       const me = await ensureUser(user);
+      const premium = await entitlementForUser(me.id);
+      if (!capabilitiesFor(premium).paid20Features) return { status: 402, jsonBody: { ok: false, error: "PREMIUM_BASIC_REQUIRED", locked: true } };
       if (me.status !== "active") {
         return { status: 403, jsonBody: { ok: false, error: "ACCOUNT_NOT_ACTIVE" } };
       }
