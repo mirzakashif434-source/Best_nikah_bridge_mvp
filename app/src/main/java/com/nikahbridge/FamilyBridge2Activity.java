@@ -65,10 +65,35 @@ public class FamilyBridge2Activity extends Activity{
  }
 
  void loadAll(){
-   if(!AzureAuthManager.hasAccount(this)){status.setText("Status: Azure sign in required");return;}
-   status.setText("Status: loading secure Azure Family/Wali data…");
-   loadOwnedLinks();
-   loadPendingWaliRequests();
+   status.setText("Status: checking secure Azure session…");
+   AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+     @Override public void ok(String accessToken){runOnUiThread(()->{
+       status.setText("Status: loading secure Azure Family/Wali data…");
+       loadOwnedLinks();
+       loadPendingWaliRequests();
+     });}
+     @Override public void err(String message){runOnUiThread(()->showAzureRecovery());}
+   });
+ }
+
+ void showAzureRecovery(){
+   status.setText("Status: Azure sign in required");
+   Button signIn=boxButton(ownedLinksBox,"Sign in with Azure",true);
+   signIn.setOnClickListener(v->{
+     signIn.setEnabled(false);
+     signIn.setText("Opening Azure Sign In…");
+     AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+       @Override public void ok(String accessToken){runOnUiThread(()->{
+         ownedLinksBox.removeAllViews();
+         loadAll();
+       });}
+       @Override public void err(String message){runOnUiThread(()->{
+         signIn.setEnabled(true);
+         signIn.setText("Sign in with Azure");
+         status.setText("Status: Azure sign in was not completed");
+       });}
+     });
+   });
  }
 
  void loadOwnedLinks(){
