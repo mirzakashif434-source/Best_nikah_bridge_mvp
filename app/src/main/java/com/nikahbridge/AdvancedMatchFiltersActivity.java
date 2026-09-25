@@ -20,7 +20,7 @@ public class AdvancedMatchFiltersActivity extends Activity {
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         AzureAuthManager.bindActivity(this);
-        PremiumFeatureGate.require(this,"advancedMatching","Plus 40 SAR or VIP 60 SAR",this::render);
+        PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",this::render);
     }
 
     private int dp(int v){return Premium2030Ui.dp(this,v);}
