@@ -55,6 +55,19 @@ jobs:
           audience: api://AzureADTokenExchange
           environment: azurecloud
 
+      - name: Enforce ultra-low-cost Flex Consumption scale
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          SCALE_JSON="$(az functionapp scale config show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" -o json)"
+          NAMES="$(echo "$SCALE_JSON" | jq -r '(.alwaysReady // .alwaysReadySettings // [])[]? | (.name // .triggerType // empty)' | xargs || true)"
+          if [ -n "$NAMES" ]; then
+            az functionapp scale config always-ready delete --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --setting-names $NAMES --only-show-errors
+          fi
+          az functionapp scale config set --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --instance-memory 512 --only-show-errors >/dev/null
+          echo "ULTRA LOW COST FLEX SCALE: PASS"
+
       - name: Configure Azure Blob Storage for the existing Function App
         shell: bash
         run: |
@@ -72,14 +85,14 @@ jobs:
           az functionapp config appsettings set             --name "$AZURE_FUNCTIONAPP_NAME"             --resource-group "$RESOURCE_GROUP"             --settings               AZURE_STORAGE_ACCOUNT_URL="$ACCOUNT_URL"               AZURE_PROFILE_PHOTOS_CONTAINER=profile-photos               AZURE_VERIFICATION_DOCUMENTS_CONTAINER=verification-documents \
               ADMOB_REWARDED_AD_UNIT_ID="${{ secrets.ADMOB_REWARDED_AD_UNIT_ID }}" \
               AZURE_AUTH_ONLY="true" \
-              AZURE_DB_POOL_MAX=4 \
-              AI_DAILY_LIMIT_PLUS=8 \
-              AI_DAILY_LIMIT_VIP=20 \
+              AZURE_DB_POOL_MAX=3 \
+              AI_DAILY_LIMIT_PLUS=5 \
+              AI_DAILY_LIMIT_VIP=12 \
               AI_MAX_INPUT_CHARS=2500 \
               AI_MAX_MESSAGES=12 \
-              AI_NIKAH_MAX_TOKENS=450 \
+              AI_NIKAH_MAX_TOKENS=350 \
               AI_ADVANCED_MAX_INPUT_CHARS=4000 \
-              AI_ADVANCED_MAX_TOKENS=600 \
+              AI_ADVANCED_MAX_TOKENS=500 \
             --only-show-errors
           az storage container create --name profile-photos --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
           az storage container create --name verification-documents --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
