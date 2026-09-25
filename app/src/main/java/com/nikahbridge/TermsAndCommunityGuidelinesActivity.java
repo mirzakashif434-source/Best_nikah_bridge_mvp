@@ -114,7 +114,16 @@ public class TermsAndCommunityGuidelinesActivity extends Activity {
                 runOnUiThread(()->{setResult(RESULT_OK);LanguageManager.toast(TermsAndCommunityGuidelinesActivity.this,"Terms accepted. Azure has saved your acceptance.",Toast.LENGTH_LONG).show();finish();});
             }
             @Override public void err(String message){
-                runOnUiThread(()->{accept.setEnabled(true);accept.setText("Accept & Continue");LanguageManager.toast(TermsAndCommunityGuidelinesActivity.this,"Could not save acceptance: "+message,Toast.LENGTH_LONG).show();});
+                runOnUiThread(()->{
+                    accept.setEnabled(true);
+                    accept.setText("Accept & Continue");
+                    if(message!=null&&(message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("AZURE_INTERACTION_REQUIRED")||message.contains("401"))){
+                        AzureAuthManager.clearCachedToken();
+                        buildAuthRecovery();
+                    }else{
+                        LanguageManager.toast(TermsAndCommunityGuidelinesActivity.this,"Terms acceptance could not be saved. Please try again.",Toast.LENGTH_LONG).show();
+                    }
+                });
             }
         });
     }
