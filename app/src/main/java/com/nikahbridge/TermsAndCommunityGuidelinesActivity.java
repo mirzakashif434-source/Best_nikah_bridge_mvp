@@ -83,7 +83,18 @@ public class TermsAndCommunityGuidelinesActivity extends Activity {
         Button back=Premium2030Ui.secondary(this,"Back");
         Premium2030Ui.addButton(root,back);
 
-        signIn.setOnClickListener(v->recoverAzureSessionAndOpenTerms());
+        signIn.setOnClickListener(v->{
+            signIn.setEnabled(false);
+            signIn.setText("Opening Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->buildTermsScreen());}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Azure");
+                    LanguageManager.toast(TermsAndCommunityGuidelinesActivity.this,"Azure sign in was not completed. Please try again.",Toast.LENGTH_LONG).show();
+                });}
+            });
+        });
         back.setOnClickListener(v->finish());
         setContentView(root);
 
