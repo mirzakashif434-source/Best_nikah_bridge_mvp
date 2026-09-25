@@ -108,7 +108,16 @@ public class BlockedMembersActivity extends Activity {
                     }catch(Exception e){status.setText("Status: block response could not be read");}
                 });
             }
-            @Override public void err(String message){runOnUiThread(()->status.setText("Status: could not load Azure blocked members: "+message));}
+            @Override public void err(String message){runOnUiThread(()->{
+                if(message!=null&&(message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("AZURE_INTERACTION_REQUIRED")||message.contains("401"))){
+                    AzureAuthManager.clearCachedToken();
+                    status.setText("Status: Azure sign in required");
+                    signIn.setVisibility(android.view.View.VISIBLE);
+                    list.removeAllViews();
+                }else{
+                    status.setText("Status: blocked members are temporarily unavailable. Please try Refresh.");
+                }
+            });}
         });
     }
 
