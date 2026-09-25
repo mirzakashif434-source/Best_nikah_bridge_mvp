@@ -26,8 +26,10 @@ public class NikahBlueprintActivity extends Activity {
     @Override protected void onCreate(Bundle b){
         super.onCreate(b);
         AzureAuthManager.bindActivity(this);
-        render();
-        if(!AzureAuthManager.hasAccount(this)) showAuthRecovery(); else load();
+        PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",()->{
+            render();
+            if(!AzureAuthManager.hasAccount(this)) showAuthRecovery(); else load();
+        });
     }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private TextView txt(String s,int z,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(z);t.setTextColor(bold?dark:gray);t.setPadding(dp(4),dp(8),dp(4),dp(10));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
