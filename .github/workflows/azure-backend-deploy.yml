@@ -65,8 +65,14 @@ jobs:
           if [ -n "$NAMES" ]; then
             az functionapp scale config always-ready delete --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --setting-names $NAMES --only-show-errors
           fi
-          az functionapp scale config set --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --instance-memory 512 --only-show-errors >/dev/null
-          echo "ULTRA LOW COST FLEX SCALE: PASS"
+          az functionapp scale config set --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --instance-memory 512 --maximum-instance-count 20 --only-show-errors >/dev/null
+          FINAL_SCALE="$(az functionapp scale config show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" -o json)"
+          echo "$FINAL_SCALE" | jq '{instanceMemoryMB,maximumInstanceCount,alwaysReady,alwaysReadySettings}'
+          MEMORY="$(echo "$FINAL_SCALE" | jq -r '.instanceMemoryMB // .instanceMemory // empty')"
+          MAX_INSTANCES="$(echo "$FINAL_SCALE" | jq -r '.maximumInstanceCount // empty')"
+          test "$MEMORY" = "512"
+          test "$MAX_INSTANCES" = "20"
+          echo "FORTRESS BUDGET FLEX SCALE: PASS"
 
       - name: Configure Azure Blob Storage for the existing Function App
         shell: bash
@@ -354,14 +360,14 @@ jobs:
           set -euo pipefail
           RESOURCE_GROUP="BestNikahBredge-Production"
           HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
-          for PATH in premium/plans owner/live-analytics owner/earnings wallet wallet/transactions family-links/pending-for-wali; do
-            URL="https://${HOSTNAME}/api/${PATH}"
+          for ROUTE_PATH in premium/plans owner/live-analytics owner/earnings wallet wallet/transactions family-links/pending-for-wali; do
+            URL="https://${HOSTNAME}/api/${ROUTE_PATH}"
             CODE="$(curl -sS -o /tmp/final-route.json -w "%{http_code}" "$URL" || true)"
-            echo "$PATH -> HTTP $CODE"
+            echo "$ROUTE_PATH -> HTTP $CODE"
             cat /tmp/final-route.json || true
             case "$CODE" in
               200|400|401|403|405|409|412) ;;
-              *) echo "FINAL REPAIR LIVE ROUTE CHECK FAILED: $PATH HTTP $CODE"; exit 1 ;;
+              *) echo "FINAL REPAIR LIVE ROUTE CHECK FAILED: $ROUTE_PATH HTTP $CODE"; exit 1 ;;
             esac
           done
           echo "FINAL REPAIR LIVE ROUTES: PASS"
