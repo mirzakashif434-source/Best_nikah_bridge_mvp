@@ -102,7 +102,8 @@ public class ProfilePhotoActivity extends Activity {
         Button back = styledButton("Back", false, root);
 
         choose.setOnClickListener(v -> requireTermsBeforePhotoAction(this::pickImage));
-        upload.setOnClickListener(v -> requireTermsBeforePhotoAction(this::uploadImageAzure));
+        upload.setOnClickListener(v -> requireTermsBeforePhotoAction(() ->
+                PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",this::uploadImageAzure)));
         back.setOnClickListener(v -> finish());
     }
 
