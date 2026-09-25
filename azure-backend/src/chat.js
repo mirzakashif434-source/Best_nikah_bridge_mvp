@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
+const { accessForAuth } = require("./premiumAccess");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 
@@ -38,7 +39,7 @@ app.http("conversationsList",{
   methods:["GET"],authLevel:"anonymous",route:"conversations",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       const r=await query(
         `SELECT c.id,c.status,c.created_at,
                 CASE WHEN c.user_a_id=$1 THEN COALESCE(ub.azure_subject,ub.firebase_uid) ELSE COALESCE(ua.azure_subject,ua.firebase_uid) END AS other_user_id,
@@ -69,7 +70,7 @@ app.http("messagesList",{
   methods:["GET"],authLevel:"anonymous",route:"conversations/{conversationId}/messages",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
       const c=await getConversationForUser(id,me.id);
       if(!c)return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};
@@ -87,7 +88,7 @@ app.http("messageCreate",{
   handler:requireAuth(async(request,context,user)=>{
     const client=await getPool().connect();
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
       const b=await request.json();
       const body=text(b.body,4000);
@@ -169,7 +170,7 @@ app.http("messagesRead",{
   methods:["PATCH"],authLevel:"anonymous",route:"conversations/{conversationId}/messages/read",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
       const c=await getConversationForUser(id,me.id);
       if(!c)return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};
@@ -188,7 +189,7 @@ app.http("conversationDeleteForBoth",{
   handler:requireAuth(async(request,context,user)=>{
     const client=await getPool().connect();
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       const id=(request.params&&request.params.conversationId)||context.triggerMetadata?.conversationId;
       await client.query("BEGIN");
       const conv=await client.query(
