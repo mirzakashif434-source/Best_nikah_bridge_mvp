@@ -1,17 +1,19 @@
 # Ultra-Low-Cost Production Lock
 
-Target operating mode: keep normal production usage as close as practical to the owner's 200–300 SAR/month planning target without deleting existing features.
+Target: architecture scale-ready toward 1,000,000 users while early/controlled usage aims for 150–200 SAR/month.
 
-Locked cost controls:
-- Azure Functions remain consumption-oriented; no code change introduces an always-on duplicate backend.
-- PostgreSQL application pool default capped at 4 connections per Function instance.
-- Application Insights telemetry sampled at max 5 telemetry items/second; exceptions are preserved.
-- Premium Plus (40 SAR) advanced AI requests: default 8/day per user.
-- Premium VIP (60 SAR) AI requests: default 20/day per user.
-- Nikah Assistant output cap: 450 tokens by default.
-- Advanced AI output cap: 600 tokens by default.
-- AI prompt sizes are bounded server-side.
-- Quotas are enforced server-side in PostgreSQL, not only in Android UI.
-- Existing features, premium plans, Azure routes, Golden release protection, and auto-rollback are not removed.
+Locked controls:
+- Azure Functions Flex stays On-Demand; no Always Ready baseline.
+- Function memory target: 512 MB.
+- PostgreSQL pool default: 3 connections per Function instance.
+- Application Insights: max 2 telemetry items/second; exceptions preserved.
+- Premium Plus advanced AI: 5 requests/day per user.
+- Premium VIP AI: 12 requests/day per user.
+- Nikah Assistant output target: 350 tokens.
+- Advanced AI output target: 500 tokens.
+- Profile photos remain Hot.
+- Verification documents move to Cool tier after 30 days without auto-delete.
+- Existing features, premium plans, Golden release, Self-Healing, and Auto-Rollback remain preserved.
+- No multi-region duplicate infrastructure in this low-budget phase.
 
-Important: this is a cost-control target, not a guaranteed Azure invoice ceiling. Database SKU, storage growth, bandwidth, AI model pricing, and actual usage still determine the bill.
+150–200 SAR is a planning target, not a guaranteed invoice ceiling. Actual Azure usage and provider pricing determine the bill.
