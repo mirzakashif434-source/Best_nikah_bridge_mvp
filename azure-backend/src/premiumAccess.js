@@ -44,6 +44,7 @@ function capabilitiesFor(premium){
     whyWeMatched:plus,
     marriageTimeline:plus,
     aiNikahAssistant:vip,
+    aiAdvanced:vip,
     familyCircleLimit:vip?10:plus?7:basic?4:2,
     priorityVisibility:vip,
     adFree:basic
