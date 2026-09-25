@@ -67,7 +67,18 @@ public class NikahJourneyActivity extends Activity {
         summary.setText("Azure sign in is required to load your real Nikah Journey.");
         refresh.setEnabled(false);
         Button signIn=btn("Sign in with Azure",true);
-        signIn.setOnClickListener(v->recoverAzureSessionAndLoad());
+        signIn.setOnClickListener(v->{
+            signIn.setEnabled(false);
+            signIn.setText("Opening Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->recoverAzureSessionAndLoad());}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Azure");
+                    summary.setText("Azure sign in was not completed. Please try again.");
+                });}
+            });
+        });
         stages.addView(signIn,new LinearLayout.LayoutParams(-1,dp(62)));
     }
 
