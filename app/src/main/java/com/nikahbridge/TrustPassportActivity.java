@@ -22,7 +22,7 @@ public class TrustPassportActivity extends Activity {
     private String selectedMatchId="";
     private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
 
-    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",this::render);}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void base(){
         ScrollView s=new ScrollView(this);s.setFillViewport(true);s.setClipToPadding(false);s.setBackgroundColor(light);
