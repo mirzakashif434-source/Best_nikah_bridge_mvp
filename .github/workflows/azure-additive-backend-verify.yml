@@ -713,6 +713,22 @@ jobs:
           sha256sum app/build/outputs/apk/release/app-release.apk > app-release-apk.sha256
           sha256sum app/build/outputs/bundle/release/app-release.aab > app-release-aab.sha256
 
+      - name: Verify 38-screen Master Test contract against signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_38_screen_master.py app/build/outputs/apk/release/app-release.apk
+          echo "38-SCREEN SOURCE + APK + MAESTRO CONTRACT: PASS"
+
+      - name: Install open-source Maestro CLI — no Maestro Cloud
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          test -x "$HOME/.maestro/bin/maestro"
+          "$HOME/.maestro/bin/maestro" --version
+          echo "OPEN-SOURCE MAESTRO CLI: READY"
+
       - name: Enable KVM hardware acceleration
         shell: bash
         run: |
@@ -740,7 +756,7 @@ jobs:
           emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: bash "$GITHUB_WORKSPACE/.github/scripts/runtime_apk_smoke_gate.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+          script: bash "$GITHUB_WORKSPACE/.github/scripts/runtime_maestro_master_gate.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
 
       - name: Forensic scan compiled final APK
         shell: bash
@@ -853,5 +869,7 @@ jobs:
         run: |
           echo "STEP 8 AZURE FINAL GATE PASSED."
           echo "Final signed APK + AAB built from azure-backend-additive."
+          echo "38-screen Master Test contract + open-source Maestro CI smoke passed."
+          echo "Signed-in 38-screen Maestro flow is locked without any auth/demo bypass."
           echo "Golden Release manifest + provenance attestations + non-overwrite Golden tag created."
-          echo "Only one real-device end-to-end test and Play Console submission remain external."
+          echo "Only the signed-in real-session Maestro run on a device and Play Console submission remain external."
