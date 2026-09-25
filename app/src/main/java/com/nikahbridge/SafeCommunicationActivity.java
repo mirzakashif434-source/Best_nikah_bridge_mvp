@@ -19,7 +19,7 @@ public class SafeCommunicationActivity extends Activity {
     private String selectedConversationId="";
     private final int green=Color.rgb(18,103,82),dark=Color.rgb(30,45,41),gray=Color.rgb(85,100,95),light=Color.rgb(247,250,249);
 
-    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();loadConversations();String openId=getIntent()!=null?getIntent().getStringExtra("conversationId"):null;if(openId!=null&&!openId.trim().isEmpty()){selectedConversationId=openId.trim();selectedConversation.setText("Selected secure mutual conversation");loadMessages();}}
+    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"paid40Features","40 SAR Plus or higher",()->{render();loadConversations();String openId=getIntent()!=null?getIntent().getStringExtra("conversationId"):null;if(openId!=null&&!openId.trim().isEmpty()){selectedConversationId=openId.trim();selectedConversation.setText("Selected secure mutual conversation");loadMessages();}});}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void base(){
         ScrollView s=new ScrollView(this);s.setFillViewport(true);s.setClipToPadding(false);s.setBackgroundColor(light);
