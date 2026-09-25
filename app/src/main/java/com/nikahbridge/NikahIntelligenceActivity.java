@@ -23,8 +23,10 @@ public class NikahIntelligenceActivity extends Activity {
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         AzureAuthManager.bindActivity(this);
-        render();
-        recoverAzureSessionAndLoad();
+        PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",()->{
+            render();
+            recoverAzureSessionAndLoad();
+        });
     }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void base(){
