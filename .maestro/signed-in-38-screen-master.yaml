@@ -28,7 +28,8 @@ tags:
 - tapOn: "Serious Nikah Plus"
 - runFlow:
     when: { visible: "Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -91,7 +92,8 @@ tags:
 - tapOn: "Global Community Chat"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -100,7 +102,8 @@ tags:
 - tapOn: "Earn Message Credits"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -109,7 +112,8 @@ tags:
 - tapOn: "Blocked Members"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -118,7 +122,8 @@ tags:
 - tapOn: "Terms & Community Guidelines"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -127,7 +132,8 @@ tags:
 - tapOn: "Nikah Journey"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -142,7 +148,8 @@ tags:
 - tapOn: "Smart Serious Questions"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -151,7 +158,8 @@ tags:
 - tapOn: "Why We Matched"
 - runFlow:
     when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -160,7 +168,8 @@ tags:
 - tapOn: "Advanced Match Filters"
 - runFlow:
     when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -169,7 +178,8 @@ tags:
 - tapOn: "Compatibility Deal-Breakers"
 - runFlow:
     when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -178,7 +188,8 @@ tags:
 - tapOn: "Compatibility Traffic Light"
 - runFlow:
     when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -187,7 +198,8 @@ tags:
 - tapOn: "Marriage Timeline Matching"
 - runFlow:
     when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -196,7 +208,8 @@ tags:
 - tapOn: "Family Circle"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -205,7 +218,8 @@ tags:
 - tapOn: "Trust Passport"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -214,7 +228,8 @@ tags:
 - tapOn: "Safe Communication"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -223,7 +238,8 @@ tags:
 - tapOn: "Nikah Intelligence"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -232,7 +248,8 @@ tags:
 - tapOn: "Conversation Health"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -241,7 +258,8 @@ tags:
 - tapOn: "AI Nikah Mediator"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -250,7 +268,8 @@ tags:
 - tapOn: "Nikah Success Plan"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -259,7 +278,8 @@ tags:
 - tapOn: "Nikah Success Network"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -268,7 +288,8 @@ tags:
 - tapOn: "Future Life Simulation"
 - runFlow:
     when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -277,7 +298,8 @@ tags:
 - tapOn: "Owner Live Analytics"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -286,7 +308,8 @@ tags:
 - tapOn: "Owner Wallet / Payout"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
@@ -295,7 +318,8 @@ tags:
 - tapOn: "Azure Wallet"
 - runFlow:
     when: { visible: "Sign in required|Not now|NOT NOW" }
-    commands: [ { back: {} } ]
+    commands:
+      - back
 - assertVisible: "Back"
 - tapOn: "Back"
 
