@@ -86,7 +86,22 @@ public class OwnerEarningsActivity extends Activity {
         Button back=button("Back",false);
 
         refresh.setOnClickListener(v->loadAzure());
-        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        signIn.setOnClickListener(v->{
+            signIn.setEnabled(false);
+            signIn.setText("Opening Owner Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Owner / Admin Azure Account");
+                    loadAzureAuthorized();
+                });}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Owner / Admin Azure Account");
+                    summary.setText("Owner Azure sign in was not completed. Please try again.");
+                });}
+            });
+        });
         bank.setOnClickListener(v->alRajhiTrackingDialog());
         received.setOnClickListener(v->recordGooglePayoutDialog());
         history.setOnClickListener(v->showPayoutHistory());
@@ -108,7 +123,20 @@ public class OwnerEarningsActivity extends Activity {
     }
 
     private void loadAzure(){
-        if(!AzureAuthManager.hasAccount(this)){showOwnerSignIn();return;}
+        summary.setText("Checking secure Owner Azure session…");
+        refresh.setEnabled(false);
+        refresh.setText("Checking Owner Session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->loadAzureAuthorized());}
+            @Override public void err(String message){runOnUiThread(()->{
+                refresh.setEnabled(true);
+                refresh.setText("Refresh Owner Wallet");
+                showOwnerSignIn();
+            });}
+        });
+    }
+
+    private void loadAzureAuthorized(){
         summary.setText("Loading secure Azure Owner Wallet…");
         refresh.setEnabled(false);refresh.setText("Loading Owner Wallet…");
         signIn.setVisibility(android.view.View.GONE);
@@ -126,6 +154,7 @@ public class OwnerEarningsActivity extends Activity {
                     if(message!=null&&(message.contains("ADMIN_REQUIRED")||message.contains("403"))){
                         summary.setText("This Azure account is signed in, but owner/admin access is not enabled.");
                     }else if(authError(message)){
+                        AzureAuthManager.clearCachedToken();
                         showOwnerSignIn();
                     }else if(message!=null&&message.contains("404")){
                         summary.setText("Owner Wallet route could not be reached. Tap Refresh Owner Wallet.");
