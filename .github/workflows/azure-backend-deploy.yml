@@ -194,6 +194,57 @@ jobs:
             sleep 10
           done
 
+      - name: Bootstrap exactly one pre-launch owner admin safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          FUNCTION_APP="$AZURE_FUNCTIONAPP_NAME"
+          DB_HOST="$(az functionapp config appsettings list --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --query "[?name=='AZURE_DB_HOST'].value | [0]" -o tsv)"
+          DB_NAME="$(az functionapp config appsettings list --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --query "[?name=='AZURE_DB_NAME'].value | [0]" -o tsv)"
+          DB_USER="$(az functionapp config appsettings list --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --query "[?name=='AZURE_DB_USER'].value | [0]" -o tsv)"
+          DB_PASSWORD="$(az functionapp config appsettings list --name "$FUNCTION_APP" --resource-group "$RESOURCE_GROUP" --query "[?name=='AZURE_DB_ADMIN_PASSWORD'].value | [0]" -o tsv)"
+          if [ -z "$DB_HOST" ] || [ -z "$DB_NAME" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASSWORD" ]; then
+            echo "Production DB connection settings are incomplete."
+            exit 1
+          fi
+          echo "::add-mask::$DB_PASSWORD"
+
+          RUNNER_IP="$(curl -fsS https://api.ipify.org)"
+          DB_SERVER="${DB_HOST%%.*}"
+          az postgres flexible-server firewall-rule create             --resource-group "$RESOURCE_GROUP"             --server-name "$DB_SERVER"             --name github-owner-bootstrap             --start-ip-address "$RUNNER_IP"             --end-ip-address "$RUNNER_IP"             --only-show-errors
+
+          cleanup() {
+            az postgres flexible-server firewall-rule delete               --resource-group "$RESOURCE_GROUP"               --server-name "$DB_SERVER"               --name github-owner-bootstrap               --yes --only-show-errors || true
+          }
+          trap cleanup EXIT
+
+          export PGPASSWORD="$DB_PASSWORD"
+          CONN="host=$DB_HOST port=5432 dbname=$DB_NAME user=$DB_USER sslmode=require"
+          ADMIN_COUNT="$(psql "$CONN" -Atc "SELECT count(*) FROM users WHERE status='active' AND role IN ('admin','moderator');")"
+          ACTIVE_COUNT="$(psql "$CONN" -Atc "SELECT count(*) FROM users WHERE status='active';")"
+          echo "Active production users: $ACTIVE_COUNT"
+          echo "Existing owner/admin users: $ADMIN_COUNT"
+
+          if [ "$ADMIN_COUNT" -gt 0 ]; then
+            echo "OWNER ADMIN BOOTSTRAP: already configured; preserving existing role."
+          elif [ "$ACTIVE_COUNT" = "1" ]; then
+            UPDATED="$(psql "$CONN" -Atc "UPDATE users SET role='admin',updated_at=now() WHERE id=(SELECT id FROM users WHERE status='active' ORDER BY created_at ASC LIMIT 1) AND role='user' RETURNING id;" | wc -l | tr -d ' ')"
+            if [ "$UPDATED" != "1" ]; then
+              echo "OWNER ADMIN BOOTSTRAP: expected exactly one promoted row, got $UPDATED"
+              exit 1
+            fi
+            echo "OWNER ADMIN BOOTSTRAP: PASS — single pre-launch account promoted."
+          else
+            echo "OWNER ADMIN BOOTSTRAP: FAIL — no admin exists and active user count is $ACTIVE_COUNT."
+            echo "Refusing to guess which account is the owner."
+            exit 1
+          fi
+
+          FINAL_ADMIN_COUNT="$(psql "$CONN" -Atc "SELECT count(*) FROM users WHERE status='active' AND role IN ('admin','moderator');")"
+          test "$FINAL_ADMIN_COUNT" -gt 0
+          echo "OWNER ADMIN READY: PASS"
+
       - name: Verify live Azure External ID configuration
         run: |
           set -euo pipefail
