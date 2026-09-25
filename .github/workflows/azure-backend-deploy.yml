@@ -96,6 +96,32 @@ jobs:
             --only-show-errors
           az storage container create --name profile-photos --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
           az storage container create --name verification-documents --account-name "$ACCOUNT_NAME" --auth-mode login --only-show-errors
+          cat >/tmp/bnb-storage-policy.json <<'JSON'
+          {
+            "rules": [
+              {
+                "enabled": true,
+                "name": "bnb-verification-documents-cool",
+                "type": "Lifecycle",
+                "definition": {
+                  "actions": {
+                    "baseBlob": {
+                      "tierToCool": {
+                        "daysAfterModificationGreaterThan": 30
+                      }
+                    }
+                  },
+                  "filters": {
+                    "blobTypes": ["blockBlob"],
+                    "prefixMatch": ["verification-documents/"]
+                  }
+                }
+              }
+            ]
+          }
+JSON
+          az storage account management-policy create --account-name "$ACCOUNT_NAME" --resource-group "$RESOURCE_GROUP" --policy @/tmp/bnb-storage-policy.json --only-show-errors >/dev/null
+          echo "VERIFICATION DOCUMENT COOL-TIER LIFECYCLE: PASS"
 
       - name: Provision the real Azure OpenAI resource and model if missing
         shell: bash
