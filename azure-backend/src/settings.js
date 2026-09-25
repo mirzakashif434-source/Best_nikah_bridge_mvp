@@ -20,7 +20,6 @@ app.http("userSettingGet",{
       const u=await me(user),key=cleanKey(request.params?.key||context.triggerMetadata?.key);
       if(!key)return {status:400,jsonBody:{ok:false,error:"SETTING_KEY_REQUIRED"}};
       if(key==="nikah_success_network"){const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};}
-      if(key==="nikah_success_network"){const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};}
       const r=await query("SELECT setting_value,updated_at FROM user_settings WHERE user_id=$1 AND setting_key=$2",[u.id,key]);
       return {status:200,jsonBody:{ok:true,key,value:r.rows[0]?.setting_value||{},updatedAt:r.rows[0]?.updated_at||null}};
     }catch(e){context.error("SETTING_GET_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"SETTING_GET_FAILED"}};}
@@ -33,6 +32,7 @@ app.http("userSettingPut",{
     try{
       const u=await me(user),key=cleanKey(request.params?.key||context.triggerMetadata?.key);
       if(!key)return {status:400,jsonBody:{ok:false,error:"SETTING_KEY_REQUIRED"}};
+      if(key==="nikah_success_network"){const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};}
       const body=await request.json();
       if(!body || typeof body!=="object" || Array.isArray(body))return {status:400,jsonBody:{ok:false,error:"SETTING_VALUE_OBJECT_REQUIRED"}};
       const encoded=JSON.stringify(body);
