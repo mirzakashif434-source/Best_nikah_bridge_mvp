@@ -35,14 +35,17 @@ public class AzureWalletActivity extends Activity {
         return v;
     }
     @Override protected void onCreate(Bundle state){
-        super.onCreate(state);AzureAuthManager.bindActivity(this);base();
-        root.addView(Premium2030Ui.title(this,"Azure Wallet"));
-        root.addView(Premium2030Ui.subtitle(this,"Real Azure wallet balance and transaction history"));
-        TextView status=t("Loading real wallet…");status.setTextIsSelectable(true);root.addView(status);
-        recoverAndLoadWallet(status);
-        Button refresh=b("Refresh Wallet");refresh.setOnClickListener(v->recoverAndLoadWallet(status));
-        Button tx=b("View Real Transactions");tx.setOnClickListener(v->recoverAndLoadTransactions(status));
-        Button back=b("Back");back.setOnClickListener(v->finish());
+        super.onCreate(state);AzureAuthManager.bindActivity(this);
+        PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",()->{
+            base();
+            root.addView(Premium2030Ui.title(this,"Azure Wallet"));
+            root.addView(Premium2030Ui.subtitle(this,"Real Azure wallet balance and transaction history"));
+            TextView status=t("Loading real wallet…");status.setTextIsSelectable(true);root.addView(status);
+            recoverAndLoadWallet(status);
+            Button refresh=b("Refresh Wallet");refresh.setOnClickListener(v->recoverAndLoadWallet(status));
+            Button tx=b("View Real Transactions");tx.setOnClickListener(v->recoverAndLoadTransactions(status));
+            Button back=b("Back");back.setOnClickListener(v->finish());
+        });
     }
 
     private void recoverAndLoadWallet(TextView status){
