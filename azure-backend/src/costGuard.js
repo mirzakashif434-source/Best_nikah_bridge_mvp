@@ -9,10 +9,10 @@ function positiveInt(name, fallback) {
 
 function limitFor(planKey, bucket) {
   if (planKey === "premium_vip_60") {
-    return positiveInt("AI_DAILY_LIMIT_VIP", 20);
+    return positiveInt("AI_DAILY_LIMIT_VIP", 12);
   }
   if (planKey === "premium_plus_40" && bucket === "advanced_matching") {
-    return positiveInt("AI_DAILY_LIMIT_PLUS", 8);
+    return positiveInt("AI_DAILY_LIMIT_PLUS", 5);
   }
   return 0;
 }
