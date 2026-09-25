@@ -1,0 +1,11 @@
+appId: com.nikahbridge
+name: Best Nikah Bridge - CI Welcome Smoke
+tags:
+  - ci
+  - no-auth
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Get Started"
+- assertVisible: "Sign In"
+- assertVisible: "Language:.*"
