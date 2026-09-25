@@ -23,6 +23,49 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v5
+
+      - name: Self-Healing + Auto-Rollback architecture lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Production readiness and health gate — first pass' "$WF"
+          grep -Fq 'Self-heal Azure runtime after transient production failure' "$WF"
+          grep -Fq 'Production readiness and health gate — after self-heal' "$WF"
+          grep -Fq 'Prepare last-known-good Golden backend rollback' "$WF"
+          grep -Fq 'Auto-rollback Azure backend to last known-good Golden release' "$WF"
+          grep -Fq 'Verify production after Golden rollback' "$WF"
+          grep -Fq 'Self-Healing Golden Master result' "$WF"
+          echo "SELF-HEALING + AUTO-ROLLBACK ARCHITECTURE: LOCKED"
+
+      - name: Fortress Budget Regression — locked production contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/azure-backend-deploy.yml
+          test -f FORTRESS_BUDGET_MODE.md
+          grep -Fq -- '--instance-memory 512 --maximum-instance-count 20' "$WF"
+          grep -Fq 'always-ready delete' "$WF"
+          grep -Fq 'AZURE_DB_POOL_MAX=3' "$WF"
+          grep -Fq 'AI_DAILY_LIMIT_PLUS=5' "$WF"
+          grep -Fq 'AI_DAILY_LIMIT_VIP=12' "$WF"
+          grep -Fq 'AI_NIKAH_MAX_TOKENS=350' "$WF"
+          grep -Fq 'AI_ADVANCED_MAX_TOKENS=500' "$WF"
+          grep -Fq 'bnb-verification-documents-cool' "$WF"
+          grep -Fq 'max: Number(process.env.AZURE_DB_POOL_MAX || 3)' azure-backend/src/db.js
+          grep -Fq 'positiveInt("AI_DAILY_LIMIT_PLUS", 5)' azure-backend/src/costGuard.js
+          grep -Fq 'positiveInt("AI_DAILY_LIMIT_VIP", 12)' azure-backend/src/costGuard.js
+          python3 - <<'PY'
+          import json
+          d=json.load(open("azure-backend/host.json"))
+          s=d["logging"]["applicationInsights"]["samplingSettings"]
+          assert s["isEnabled"] is True
+          assert s["maxTelemetryItemsPerSecond"] == 2
+          assert "Exception" in s["excludedTypes"]
+          print("APPLICATION INSIGHTS BUDGET SAMPLING: PASS")
+          PY
+          echo "FORTRESS BUDGET REGRESSION: LOCKED"
+
       - uses: actions/setup-node@v5
         with:
           node-version: 22
