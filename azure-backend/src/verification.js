@@ -44,7 +44,9 @@ app.http("verificationSubmit",{
   methods:["POST"],authLevel:"anonymous",route:"verification/identity",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);
+      if(!access.capabilities.paid40Features) return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};
+      const me=access.user;
       if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
       await requireAdultProfile(me.id);
       const form=await request.formData();
@@ -60,7 +62,9 @@ app.http("verificationSelfieSubmit",{
   methods:["POST"],authLevel:"anonymous",route:"verification/selfie",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);
+      if(!access.capabilities.paid40Features) return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};
+      const me=access.user;
       if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
       await requireAdultProfile(me.id);
       const form=await request.formData();
