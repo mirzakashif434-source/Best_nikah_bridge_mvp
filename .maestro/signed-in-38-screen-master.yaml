@@ -1,0 +1,316 @@
+appId: com.nikahbridge
+name: Best Nikah Bridge - Signed-In 38 Screen Master
+tags:
+  - final
+  - signed-in
+  - 38-screen
+---
+# This flow deliberately preserves the real Azure session.
+# It never bypasses authentication and never confirms destructive actions.
+- launchApp:
+    clearState: false
+- assertVisible: "Secure Azure session verified"
+
+# 1
+- scrollUntilVisible: { element: "My Real Azure Profile", direction: DOWN }
+- tapOn: "My Real Azure Profile"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 2
+- scrollUntilVisible: { element: "Real Compatibility Matches", direction: DOWN }
+- tapOn: "Real Compatibility Matches"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 3
+- scrollUntilVisible: { element: "Serious Nikah Plus", direction: DOWN }
+- tapOn: "Serious Nikah Plus"
+- runFlow:
+    when: { visible: "Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 4
+- scrollUntilVisible: { element: "Premium Plans.*", direction: DOWN }
+- tapOn: "Premium Plans.*"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 5
+- scrollUntilVisible: { element: "Mutual Interests", direction: DOWN }
+- tapOn: "Mutual Interests"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 6
+- scrollUntilVisible: { element: "Family / Wali Connect", direction: DOWN }
+- tapOn: "Family / Wali Connect"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 7
+- scrollUntilVisible: { element: "Privacy Controls", direction: DOWN }
+- tapOn: "Privacy Controls"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 8
+- scrollUntilVisible: { element: "Verification Status", direction: DOWN }
+- tapOn: "Verification Status"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 9
+- scrollUntilVisible: { element: "Safety Reports", direction: DOWN }
+- tapOn: "Safety Reports"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 10
+- scrollUntilVisible: { element: "Azure AI Nikah Assistant", direction: DOWN }
+- tapOn: "Azure AI Nikah Assistant"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 11
+- scrollUntilVisible: { element: "Real Profile Photo", direction: DOWN }
+- tapOn: "Real Profile Photo"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 12
+- scrollUntilVisible: { element: "Four-Photo Verification", direction: DOWN }
+- tapOn: "Four-Photo Verification"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 13
+- scrollUntilVisible: { element: "Global Community Chat", direction: DOWN }
+- tapOn: "Global Community Chat"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 14
+- scrollUntilVisible: { element: "Earn Message Credits", direction: DOWN }
+- tapOn: "Earn Message Credits"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 15
+- scrollUntilVisible: { element: "Blocked Members", direction: DOWN }
+- tapOn: "Blocked Members"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 16
+- scrollUntilVisible: { element: "Terms & Community Guidelines", direction: DOWN }
+- tapOn: "Terms & Community Guidelines"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 17
+- scrollUntilVisible: { element: "Nikah Journey", direction: DOWN }
+- tapOn: "Nikah Journey"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 18
+- scrollUntilVisible: { element: "Nikah Blueprint", direction: DOWN }
+- tapOn: "Nikah Blueprint"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 19
+- scrollUntilVisible: { element: "Smart Serious Questions", direction: DOWN }
+- tapOn: "Smart Serious Questions"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 20
+- scrollUntilVisible: { element: "Why We Matched", direction: DOWN }
+- tapOn: "Why We Matched"
+- runFlow:
+    when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 21
+- scrollUntilVisible: { element: "Advanced Match Filters", direction: DOWN }
+- tapOn: "Advanced Match Filters"
+- runFlow:
+    when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 22
+- scrollUntilVisible: { element: "Compatibility Deal-Breakers", direction: DOWN }
+- tapOn: "Compatibility Deal-Breakers"
+- runFlow:
+    when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 23
+- scrollUntilVisible: { element: "Compatibility Traffic Light", direction: DOWN }
+- tapOn: "Compatibility Traffic Light"
+- runFlow:
+    when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 24
+- scrollUntilVisible: { element: "Marriage Timeline Matching", direction: DOWN }
+- tapOn: "Marriage Timeline Matching"
+- runFlow:
+    when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 25
+- scrollUntilVisible: { element: "Family Circle", direction: DOWN }
+- tapOn: "Family Circle"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 26
+- scrollUntilVisible: { element: "Trust Passport", direction: DOWN }
+- tapOn: "Trust Passport"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 27
+- scrollUntilVisible: { element: "Safe Communication", direction: DOWN }
+- tapOn: "Safe Communication"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 28
+- scrollUntilVisible: { element: "Nikah Intelligence", direction: DOWN }
+- tapOn: "Nikah Intelligence"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 29
+- scrollUntilVisible: { element: "Conversation Health", direction: DOWN }
+- tapOn: "Conversation Health"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 30
+- scrollUntilVisible: { element: "AI Nikah Mediator", direction: DOWN }
+- tapOn: "AI Nikah Mediator"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 31
+- scrollUntilVisible: { element: "Nikah Success Plan", direction: DOWN }
+- tapOn: "Nikah Success Plan"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 32
+- scrollUntilVisible: { element: "Nikah Success Network", direction: DOWN }
+- tapOn: "Nikah Success Network"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 33
+- scrollUntilVisible: { element: "Future Life Simulation", direction: DOWN }
+- tapOn: "Future Life Simulation"
+- runFlow:
+    when: { visible: "Sign in required|Premium.*|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 34
+- scrollUntilVisible: { element: "Owner Live Analytics", direction: DOWN }
+- tapOn: "Owner Live Analytics"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 35
+- scrollUntilVisible: { element: "Owner Wallet / Payout", direction: DOWN }
+- tapOn: "Owner Wallet / Payout"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 36
+- scrollUntilVisible: { element: "Azure Wallet", direction: DOWN }
+- tapOn: "Azure Wallet"
+- runFlow:
+    when: { visible: "Sign in required|Not now|NOT NOW" }
+    commands: [ { back: {} } ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 37 — destructive action is NEVER confirmed.
+- scrollUntilVisible: { element: "Permanently Delete Account", direction: DOWN }
+- tapOn: "Permanently Delete Account"
+- assertVisible: "Delete Azure account data permanently.*"
+- assertVisible: "CANCEL"
+- tapOn: "CANCEL"
+
+# 38 — sign-out is NEVER confirmed during the master suite.
+- scrollUntilVisible: { element: "Sign out of Azure", direction: DOWN }
+- tapOn: "Sign out of Azure"
+- assertVisible: "Sign out of Azure"
+- assertVisible: "CANCEL"
+- tapOn: "CANCEL"
+
+- assertVisible: "Sign out of Azure"
