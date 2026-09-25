@@ -39,10 +39,41 @@ public class AzureWalletActivity extends Activity {
         root.addView(Premium2030Ui.title(this,"Azure Wallet"));
         root.addView(Premium2030Ui.subtitle(this,"Real Azure wallet balance and transaction history"));
         TextView status=t("Loading real wallet…");status.setTextIsSelectable(true);root.addView(status);
-        loadWallet(status);
-        Button refresh=b("Refresh Wallet");refresh.setOnClickListener(v->loadWallet(status));
-        Button tx=b("View Real Transactions");tx.setOnClickListener(v->loadTransactions(status));
+        recoverAndLoadWallet(status);
+        Button refresh=b("Refresh Wallet");refresh.setOnClickListener(v->recoverAndLoadWallet(status));
+        Button tx=b("View Real Transactions");tx.setOnClickListener(v->recoverAndLoadTransactions(status));
         Button back=b("Back");back.setOnClickListener(v->finish());
+    }
+
+    private void recoverAndLoadWallet(TextView status){
+        status.setText("Checking secure Azure session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->loadWallet(status));}
+            @Override public void err(String message){runOnUiThread(()->showAzureSignIn(status,false));}
+        });
+    }
+
+    private void recoverAndLoadTransactions(TextView status){
+        status.setText("Checking secure Azure session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->loadTransactions(status));}
+            @Override public void err(String message){runOnUiThread(()->showAzureSignIn(status,true));}
+        });
+    }
+
+    private void showAzureSignIn(TextView status,boolean transactions){
+        status.setText("Azure sign in is required to load your real "+(transactions?"transactions.":"wallet."));
+        LanguageManager.dialog(this)
+            .setTitle("Sign in required")
+            .setMessage("Sign in with Azure to continue with your real wallet data.")
+            .setPositiveButton("Sign in",(d,w)->AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->{
+                    if(transactions) loadTransactions(status); else loadWallet(status);
+                });}
+                @Override public void err(String message){runOnUiThread(()->status.setText("Azure sign in was not completed. Please try again."));}
+            }))
+            .setNegativeButton("Not now",null)
+            .show();
     }
 
     private void loadWallet(TextView status){
@@ -65,8 +96,9 @@ public class AzureWalletActivity extends Activity {
                 }catch(Exception e){status.setText("Wallet response could not be displayed.");}
             });}
             public void err(String m){runOnUiThread(()->{
-                if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("401"))){
-                    status.setText("Your Azure session expired. Please sign in again, then tap Refresh Wallet.");
+                if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401"))){
+                    AzureAuthManager.clearCachedToken();
+                    showAzureSignIn(status,false);
                 }else{
                     status.setText("Wallet is temporarily unavailable. Check your connection and tap Refresh Wallet.");
                 }
@@ -104,8 +136,9 @@ public class AzureWalletActivity extends Activity {
                 }catch(Exception e){status.setText("Transactions could not be displayed.");}
             });}
             public void err(String m){runOnUiThread(()->{
-                if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("401"))){
-                    status.setText("Your Azure session expired. Please sign in again, then tap View Real Transactions.");
+                if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401"))){
+                    AzureAuthManager.clearCachedToken();
+                    showAzureSignIn(status,true);
                 }else{
                     status.setText("Transactions are temporarily unavailable. Please try again.");
                 }
