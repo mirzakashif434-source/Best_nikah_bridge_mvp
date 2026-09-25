@@ -17,7 +17,7 @@ import org.json.JSONObject;
 public class CompatibilityTrafficLightActivity extends Activity {
     private LinearLayout root,matchChoices; private TextView result,matchStatus; private String selectedMatchId="";
     private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
-    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"advancedMatching","Plus 40 SAR or VIP 60 SAR",this::render);}
+    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",this::render);}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void base(){
         ScrollView s=new ScrollView(this);s.setFillViewport(true);s.setClipToPadding(false);s.setBackgroundColor(light);
