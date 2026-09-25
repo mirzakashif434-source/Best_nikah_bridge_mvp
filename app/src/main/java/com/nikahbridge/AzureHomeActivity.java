@@ -151,7 +151,7 @@ public class AzureHomeActivity extends Activity {
         privacy.setOnClickListener(v->privacy());
         verification.setOnClickListener(v->verification());
         safety.setOnClickListener(v->safety());
-        ai.setOnClickListener(v->ai());
+        ai.setOnClickListener(v->PremiumFeatureGate.require(this,"aiNikahAssistant","VIP 60 SAR",this::ai));
         profilePhoto.setOnClickListener(v->startActivity(new Intent(this,ProfilePhotoActivity.class)));
         fourPhotos.setOnClickListener(v->startActivity(new Intent(this,RealFourPhotoActivity.class)));
         communityChat.setOnClickListener(v->startActivity(new Intent(this,CommunityChatActivity.class)));
