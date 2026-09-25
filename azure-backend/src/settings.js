@@ -19,6 +19,8 @@ app.http("userSettingGet",{
     try{
       const u=await me(user),key=cleanKey(request.params?.key||context.triggerMetadata?.key);
       if(!key)return {status:400,jsonBody:{ok:false,error:"SETTING_KEY_REQUIRED"}};
+      if(key==="nikah_success_network"){const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};}
+      if(key==="nikah_success_network"){const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};}
       const r=await query("SELECT setting_value,updated_at FROM user_settings WHERE user_id=$1 AND setting_key=$2",[u.id,key]);
       return {status:200,jsonBody:{ok:true,key,value:r.rows[0]?.setting_value||{},updatedAt:r.rows[0]?.updated_at||null}};
     }catch(e){context.error("SETTING_GET_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"SETTING_GET_FAILED"}};}
@@ -48,7 +50,7 @@ app.http("successMentorsList",{
   methods:["GET"],authLevel:"anonymous",route:"success-network/mentors",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      const u=await me(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const u=access.user;
       const r=await query(
         `SELECT us.user_id,p.display_name,us.updated_at
          FROM user_settings us
@@ -68,7 +70,7 @@ app.http("successMentorRequest",{
   methods:["POST"],authLevel:"anonymous",route:"success-network/mentor-requests",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      const u=await me(user),body=await request.json(),mentorId=String(body?.mentorUserId||"").trim();
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const u=access.user,body=await request.json(),mentorId=String(body?.mentorUserId||"").trim();
       if(!mentorId)return {status:400,jsonBody:{ok:false,error:"MENTOR_USER_ID_REQUIRED"}};
       const mentor=await query(
         `SELECT us.user_id FROM user_settings us
