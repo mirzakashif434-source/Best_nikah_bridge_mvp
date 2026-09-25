@@ -63,7 +63,22 @@ public class OwnerLiveAnalyticsActivity extends Activity {
         signIn.setVisibility(android.view.View.GONE);
         wallet.setVisibility(android.view.View.GONE);
         refresh.setOnClickListener(v->load());
-        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        signIn.setOnClickListener(v->{
+            signIn.setEnabled(false);
+            signIn.setText("Opening Owner Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Owner / Admin Azure Account");
+                    loadAuthorized();
+                });}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Owner / Admin Azure Account");
+                    status.setText("Owner Azure sign in was not completed. Please try again.");
+                });}
+            });
+        });
         wallet.setOnClickListener(v->startActivity(new Intent(this,OwnerEarningsActivity.class)));
         back.setOnClickListener(v->finish());
     }
@@ -81,7 +96,22 @@ public class OwnerLiveAnalyticsActivity extends Activity {
     }
 
     private void load(){
-        if(!AzureAuthManager.hasAccount(this)){dynamic.removeAllViews();wallet.setVisibility(android.view.View.GONE);showOwnerSignIn();return;}
+        status.setText("Checking secure owner Azure session…");
+        refresh.setEnabled(false);
+        refresh.setText("Checking Owner Session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->loadAuthorized());}
+            @Override public void err(String message){runOnUiThread(()->{
+                refresh.setEnabled(true);
+                refresh.setText("Refresh Live Dashboard");
+                dynamic.removeAllViews();
+                wallet.setVisibility(android.view.View.GONE);
+                showOwnerSignIn();
+            });}
+        });
+    }
+
+    private void loadAuthorized(){
         status.setText("Loading live Azure analytics…");
         refresh.setEnabled(false);refresh.setText("Loading Live Dashboard…");
         dynamic.removeAllViews();
@@ -100,6 +130,7 @@ public class OwnerLiveAnalyticsActivity extends Activity {
                 if(m!=null&&(m.contains("ADMIN_REQUIRED")||m.contains("403"))){
                     status.setText("This Azure account is signed in, but owner/admin access is not enabled.");
                 }else if(authError(m)){
+                    AzureAuthManager.clearCachedToken();
                     showOwnerSignIn();
                 }else if(m!=null&&m.contains("404")){
                     status.setText("Owner analytics route could not be reached. Tap Refresh Live Dashboard.");
