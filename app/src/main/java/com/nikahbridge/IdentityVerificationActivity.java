@@ -13,7 +13,7 @@ import java.io.InputStream;
 
 public class IdentityVerificationActivity extends Activity{
  LinearLayout root;Spinner type;TextView status,fileLabel,selfieLabel;Uri selected,selfieUri;
- public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);build();load();}
+ public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"paid40Features","40 SAR Plus or higher",()->{build();load();});}
  int dp(int v){return Premium2030Ui.dp(this,v);}
  Button btn(String s,boolean primary){Button b=primary?Premium2030Ui.primary(this,s):Premium2030Ui.secondary(this,s);Premium2030Ui.addButton(root,b);return b;}
  void build(){
