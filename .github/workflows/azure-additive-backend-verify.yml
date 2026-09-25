@@ -671,54 +671,23 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
-            set -eu
-            APK=app/build/outputs/apk/release/app-release.apk
-            test -s "$APK"
-
-            adb_safe() {
-              tries=0
-              while ! adb "$@"; do
-                tries=$((tries + 1))
-                if [ "$tries" -ge 3 ]; then
-                  echo "ADB recovery exhausted for: adb $*"
-                  return 1
-                fi
-                echo "ADB transient failure; restarting adb server (attempt $tries/3)..."
-                adb kill-server >/dev/null 2>&1 || true
-                sleep 2
-                adb start-server >/dev/null
-                sleep 2
-              done
-            }
-
-            adb_safe wait-for-device
-            adb_safe shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
-            adb_safe shell pm clear com.nikahbridge >/dev/null 2>&1 || true
-            adb_safe install -r "$APK"
-            adb_safe logcat -c
-
-            # Verify launcher can start the signed release APK.
-            adb_safe shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
+            test -s "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+            adb wait-for-device
+            adb shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
+            adb shell pm clear com.nikahbridge >/dev/null 2>&1 || true
+            adb install -r "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk" || (adb kill-server >/dev/null 2>&1 || true; sleep 2; adb start-server >/dev/null; adb wait-for-device; adb install -r "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk")
+            adb logcat -c
+            adb shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
             sleep 5
-            adb_safe shell pidof com.nikahbridge >/tmp/bnb-pid.txt || true
+            adb shell pidof com.nikahbridge > /tmp/bnb-pid.txt || true
             test -s /tmp/bnb-pid.txt
-
-            # Stress reachable UI/runtime paths without requiring fake accounts.
-            adb shell monkey -p com.nikahbridge --throttle 120 --ignore-security-exceptions 500 >/tmp/bnb-monkey.txt 2>&1 || true
+            adb shell monkey -p com.nikahbridge --throttle 120 --ignore-security-exceptions 500 > /tmp/bnb-monkey.txt 2>&1 || true
             sleep 3
-            adb_safe logcat -d > /tmp/bnb-logcat.txt
-
-            # Fail on app-process crash, native crash, or ANR evidence.
-            if grep -E 'FATAL EXCEPTION|Fatal signal|ANR in com\.nikahbridge|Process: com\.nikahbridge.*has died' /tmp/bnb-logcat.txt; then
-              echo "RUNTIME APK CRASH/ANR GATE: FAIL"
-              tail -n 250 /tmp/bnb-logcat.txt
-              exit 1
-            fi
-
-            # App must still be launchable after stress.
+            adb logcat -d > /tmp/bnb-logcat.txt
+            if grep -E 'FATAL EXCEPTION|Fatal signal|ANR in com\.nikahbridge|Process: com\.nikahbridge.*has died' /tmp/bnb-logcat.txt; then echo "RUNTIME APK CRASH/ANR GATE: FAIL"; tail -n 250 /tmp/bnb-logcat.txt; exit 1; fi
             adb shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
             sleep 3
-            adb_safe shell pidof com.nikahbridge >/tmp/bnb-pid-after.txt || true
+            adb shell pidof com.nikahbridge > /tmp/bnb-pid-after.txt || true
             test -s /tmp/bnb-pid-after.txt
             echo "RUNTIME APK SMOKE/CRASH GATE: PASS"
 
