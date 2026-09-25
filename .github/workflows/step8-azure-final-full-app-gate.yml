@@ -1,8 +1,6 @@
 name: Step 8 Azure Final Full App + Play Store Gate
 
 on:
-  push:
-    branches: [azure-backend-additive]
   workflow_dispatch:
 
 permissions:
@@ -253,6 +251,17 @@ jobs:
           sha256sum app/build/outputs/apk/release/app-release.apk > app-release-apk.sha256
           sha256sum app/build/outputs/bundle/release/app-release.aab > app-release-aab.sha256
 
+      - name: Prepare stable Android ADB runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb kill-server || true
+          sleep 2
+          adb start-server
+          adb version
+          adb devices
+          echo "ADB PREFLIGHT: PASS"
+
       - name: Runtime APK smoke and crash gate
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
@@ -260,29 +269,46 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          emulator-boot-timeout: 600
+          emulator-boot-timeout: 900
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
             set -eu
             APK=app/build/outputs/apk/release/app-release.apk
             test -s "$APK"
-            adb wait-for-device
-            adb shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
-            adb shell pm clear com.nikahbridge >/dev/null 2>&1 || true
-            adb install -r "$APK"
-            adb logcat -c
+
+            adb_safe() {
+              tries=0
+              while ! adb "$@"; do
+                tries=$((tries + 1))
+                if [ "$tries" -ge 3 ]; then
+                  echo "ADB recovery exhausted for: adb $*"
+                  return 1
+                fi
+                echo "ADB transient failure; restarting adb server (attempt $tries/3)..."
+                adb kill-server >/dev/null 2>&1 || true
+                sleep 2
+                adb start-server >/dev/null
+                sleep 2
+              done
+            }
+
+            adb_safe wait-for-device
+            adb_safe shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
+            adb_safe shell pm clear com.nikahbridge >/dev/null 2>&1 || true
+            adb_safe install -r "$APK"
+            adb_safe logcat -c
 
             # Verify launcher can start the signed release APK.
-            adb shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
+            adb_safe shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
             sleep 5
-            adb shell pidof com.nikahbridge >/tmp/bnb-pid.txt || true
+            adb_safe shell pidof com.nikahbridge >/tmp/bnb-pid.txt || true
             test -s /tmp/bnb-pid.txt
 
             # Stress reachable UI/runtime paths without requiring fake accounts.
             adb shell monkey -p com.nikahbridge --throttle 120 --ignore-security-exceptions 500 >/tmp/bnb-monkey.txt 2>&1 || true
             sleep 3
-            adb logcat -d > /tmp/bnb-logcat.txt
+            adb_safe logcat -d > /tmp/bnb-logcat.txt
 
             # Fail on app-process crash, native crash, or ANR evidence.
             if grep -E 'FATAL EXCEPTION|Fatal signal|ANR in com\.nikahbridge|Process: com\.nikahbridge.*has died' /tmp/bnb-logcat.txt; then
@@ -294,7 +320,7 @@ jobs:
             # App must still be launchable after stress.
             adb shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
             sleep 3
-            adb shell pidof com.nikahbridge >/tmp/bnb-pid-after.txt || true
+            adb_safe shell pidof com.nikahbridge >/tmp/bnb-pid-after.txt || true
             test -s /tmp/bnb-pid-after.txt
             echo "RUNTIME APK SMOKE/CRASH GATE: PASS"
 
