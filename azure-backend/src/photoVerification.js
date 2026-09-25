@@ -20,7 +20,7 @@ async function ensureUser(user){
 }
 function ext(type){return type==="image/png"?"png":type==="image/webp"?"webp":"jpg";}
 async function requireAdmin(user){
-  const me=await ensureUser(user);
+  const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
   const r=await query("SELECT role FROM users WHERE id=$1",[me.id]);
   if(!["admin","moderator"].includes(r.rows[0]?.role)){const e=new Error("ADMIN_REQUIRED");e.statusCode=403;throw e;}
   return me;
@@ -66,7 +66,7 @@ app.http("photoVerificationStart",{
   methods:["POST"],authLevel:"anonymous",route:"photo-verification/start",
   handler:requireAuth(async(req,ctx,user)=>{
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       await requireAdultProfile(me.id);
       await query("UPDATE photo_verification_sets SET status='rejected',updated_at=now() WHERE user_id=$1 AND status='draft'",[me.id]);
       const r=await query("INSERT INTO photo_verification_sets(user_id,status,provider) VALUES($1,'draft','manual-review') RETURNING id,status,created_at",[me.id]);
@@ -79,7 +79,7 @@ app.http("photoVerificationUpload",{
   methods:["POST"],authLevel:"anonymous",route:"photo-verification/{setId}/photos/{slot}",
   handler:requireAuth(async(req,ctx,user)=>{
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       await requireAdultProfile(me.id);
       const setId=text(req.params?.setId||ctx.triggerMetadata?.setId,100);
       const slot=Number(req.params?.slot||ctx.triggerMetadata?.slot);
