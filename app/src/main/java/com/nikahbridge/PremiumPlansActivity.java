@@ -71,7 +71,7 @@ public class PremiumPlansActivity extends Activity {
         root.addView(Premium2030Ui.heroLine(this,"20 • 40 • 60 SAR — Real Google Play Billing"));
         add("Real Google Play purchases only. Premium access is granted only after verified Play purchase confirmation.", 14, false);
         add("The final price and payment screen are supplied by Google Play for your country.", 14, false);
-        add("20 SAR Basic: Who Liked You • unlimited interests • ad-free experience • Family Circle up to 4 members.", 15, true);
+        add("20 SAR Basic: Nikah Journey • Nikah Blueprint • Smart Serious Questions • Why We Matched • Advanced Match Filters • Deal-Breakers • Compatibility Traffic Light • Marriage Timeline Matching • expanded Family Circle • Trust Passport • Nikah Intelligence core • real profile photo upload • Azure Wallet • Who Liked You • unlimited interests • ad-free experience.", 15, true);
         add("40 SAR Plus: everything in Basic + full Why We Matched • advanced deal-breaker compatibility • marriage timeline matching • Family Circle up to 7 members.", 15, true);
         add("60 SAR VIP: everything in Plus + Azure AI Nikah Assistant • Family Circle up to 10 members • priority profile visibility.", 15, true);
         add("Free members keep basic matching, up to 3 interests per day, basic Family Circle for up to 2 family members, safe chat after mutual interest, and essential privacy/safety controls.", 14, false);
