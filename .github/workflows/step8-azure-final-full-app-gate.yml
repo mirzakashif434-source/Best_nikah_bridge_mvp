@@ -251,17 +251,6 @@ jobs:
           sha256sum app/build/outputs/apk/release/app-release.apk > app-release-apk.sha256
           sha256sum app/build/outputs/bundle/release/app-release.aab > app-release-aab.sha256
 
-      - name: Prepare stable Android ADB runtime
-        shell: bash
-        run: |
-          set -euo pipefail
-          adb kill-server || true
-          sleep 2
-          adb start-server
-          adb version
-          adb devices
-          echo "ADB PREFLIGHT: PASS"
-
       - name: Runtime APK smoke and crash gate
         uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         with:
