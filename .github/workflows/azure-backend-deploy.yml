@@ -229,7 +229,7 @@ jobs:
           if [ "$ADMIN_COUNT" -gt 0 ]; then
             echo "OWNER ADMIN BOOTSTRAP: already configured; preserving existing role."
           elif [ "$ACTIVE_COUNT" = "1" ]; then
-            UPDATED="$(psql "$CONN" -Atc "UPDATE users SET role='admin',updated_at=now() WHERE id=(SELECT id FROM users WHERE status='active' ORDER BY created_at ASC LIMIT 1) AND role='user' RETURNING id;" | wc -l | tr -d ' ')"
+            UPDATED="$(psql "$CONN" -Atc "WITH promoted AS (UPDATE users SET role='admin',updated_at=now() WHERE id=(SELECT id FROM users WHERE status='active' ORDER BY created_at ASC LIMIT 1) AND role='user' RETURNING id) SELECT count(*) FROM promoted;")"
             if [ "$UPDATED" != "1" ]; then
               echo "OWNER ADMIN BOOTSTRAP: expected exactly one promoted row, got $UPDATED"
               exit 1
