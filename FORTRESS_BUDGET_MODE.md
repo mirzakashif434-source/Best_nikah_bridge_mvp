@@ -10,7 +10,7 @@ Status: additive production protection layer above the existing Self-Healing + G
 - Maximum on-demand instances: 20 during the low-budget phase.
 - PostgreSQL application pool: 3 connections per Function instance.
 - Application Insights sampling: max 2 telemetry items/second; exceptions preserved.
-- Premium Plus advanced AI: 5 requests/day per user.
+- Azure AI is available only to the 60 SAR VIP plan; Free, 20 SAR Basic, and 40 SAR Plus do not receive Azure AI access.
 - Premium VIP AI: 12 requests/day per user.
 - Nikah Assistant max output: 350 tokens.
 - Advanced AI max output: 500 tokens.
@@ -34,6 +34,7 @@ A release must fail its Fortress Budget contract if:
 - max instance count 20 is removed from the low-budget phase,
 - Always Ready protection is removed,
 - DB pool rises above the locked default without an intentional budget-mode change,
+- VIP-only AI access is loosened to Free/20/40 SAR,
 - AI quotas/output caps are removed,
 - telemetry sampling is loosened unexpectedly,
 - verification-document lifecycle is removed,
