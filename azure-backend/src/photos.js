@@ -4,6 +4,7 @@ const { query } = require("./db");
 const { requireAuth } = require("./auth");
 const { getProfilePhotosContainer } = require("./storage");
 const { analyzeImage, shouldReject } = require("./contentSafety");
+const { entitlementForUser, capabilitiesFor } = require("./premiumAccess");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 const ALLOWED=new Set(["image/jpeg","image/png","image/webp"]);
@@ -33,6 +34,8 @@ app.http("photoUpload",{
     try{
       const me=await ensureUser(user);
       if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      const premium=await entitlementForUser(me.id);
+      if(!capabilitiesFor(premium).paid20Features) return {status:402,jsonBody:{ok:false,error:"PREMIUM_BASIC_REQUIRED",locked:true}};
       const form=await request.formData();
       const file=form.get("photo");
       const visibility=text(form.get("visibility"),20).toLowerCase()||"private";
