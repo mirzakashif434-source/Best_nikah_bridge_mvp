@@ -123,7 +123,7 @@ public class RealFourPhotoActivity extends Activity {
         });
     }
 
-    @Override protected void onCreate(Bundle state){super.onCreate(state);AzureAuthManager.bindActivity(this);build();loadStatus();}
+    @Override protected void onCreate(Bundle state){super.onCreate(state);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"paid40Features","40 SAR Plus or higher",()->{build();loadStatus();});}
     @Override protected void onResume(){super.onResume();if(poseStatus!=null)loadPoseGender();}
 
     private TextView text(String value,int size,boolean bold){
