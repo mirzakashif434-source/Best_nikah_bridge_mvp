@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
+const { accessForAuth } = require("./premiumAccess");
 
 const cleanKey=(v)=>typeof v==="string"?v.trim().toLowerCase().replace(/[^a-z0-9_.-]/g,"").slice(0,80):"";
 
