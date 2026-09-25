@@ -35,8 +35,10 @@ public class CommunityChatActivity extends Activity {
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         AzureAuthManager.bindActivity(this);
-        buildAuthLoading();
-        openChatWithFreshAzureSession();
+        PremiumFeatureGate.require(this,"paid40Features","40 SAR Plus or higher",()->{
+            buildAuthLoading();
+            openChatWithFreshAzureSession();
+        });
     }
     @Override protected void onDestroy(){ azureHandler.removeCallbacksAndMessages(null); super.onDestroy(); }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
@@ -126,7 +128,7 @@ public class CommunityChatActivity extends Activity {
     private void build(){
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(16),dp(18),dp(16),dp(12));root.setBackgroundColor(light);
         TextView title=text("Global Community Chat",27,true);title.setGravity(Gravity.CENTER);root.addView(title,new LinearLayout.LayoutParams(-1,dp(52)));
-        root.addView(text("FREE • All countries • Nikah-focused community\nNo phone numbers, passwords, OTPs, money requests or private contact details.",14,false));
+        root.addView(text("40 SAR Plus • All countries • Nikah-focused community\nNo phone numbers, passwords, OTPs, money requests or private contact details.",14,false));
         scroll=new ScrollView(this);scroll.setFillViewport(true);messages=new LinearLayout(this);messages.setOrientation(LinearLayout.VERTICAL);messages.setPadding(0,dp(8),0,dp(10));scroll.addView(messages);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1f));
         LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);composer=new EditText(this);composer.setHint("Write a respectful Nikah-community message…");composer.setTextSize(15);composer.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_SENTENCES|InputType.TYPE_TEXT_FLAG_MULTI_LINE);composer.setMaxLines(4);composer.setPadding(dp(12),dp(8),dp(12),dp(8));row.addView(composer,new LinearLayout.LayoutParams(0,dp(62),1f));Button send=button("Send",true);row.addView(send,new LinearLayout.LayoutParams(dp(92),dp(58)));root.addView(row);
         Button safety=button("My Chat Safety",false);LinearLayout.LayoutParams slp=new LinearLayout.LayoutParams(-1,dp(52));slp.setMargins(0,dp(6),0,0);root.addView(safety,slp);
