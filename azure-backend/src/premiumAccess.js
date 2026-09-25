@@ -39,6 +39,7 @@ function capabilitiesFor(premium){
   const vip=plan==="premium_vip_60";
   return {
     paid20Features:basic,
+    paid40Features:plus,
     whoLikedYou:basic,
     unlimitedInterests:basic,
     advancedMatching:plus,
