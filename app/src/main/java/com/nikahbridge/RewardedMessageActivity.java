@@ -86,8 +86,19 @@ public class RewardedMessageActivity extends Activity {
         Button signIn = Premium2030Ui.primary(this,"Sign in with Azure");
         Premium2030Ui.addButton(root,signIn);
         signIn.setOnClickListener(v -> {
-            root.removeView(signIn);
-            recoverAzureSessionAndLoad();
+            signIn.setEnabled(false);
+            signIn.setText("Opening Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->{
+                    root.removeView(signIn);
+                    recoverAzureSessionAndLoad();
+                });}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Azure");
+                    status.setText("Azure sign in was not completed. Please try again.");
+                });}
+            });
         });
     }
 
