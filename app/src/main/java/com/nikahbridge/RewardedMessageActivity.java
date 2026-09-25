@@ -117,19 +117,28 @@ public class RewardedMessageActivity extends Activity {
                         requestConsentThenLoad();
                     });
                 } catch (Exception e) {
-                    runOnUiThread(() -> status.setText("Could not load secure Azure rewarded-ad configuration."));
+                    runOnUiThread(() -> {
+                        rewardedAd = null;
+                        watch.setEnabled(true);
+                        watch.setText("Retry Rewarded Ad");
+                        status.setText("Could not load secure Azure rewarded-ad configuration. Tap Retry.");
+                    });
                 }
             }
             @Override public void err(String message) { runOnUiThread(() -> {
                 watch.setEnabled(false);
                 if(message!=null&&message.contains("PREMIUM_AD_FREE")){
                     status.setText("Serious Nikah Plus is ad-free. Rewarded ads are disabled for your paid plan.");
-                }else if(message!=null&&(message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("401"))){
-                    status.setText("Your Azure session needs attention. Tap Back, sign in again, then reopen this screen.");
+                }else if(message!=null&&(message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("AZURE_INTERACTION_REQUIRED")||message.contains("401"))){
+                    AzureAuthManager.clearCachedToken();
+                    showAzureRecovery();
                 }else if(message!=null&&message.contains("412")){
                     status.setText("Your Azure account is not active yet. Complete account setup, then try again.");
                 }else{
-                    status.setText("Rewarded ad service could not be reached. Tap Back and try again after Azure reconnects.");
+                    rewardedAd = null;
+                    watch.setEnabled(true);
+                    watch.setText("Retry Rewarded Ad");
+                    status.setText("Rewarded ad service could not be reached. Tap Retry.");
                 }
             }); }
         });
@@ -141,17 +150,28 @@ public class RewardedMessageActivity extends Activity {
         consentInformation.requestConsentInfoUpdate(this, params,
                 () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(this, formError -> {
                     if (formError != null) {
-                        status.setText("Privacy consent could not be completed. Please try again later.");
+                        rewardedAd = null;
+                        watch.setEnabled(true);
+                        watch.setText("Retry Rewarded Ad");
+                        status.setText("Privacy consent could not be completed. Tap Retry.");
                         return;
                     }
                     initializeAdsIfAllowed();
                 }),
-                error -> status.setText("Privacy consent status could not be loaded. Please try again later."));
+                error -> {
+                    rewardedAd = null;
+                    watch.setEnabled(true);
+                    watch.setText("Retry Rewarded Ad");
+                    status.setText("Privacy consent status could not be loaded. Tap Retry.");
+                });
     }
 
     private void initializeAdsIfAllowed() {
         if (consentInformation == null || !consentInformation.canRequestAds()) {
-            status.setText("Ads cannot be requested until privacy consent is available.");
+            rewardedAd = null;
+            watch.setEnabled(true);
+            watch.setText("Retry Rewarded Ad");
+            status.setText("Ads cannot be requested until privacy consent is available. Tap Retry after consent is available.");
             return;
         }
         MobileAds.initialize(this, s -> loadRewarded());
@@ -162,6 +182,7 @@ public class RewardedMessageActivity extends Activity {
         RewardedAd.load(this, productionUnit, new AdRequest.Builder().build(), new RewardedAdLoadCallback() {
             @Override public void onAdLoaded(RewardedAd ad) {
                 rewardedAd = ad;
+                watch.setText("Watch Rewarded Ad");
                 String uid = azureSubject;
                 rewardedAd.setServerSideVerificationOptions(new ServerSideVerificationOptions.Builder()
                         .setUserId(uid)
@@ -169,12 +190,22 @@ public class RewardedMessageActivity extends Activity {
                         .build());
                 watch.setEnabled(true); status.setText("Ad ready. Watch it fully to earn 1 message credit.");
             }
-            @Override public void onAdFailedToLoad(LoadAdError error) { rewardedAd = null; status.setText("Rewarded ad unavailable right now. Please try again later."); }
+            @Override public void onAdFailedToLoad(LoadAdError error) {
+                rewardedAd = null;
+                watch.setEnabled(true);
+                watch.setText("Retry Rewarded Ad");
+                status.setText("Rewarded ad unavailable right now. Tap Retry.");
+            }
         });
     }
 
     private void showRewarded() {
-        if (rewardedAd == null) { loadRewarded(); return; }
+        if (rewardedAd == null) {
+            watch.setEnabled(false);
+            watch.setText("Preparing Rewarded Ad…");
+            recoverAzureSessionAndLoad();
+            return;
+        }
         watch.setEnabled(false); status.setText("Reward in progress…");
         rewardedAd.show(this, reward -> { RewardItem ignored = reward; status.setText("Reward received. Waiting for secure server verification…"); });
         rewardedAd = null;
