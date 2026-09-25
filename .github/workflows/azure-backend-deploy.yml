@@ -47,13 +47,14 @@ jobs:
           grep -Fq -- '--instance-memory 512 --maximum-instance-count 20' "$WF"
           grep -Fq 'always-ready delete' "$WF"
           grep -Fq 'AZURE_DB_POOL_MAX=3' "$WF"
-          grep -Fq 'AI_DAILY_LIMIT_PLUS=5' "$WF"
           grep -Fq 'AI_DAILY_LIMIT_VIP=12' "$WF"
+          ! grep -Fq 'AI_DAILY_LIMIT_PLUS=' "$WF"
+          grep -Fq 'aiAdvanced:vip' azure-backend/src/premiumAccess.js
+          ! grep -Fq 'premium_plus_40' azure-backend/src/costGuard.js
           grep -Fq 'AI_NIKAH_MAX_TOKENS=350' "$WF"
           grep -Fq 'AI_ADVANCED_MAX_TOKENS=500' "$WF"
           grep -Fq 'bnb-verification-documents-cool' "$WF"
           grep -Fq 'max: Number(process.env.AZURE_DB_POOL_MAX || 3)' azure-backend/src/db.js
-          grep -Fq 'positiveInt("AI_DAILY_LIMIT_PLUS", 5)' azure-backend/src/costGuard.js
           grep -Fq 'positiveInt("AI_DAILY_LIMIT_VIP", 12)' azure-backend/src/costGuard.js
           python3 - <<'PY'
           import json
@@ -135,7 +136,6 @@ jobs:
               ADMOB_REWARDED_AD_UNIT_ID="${{ secrets.ADMOB_REWARDED_AD_UNIT_ID }}" \
               AZURE_AUTH_ONLY="true" \
               AZURE_DB_POOL_MAX=3 \
-              AI_DAILY_LIMIT_PLUS=5 \
               AI_DAILY_LIMIT_VIP=12 \
               AI_MAX_INPUT_CHARS=2500 \
               AI_MAX_MESSAGES=12 \
