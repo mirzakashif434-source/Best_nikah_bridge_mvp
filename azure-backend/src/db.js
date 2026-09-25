@@ -20,7 +20,7 @@ function getPool() {
       user: getRequiredEnv("AZURE_DB_USER"),
       password: getRequiredEnv("AZURE_DB_ADMIN_PASSWORD"),
       ssl: sslMode === "disable" ? false : { rejectUnauthorized: true },
-      max: Number(process.env.AZURE_DB_POOL_MAX || 10),
+      max: Number(process.env.AZURE_DB_POOL_MAX || 4),
       idleTimeoutMillis: Number(process.env.AZURE_DB_IDLE_TIMEOUT_MS || 30000),
       connectionTimeoutMillis: Number(process.env.AZURE_DB_CONNECTION_TIMEOUT_MS || 10000)
     });

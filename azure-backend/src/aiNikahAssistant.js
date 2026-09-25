@@ -2,10 +2,11 @@ const { app } = require("@azure/functions");
 const { DefaultAzureCredential } = require("@azure/identity");
 const { requireAuth } = require("./auth");
 const { accessForAuth } = require("./premiumAccess");
+const { consumeAiQuota, quotaResponse } = require("./costGuard");
 
 const credential = new DefaultAzureCredential();
-const MAX_MESSAGE = 4000;
-const MAX_MESSAGES = 20;
+const MAX_MESSAGE = Number(process.env.AI_MAX_INPUT_CHARS || 2500);
+const MAX_MESSAGES = Number(process.env.AI_MAX_MESSAGES || 12);
 const LANGUAGE_NAMES={en:"English",ur:"Urdu",ar:"Arabic",bn:"Bengali",hi:"Hindi",tr:"Turkish",id:"Indonesian",ms:"Malay",pa:"Punjabi",fa:"Persian (Farsi)",fr:"French",de:"German",es:"Spanish",it:"Italian"};
 function responseLanguage(request){const code=(request.headers.get("x-app-language")||"en").trim().toLowerCase();return LANGUAGE_NAMES[code]||"English";}
 
@@ -21,6 +22,8 @@ app.http("aiNikahAssistant", {
     try {
       const access=await accessForAuth(user);
       if(!access.capabilities.aiNikahAssistant) return {status:402,jsonBody:{ok:false,error:"PREMIUM_VIP_REQUIRED",locked:true}};
+      const quota=await consumeAiQuota(access.user.id,access.premium.planKey,"nikah_assistant");
+      if(!quota.allowed) return quotaResponse(quota);
       const endpoint = (process.env.AZURE_AI_ENDPOINT || "").trim().replace(/\/$/, "");
       const model = (process.env.AZURE_AI_MODEL || "").trim();
       if (!endpoint || !model) {
@@ -70,7 +73,7 @@ app.http("aiNikahAssistant", {
             ...messages
           ],
           temperature: 0.2,
-          max_tokens: 700
+          max_tokens: Number(process.env.AI_NIKAH_MAX_TOKENS || 450)
         })
       });
 
@@ -89,7 +92,8 @@ app.http("aiNikahAssistant", {
         status: 200,
         jsonBody: {
           ok: true,
-          assistant: { role: "assistant", content: answer.trim() }
+          assistant: { role: "assistant", content: answer.trim() },
+          aiQuota: { dailyLimit: quota.limit, remaining: quota.remaining }
         }
       };
     } catch (error) {
