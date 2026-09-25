@@ -19,7 +19,7 @@ public class MarriageTimelineMatchingActivity extends Activity {
     private LinearLayout results;
     private Button findButton;
     private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
-    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"marriageTimeline","Plus 40 SAR or VIP 60 SAR",this::render);}
+    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",this::render);}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void render(){
         ScrollView s=new ScrollView(this);s.setFillViewport(true);s.setClipToPadding(false);s.setBackgroundColor(light);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(20),dp(22),dp(20),dp(30));root.setBackgroundColor(light);s.addView(root);setContentView(s);
