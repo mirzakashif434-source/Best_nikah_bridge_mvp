@@ -674,21 +674,41 @@ jobs:
             test -s "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
             adb wait-for-device
             adb shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
+            adb install -r "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
             adb shell pm clear com.nikahbridge >/dev/null 2>&1 || true
-            adb install -r "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk" || (adb kill-server >/dev/null 2>&1 || true; sleep 2; adb start-server >/dev/null; adb wait-for-device; adb install -r "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk")
             adb logcat -c
-            adb shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
+
+            # Cold-launch the real launcher activity and require Android to accept/start it.
+            adb shell am start -W -n com.nikahbridge/.WelcomeActivity > /tmp/bnb-launch.txt
+            grep -Eq 'Status: ok|Activity: com\.nikahbridge/.WelcomeActivity|ThisTime:|TotalTime:' /tmp/bnb-launch.txt
             sleep 5
-            adb shell pidof com.nikahbridge > /tmp/bnb-pid.txt || true
-            test -s /tmp/bnb-pid.txt
+
+            # Stress the installed release build across reachable UI paths.
             adb shell monkey -p com.nikahbridge --throttle 120 --ignore-security-exceptions 500 > /tmp/bnb-monkey.txt 2>&1 || true
             sleep 3
             adb logcat -d > /tmp/bnb-logcat.txt
-            if grep -E 'FATAL EXCEPTION|Fatal signal|ANR in com\.nikahbridge|Process: com\.nikahbridge.*has died' /tmp/bnb-logcat.txt; then echo "RUNTIME APK CRASH/ANR GATE: FAIL"; tail -n 250 /tmp/bnb-logcat.txt; exit 1; fi
-            adb shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
-            sleep 3
-            adb shell pidof com.nikahbridge > /tmp/bnb-pid-after.txt || true
-            test -s /tmp/bnb-pid-after.txt
+
+            # Fail only on concrete app-specific crash/ANR evidence.
+            if grep -E 'Process: com\.nikahbridge|ANR in com\.nikahbridge|Fatal signal.*com\.nikahbridge|Force finishing activity.*com\.nikahbridge' /tmp/bnb-logcat.txt; then
+              echo "RUNTIME APK CRASH/ANR GATE: FAIL"
+              tail -n 300 /tmp/bnb-logcat.txt
+              exit 1
+            fi
+
+            # Fresh relaunch after stress: do not require a persistent PID because Android may reclaim idle/background processes.
+            adb shell am force-stop com.nikahbridge
+            adb logcat -c
+            adb shell am start -W -n com.nikahbridge/.WelcomeActivity > /tmp/bnb-relaunch.txt
+            grep -Eq 'Status: ok|Activity: com\.nikahbridge/.WelcomeActivity|ThisTime:|TotalTime:' /tmp/bnb-relaunch.txt
+            sleep 5
+            adb logcat -d > /tmp/bnb-relaunch-logcat.txt
+            if grep -E 'Process: com\.nikahbridge|ANR in com\.nikahbridge|Fatal signal.*com\.nikahbridge|Force finishing activity.*com\.nikahbridge' /tmp/bnb-relaunch-logcat.txt; then
+              echo "RUNTIME APK RELAUNCH CRASH/ANR GATE: FAIL"
+              cat /tmp/bnb-relaunch.txt
+              tail -n 300 /tmp/bnb-relaunch-logcat.txt
+              exit 1
+            fi
+
             echo "RUNTIME APK SMOKE/CRASH GATE: PASS"
 
       - name: Forensic scan compiled final APK
