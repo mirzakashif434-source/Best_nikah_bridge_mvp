@@ -203,7 +203,54 @@ manifest=contains(ROOT/"app/src/main/AndroidManifest.xml",
     'android:usesCleartextTraffic="false"',
     'android:allowBackup="false"')
 
-# CONTRACT 15 — Fortress Budget Mode: additive cost guards must stay intact.
+# CONTRACT 15 — Step 1 20 SAR paid feature lock.
+premium_access=read(AZ/"premiumAccess.js")
+need("20 SAR capability missing", "paid20Features:basic" in premium_access)
+need("20 SAR Basic must keep Family Circle expansion to 4", "familyCircleLimit:vip?10:plus?7:basic?4:2" in premium_access)
+
+paid20_client_files=[
+    "NikahJourneyActivity.java",
+    "NikahBlueprintActivity.java",
+    "SmartSeriousQuestionsActivity.java",
+    "WhyWeMatchedActivity.java",
+    "AdvancedMatchFiltersActivity.java",
+    "CompatibilityDealBreakerActivity.java",
+    "CompatibilityTrafficLightActivity.java",
+    "MarriageTimelineMatchingActivity.java",
+    "TrustPassportActivity.java",
+    "NikahIntelligenceActivity.java",
+    "AzureWalletActivity.java",
+]
+for name in paid20_client_files:
+    t=read(APP/name)
+    need(f"{name}: 20 SAR client entitlement gate missing",
+         'PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher"' in t)
+
+profile_photo=read(APP/"ProfilePhotoActivity.java")
+need("Profile Photo upload 20 SAR gate missing",
+     'PremiumFeatureGate.require(this,"paid20Features","20 SAR Basic or higher",this::uploadImageAzure)' in profile_photo)
+
+journey_paid=read(AZ/"journeySummary.js")
+need("Nikah Journey Azure route must enforce 20 SAR",
+     "capabilities.paid20Features" in journey_paid and "PREMIUM_BASIC_REQUIRED" in journey_paid)
+
+filters_paid=read(AZ/"seriousNikahPlus.js")
+need("Advanced Filters Azure routes must enforce 20 SAR",
+     filters_paid.count("capabilities.paid20Features") >= 2 and filters_paid.count("PREMIUM_BASIC_REQUIRED") >= 3)
+
+photos_paid=read(AZ/"photos.js")
+need("Profile Photo upload Azure route must enforce 20 SAR",
+     "capabilitiesFor(premium).paid20Features" in photos_paid and "PREMIUM_BASIC_REQUIRED" in photos_paid)
+
+wallet_paid=read(AZ/"wallet.js")
+need("Azure Wallet routes must enforce 20 SAR",
+     wallet_paid.count("capabilitiesFor(premium).paid20Features") >= 3 and wallet_paid.count("PREMIUM_BASIC_REQUIRED") >= 3)
+
+paid20_doc=read(ROOT/"PAID_20_FEATURES_LOCK.md")
+for required in ("premium_basic_20","Nikah Journey","Real Profile Photo upload","Azure Wallet","Azure AI remains a separate 60 SAR VIP-only entitlement"):
+    need(f"20 SAR documentation contract missing: {required}", required in paid20_doc)
+
+# CONTRACT 16 — Fortress Budget Mode: additive cost guards must stay intact.
 deploy=read(ROOT/".github/workflows/azure-backend-deploy.yml")
 host=read(ROOT/"azure-backend/host.json")
 db=read(ROOT/"azure-backend/src/db.js")
