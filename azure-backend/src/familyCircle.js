@@ -94,8 +94,32 @@ app.http("familyCircleInviteCreate",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await ensureUser(user);
-      const circle=await circleForUser(me.id);
-      if(!circle) return {status:409,jsonBody:{ok:false,error:"CIRCLE_NOT_READY"}};
+      let circle=await circleForUser(me.id);
+      if(!circle){
+        const client=await getPool().connect();
+        try{
+          await client.query("BEGIN");
+          const existing=await client.query(
+            "SELECT id,owner_user_id,name,status,created_at FROM family_circles WHERE owner_user_id=$1 AND status='active' ORDER BY created_at DESC LIMIT 1 FOR UPDATE",
+            [me.id]
+          );
+          if(existing.rows[0]){
+            circle=existing.rows[0];
+          }else{
+            const created=await client.query(
+              "INSERT INTO family_circles(owner_user_id,name) VALUES($1,'My Nikah Circle') RETURNING id,owner_user_id,name,status,created_at",
+              [me.id]
+            );
+            circle=created.rows[0];
+          }
+          await client.query(
+            "INSERT INTO family_circle_members(circle_id,user_id,role,can_suggest_matches,can_view_progress) VALUES($1,$2,'owner',true,true) ON CONFLICT(circle_id,user_id) DO UPDATE SET removed_at=NULL,role='owner',can_suggest_matches=true,can_view_progress=true",
+            [circle.id,me.id]
+          );
+          await client.query("COMMIT");
+          circle={...circle,role:"owner",can_suggest_matches:true,can_view_progress:true};
+        }catch(e){await client.query("ROLLBACK").catch(()=>{});throw e;}finally{client.release();}
+      }
       const membership=await requireCircleMember(circle.id,me.id);
       if(!["owner","wali","parent","sibling","family","trusted"].includes(membership.role))
         return {status:403,jsonBody:{ok:false,error:"CIRCLE_INVITE_NOT_ALLOWED"}};
