@@ -20,7 +20,7 @@ async function ensureUser(user){
 }
 function ext(type){return type==="image/png"?"png":type==="image/webp"?"webp":"jpg";}
 async function requireAdmin(user){
-  const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
+  const me=await ensureUser(user);
   const r=await query("SELECT role FROM users WHERE id=$1",[me.id]);
   if(!["admin","moderator"].includes(r.rows[0]?.role)){const e=new Error("ADMIN_REQUIRED");e.statusCode=403;throw e;}
   return me;
@@ -119,7 +119,7 @@ app.http("photoVerificationSubmit",{
   handler:requireAuth(async(req,ctx,user)=>{
     const client=await getPool().connect();
     try{
-      const me=await ensureUser(user);
+      const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       await requireAdultProfile(me.id);
       const setId=text(req.params?.setId||ctx.triggerMetadata?.setId,100);
       await client.query("BEGIN");
