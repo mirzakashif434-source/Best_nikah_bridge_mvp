@@ -54,7 +54,22 @@ public class FamilyCircleActivity extends Activity {
         root.addView(Premium2030Ui.subtitle(this,"Sign in with Azure to manage your real private Family Circle, invites, members and suggestions."));
         Button signIn=btn("Sign in with Azure",true);
         Button back=btn("Back",false);
-        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        signIn.setOnClickListener(v->{
+            signIn.setEnabled(false);
+            signIn.setText("Opening Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->{
+                    build();
+                    tryJoinPending();
+                    load();
+                });}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Azure");
+                    LanguageManager.toast(FamilyCircleActivity.this,"Azure sign in was not completed. Please try again.",Toast.LENGTH_LONG).show();
+                });}
+            });
+        });
         back.setOnClickListener(v->finish());
 
         ViewCompat.setOnApplyWindowInsetsListener(sc,(v,insets)->{
@@ -176,7 +191,10 @@ public class FamilyCircleActivity extends Activity {
             LanguageManager.dialog(this)
                 .setTitle("Sign in required")
                 .setMessage("Sign in with Azure to create a real Family Circle invite.")
-                .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+                .setPositiveButton("Sign in",(d,w)->AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                    @Override public void ok(String accessToken){runOnUiThread(()->{load();createInvite();});}
+                    @Override public void err(String message){runOnUiThread(()->status.setText("Status: Azure sign in was not completed"));}
+                }))
                 .setNegativeButton("Not now",null)
                 .show();
             return;
@@ -186,7 +204,17 @@ public class FamilyCircleActivity extends Activity {
             status.setText("Status: creating secure invite…");
             AzureApiClient.post("/family-circle/invites",b.toString(),new AzureApiClient.Callback(){
                 public void ok(int c,String s){runOnUiThread(()->{try{JSONObject j=new JSONObject(s);lastInviteLink=j.optString("deepLink","");lastInviteShareUrl=j.optString("shareUrl",lastInviteLink);status.setText(lastInviteShareUrl.isEmpty()?"Status: invite created":"Status: invite ready to share");}catch(Exception e){status.setText("Status: invite created");}});}
-                public void err(String e){runOnUiThread(()->status.setText("Status: invite creation failed")); }
+                public void err(String e){runOnUiThread(()->{
+                    if(e!=null&&(e.contains("AZURE_SIGN_IN_REQUIRED")||e.contains("AZURE_INTERACTION_REQUIRED")||e.contains("401"))){
+                        status.setText("Status: Azure sign in required");
+                        AzureAuthManager.acquireTokenInteractive(FamilyCircleActivity.this,new AzureAuthManager.Callback(){
+                            @Override public void ok(String accessToken){runOnUiThread(()->createInvite());}
+                            @Override public void err(String message){runOnUiThread(()->status.setText("Status: Azure sign in was not completed"));}
+                        });
+                    }else{
+                        status.setText("Status: invite creation failed. Please try again.");
+                    }
+                }); }
             });
         }catch(Exception e){status.setText("Status: invite request error");}
     }
