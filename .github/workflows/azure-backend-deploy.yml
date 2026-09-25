@@ -119,7 +119,7 @@ jobs:
               }
             ]
           }
-JSON
+          JSON
           az storage account management-policy create --account-name "$ACCOUNT_NAME" --resource-group "$RESOURCE_GROUP" --policy @/tmp/bnb-storage-policy.json --only-show-errors >/dev/null
           echo "VERIFICATION DOCUMENT COOL-TIER LIFECYCLE: PASS"
 
