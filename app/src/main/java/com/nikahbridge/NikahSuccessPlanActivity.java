@@ -19,7 +19,7 @@ public class NikahSuccessPlanActivity extends Activity {
     private final int green=Premium2030Ui.GREEN,dark=Premium2030Ui.TEXT,gray=Premium2030Ui.MUTED,light=Premium2030Ui.CREAM;
     private boolean profile,blueprint,trust,discoverable,connection,activity;private int interestCount,conversationCount;
 
-    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();load();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);AzureAuthManager.bindActivity(this);render();recoverAzureSessionAndLoad();}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private TextView txt(String s,int z,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(z);t.setTextColor(bold?dark:gray);t.setPadding(dp(6),dp(8),dp(6),dp(10));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
     private Button btn(String s,boolean fill){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(16);b.setTextColor(fill?Color.WHITE:green);GradientDrawable g=new GradientDrawable();g.setColor(fill?green:Color.WHITE);g.setCornerRadius(dp(18));if(!fill)g.setStroke(dp(2),green);b.setBackground(g);return b;}
@@ -35,7 +35,7 @@ public class NikahSuccessPlanActivity extends Activity {
         ViewCompat.requestApplyInsets(sc);
         root.addView(txt("Nikah Success Plan",27,true));root.addView(txt("Focus on meaningful real Azure progress instead of endless swiping. No success percentage or marriage prediction is fabricated.",15,false));
         summary=txt("Checking real Azure progress…",18,true);root.addView(summary);stages=new LinearLayout(this);stages.setOrientation(LinearLayout.VERTICAL);root.addView(stages);
-        refresh=btn("Refresh Real Progress",true);root.addView(refresh,new LinearLayout.LayoutParams(-1,dp(62)));refresh.setOnClickListener(v->load());
+        refresh=btn("Refresh Real Progress",true);root.addView(refresh,new LinearLayout.LayoutParams(-1,dp(62)));refresh.setOnClickListener(v->recoverAzureSessionAndLoad());
         Button journey=btn("Open My Nikah Journey",false);root.addView(journey,new LinearLayout.LayoutParams(-1,dp(62)));journey.setOnClickListener(v->startActivity(new Intent(this,NikahJourneyActivity.class)));
         Button matches=btn("Open Real Compatibility Matches",false);root.addView(matches,new LinearLayout.LayoutParams(-1,dp(62)));matches.setOnClickListener(v->startActivity(new Intent(this,AzureHomeActivity.class)));
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
@@ -43,7 +43,7 @@ public class NikahSuccessPlanActivity extends Activity {
 
     private boolean authError(String message){
         if(message==null) return false;
-        return message.contains("AZURE_SIGN_IN_REQUIRED") || message.contains("AZURE_INTERACTION_REQUIRED") || message.contains("AZURE_AUTH");
+        return message.contains("AZURE_SIGN_IN_REQUIRED") || message.contains("AZURE_INTERACTION_REQUIRED") || message.contains("AZURE_AUTH") || message.contains("401");
     }
 
     private void requireSignIn(){
@@ -57,14 +57,33 @@ public class NikahSuccessPlanActivity extends Activity {
             LanguageManager.dialog(this)
                 .setTitle("Sign in required")
                 .setMessage("Your Azure session expired. Sign in again to load your real Nikah Success Plan.")
-                .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+                .setPositiveButton("Sign in",(d,w)->AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                    @Override public void ok(String accessToken){runOnUiThread(()->{
+                        authFailed=false;
+                        load();
+                    });}
+                    @Override public void err(String message){runOnUiThread(()->{
+                        refresh.setEnabled(true);
+                        refresh.setText("Refresh Real Progress");
+                        summary.setText("Azure sign in was not completed. Please try again.");
+                    });}
+                }))
                 .setNegativeButton("Not now",null)
                 .show();
         });
     }
 
+    private void recoverAzureSessionAndLoad(){
+        refresh.setEnabled(false);
+        refresh.setText("Checking Azure session…");
+        summary.setText("Checking secure Azure session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->load());}
+            @Override public void err(String message){runOnUiThread(()->requireSignIn());}
+        });
+    }
+
     private void load(){
-        if(!AzureAuthManager.hasAccount(this)){requireSignIn();return;}
         authFailed=false;
         profile=blueprint=trust=discoverable=connection=activity=false;interestCount=conversationCount=0;stages.removeAllViews();
         refresh.setEnabled(false);refresh.setText("Loading real progress…");summary.setText("Checking real Azure progress…");
