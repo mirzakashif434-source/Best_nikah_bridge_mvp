@@ -250,7 +250,68 @@ paid20_doc=read(ROOT/"PAID_20_FEATURES_LOCK.md")
 for required in ("premium_basic_20","Nikah Journey","Real Profile Photo upload","Azure Wallet","Azure AI remains a separate 60 SAR VIP-only entitlement"):
     need(f"20 SAR documentation contract missing: {required}", required in paid20_doc)
 
-# CONTRACT 16 — Fortress Budget Mode: additive cost guards must stay intact.
+# CONTRACT 16 — Step 2 40 SAR paid feature lock.
+premium_access_40=read(AZ/"premiumAccess.js")
+need("40 SAR capability missing", "paid40Features:plus" in premium_access_40)
+
+paid40_client_files=[
+    "CommunityChatActivity.java",
+    "SafeCommunicationActivity.java",
+    "ConversationHealthActivity.java",
+    "IdentityVerificationActivity.java",
+    "RealFourPhotoActivity.java",
+    "NikahSuccessPlanActivity.java",
+    "NikahSuccessNetworkActivity.java",
+]
+for name in paid40_client_files:
+    t=read(APP/name)
+    need(f"{name}: 40 SAR client entitlement gate missing",
+         'PremiumFeatureGate.require(this,"paid40Features","40 SAR Plus or higher"' in t)
+
+community_paid=read(AZ/"community.js")
+need("Community APIs must enforce 40 SAR",
+     community_paid.count("capabilities.paid40Features") >= 6 and "PREMIUM_PLUS_REQUIRED" in community_paid)
+
+chat_paid=read(AZ/"chat.js")
+need("Safe Communication APIs must enforce 40 SAR",
+     chat_paid.count("capabilities.paid40Features") >= 5 and "PREMIUM_PLUS_REQUIRED" in chat_paid)
+
+verification_paid=read(AZ/"verification.js")
+need("ID/selfie submissions must enforce 40 SAR",
+     verification_paid.count("capabilities.paid40Features") >= 2)
+verification_status_start=verification_paid.find('app.http("verificationStatus"')
+verification_admin_start=verification_paid.find('async function requireVerificationAdmin')
+if verification_status_start>=0 and verification_admin_start>verification_status_start:
+    status_block=verification_paid[verification_status_start:verification_admin_start]
+    need("General verification status must remain outside 40 SAR gate",
+         "paid40Features" not in status_block)
+
+photo_verify_paid=read(AZ/"photoVerification.js")
+need("Four-photo paid operations must enforce 40 SAR",
+     photo_verify_paid.count("capabilities.paid40Features") >= 3)
+photo_status_start=photo_verify_paid.find('app.http("photoVerificationStatus"')
+photo_admin_start=photo_verify_paid.find('app.http("photoVerificationAdminList"')
+if photo_status_start>=0 and photo_admin_start>photo_status_start:
+    status_block=photo_verify_paid[photo_status_start:photo_admin_start]
+    need("Four-photo status must remain outside 40 SAR gate",
+         "paid40Features" not in status_block)
+admin_helper_start=photo_verify_paid.find("async function requireAdmin")
+admin_helper_end=photo_verify_paid.find("async function readPhotoBytes",admin_helper_start)
+if admin_helper_start>=0 and admin_helper_end>admin_helper_start:
+    need("Admin photo review must not require paid40 entitlement",
+         "paid40Features" not in photo_verify_paid[admin_helper_start:admin_helper_end])
+
+settings_paid=read(AZ/"settings.js")
+need("Success Network settings must enforce 40 SAR",
+     settings_paid.count('key==="nikah_success_network"') >= 2)
+need("Success Network mentor routes must enforce 40 SAR",
+     settings_paid.count("capabilities.paid40Features") >= 4)
+
+paid40_doc=read(ROOT/"PAID_40_FEATURES_LOCK.md")
+for required in ("premium_plus_40","Global Community Chat","Four-Photo Verification","Nikah Success Network","60 SAR Azure AI remains a separate VIP-only entitlement"):
+    need(f"40 SAR documentation contract missing: {required}", required in paid40_doc)
+
+# CONTRACT 17 — Fortress Budget Mode: additive cost guards must stay intact.
 deploy=read(ROOT/".github/workflows/azure-backend-deploy.yml")
 host=read(ROOT/"azure-backend/host.json")
 db=read(ROOT/"azure-backend/src/db.js")
