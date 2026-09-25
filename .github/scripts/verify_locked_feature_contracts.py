@@ -214,7 +214,6 @@ for required in (
     '--maximum-instance-count 20',
     'always-ready delete',
     'AZURE_DB_POOL_MAX=3',
-    'AI_DAILY_LIMIT_PLUS=5',
     'AI_DAILY_LIMIT_VIP=12',
     'AI_NIKAH_MAX_TOKENS=350',
     'AI_ADVANCED_MAX_TOKENS=500',
@@ -225,8 +224,13 @@ for required in (
     need(f"Fortress Budget deploy contract missing: {required}", required in deploy)
 need("Fortress Budget telemetry cap must remain 2/sec", '"maxTelemetryItemsPerSecond": 2' in host)
 need("Fortress Budget DB pool default must remain 3", 'AZURE_DB_POOL_MAX || 3' in db)
-need("Fortress Budget Plus AI quota default must remain 5", 'AI_DAILY_LIMIT_PLUS", 5' in cost_guard)
 need("Fortress Budget VIP AI quota default must remain 12", 'AI_DAILY_LIMIT_VIP", 12' in cost_guard)
+need("AI quota must not be available to Premium Plus 40", 'premium_plus_40' not in cost_guard)
+premium_access=read(ROOT/"azure-backend/src/premiumAccess.js")
+need("Advanced Azure AI must be VIP-only", 'aiAdvanced:vip' in premium_access)
+need("Nikah Assistant must be VIP-only", 'aiNikahAssistant:vip' in premium_access)
+ai_compat=read(ROOT/"azure-backend/src/aiCompatibility.js")
+need("AI Mediator/Future Life backend must enforce VIP", 'capabilities.aiAdvanced' in ai_compat and 'PREMIUM_VIP_REQUIRED' in ai_compat)
 for required in ("512 MB","20","150-200 SAR","Self-Healing","Auto-Rollback"):
     need(f"Fortress Budget documentation contract missing: {required}", required in fortress)
 
