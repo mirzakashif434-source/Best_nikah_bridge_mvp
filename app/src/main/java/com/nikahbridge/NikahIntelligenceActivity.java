@@ -24,7 +24,7 @@ public class NikahIntelligenceActivity extends Activity {
         super.onCreate(b);
         AzureAuthManager.bindActivity(this);
         render();
-        if(!AzureAuthManager.hasAccount(this)) showAuthRecovery(); else load();
+        recoverAzureSessionAndLoad();
     }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private void base(){
@@ -61,12 +61,23 @@ public class NikahIntelligenceActivity extends Activity {
         Button back=btn("Back",false);back.setOnClickListener(v->finish());
     }
 
+    private void recoverAzureSessionAndLoad(){
+        status.setText("Checking your secure Azure session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->load());}
+            @Override public void err(String message){runOnUiThread(()->showAuthRecovery());}
+        });
+    }
+
     private void showAuthRecovery(){
         status.setText("Azure sign in is required to load and save your real Nikah Intelligence preferences.");
         LanguageManager.dialog(this)
             .setTitle("Sign in required")
             .setMessage("Sign in with Azure to continue with your real Nikah Intelligence Center.")
-            .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
+            .setPositiveButton("Sign in",(d,w)->AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->load());}
+                @Override public void err(String message){runOnUiThread(()->status.setText("Azure sign in was not completed. Please try again."));}
+            }))
             .setNegativeButton("Not now",null)
             .show();
     }
@@ -75,22 +86,39 @@ public class NikahIntelligenceActivity extends Activity {
         status.setText("Loading your real Azure preferences…");
         AzureApiClient.get("/compatibility/living",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{try{JSONObject v=new JSONObject(body).optJSONObject("living");if(v!=null){country.setText(v.optString("country",""));city.setText(v.optString("city",""));timeline.setText(v.optString("marriage_timeline",""));family.setText(v.optString("family_involvement",""));children.setText(v.optString("children_expectation",""));career.setText(v.optString("career_plan",""));living.setText(v.optString("living_plan",""));}calculate();status.setText("Real Azure preferences loaded.");}catch(Exception ignored){status.setText("Some Azure preferences could not be read.");}});}
-            public void err(String m){runOnUiThread(()->{if(m!=null&&m.contains("AZURE_SIGN_IN_REQUIRED"))showAuthRecovery();else status.setText("Could not load some Azure preferences. Please refresh your sign-in/network and try again.");});}
+            public void err(String m){runOnUiThread(()->{if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401")))showAuthRecovery();else status.setText("Could not load some Azure preferences. Please refresh your sign-in/network and try again.");});}
         });
         AzureApiClient.get("/settings/nikah_intelligence",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{try{JSONObject v=new JSONObject(body).optJSONObject("value");if(v!=null){deen.setText(v.optString("deenPriorities",""));dealbreakers.setText(v.optString("dealbreakers",""));}calculate();}catch(Exception ignored){status.setText("Some private preferences could not be read.");}});}
-            public void err(String m){runOnUiThread(()->{if(m!=null&&m.contains("AZURE_SIGN_IN_REQUIRED"))showAuthRecovery();else status.setText("Private preferences are temporarily unavailable.");});}
+            public void err(String m){runOnUiThread(()->{if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401")))showAuthRecovery();else status.setText("Private preferences are temporarily unavailable.");});}
         });
     }
 
     private void save(){
-        if(!AzureAuthManager.hasAccount(this)){showAuthRecovery();return;}
+        status.setText("Checking your secure Azure session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->saveAuthorized());}
+            @Override public void err(String message){runOnUiThread(()->{
+                LanguageManager.dialog(NikahIntelligenceActivity.this)
+                    .setTitle("Sign in required")
+                    .setMessage("Sign in with Azure to save your real Marriage Blueprint.")
+                    .setPositiveButton("Sign in",(d,w)->AzureAuthManager.acquireTokenInteractive(NikahIntelligenceActivity.this,new AzureAuthManager.Callback(){
+                        @Override public void ok(String accessToken){runOnUiThread(()->saveAuthorized());}
+                        @Override public void err(String error){runOnUiThread(()->status.setText("Azure sign in was not completed. Your Blueprint was not changed."));}
+                    }))
+                    .setNegativeButton("Not now",null)
+                    .show();
+            });}
+        });
+    }
+
+    private void saveAuthorized(){
         status.setText("Saving securely to Azure…");
         try{
             JSONObject livingBody=new JSONObject().put("country",v(country)).put("city",v(city)).put("marriageTimeline",v(timeline)).put("familyInvolvement",v(family)).put("childrenExpectation",v(children)).put("careerPlan",v(career)).put("livingPlan",v(living));
             AzureApiClient.post("/compatibility/living",livingBody.toString(),new AzureApiClient.Callback(){
-                public void ok(int c,String x){try{JSONObject prefs=new JSONObject().put("deenPriorities",v(deen)).put("dealbreakers",v(dealbreakers));AzureApiClient.put("/settings/nikah_intelligence",prefs.toString(),new AzureApiClient.Callback(){public void ok(int c2,String x2){runOnUiThread(()->{status.setText("Marriage Blueprint saved securely in Azure.");toast("Marriage Blueprint saved securely in Azure.");calculate();});}public void err(String m){runOnUiThread(()->{if(m!=null&&m.contains("AZURE_SIGN_IN_REQUIRED"))showAuthRecovery();else status.setText("Core compatibility saved, but private preferences were not saved.");});}});}catch(Exception e){runOnUiThread(()->toast("Could not prepare private preferences."));}}
-                public void err(String m){runOnUiThread(()->{if(m!=null&&m.contains("AZURE_SIGN_IN_REQUIRED"))showAuthRecovery();else status.setText("Could not save your Azure Blueprint. Please try again.");});}
+                public void ok(int c,String x){try{JSONObject prefs=new JSONObject().put("deenPriorities",v(deen)).put("dealbreakers",v(dealbreakers));AzureApiClient.put("/settings/nikah_intelligence",prefs.toString(),new AzureApiClient.Callback(){public void ok(int c2,String x2){runOnUiThread(()->{status.setText("Marriage Blueprint saved securely in Azure.");toast("Marriage Blueprint saved securely in Azure.");calculate();});}public void err(String m){runOnUiThread(()->{if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401")))showAuthRecovery();else status.setText("Core compatibility saved, but private preferences were not saved.");});}});}catch(Exception e){runOnUiThread(()->toast("Could not prepare private preferences."));}}
+                public void err(String m){runOnUiThread(()->{if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401")))showAuthRecovery();else status.setText("Could not save your Azure Blueprint. Please try again.");});}
             });
         }catch(Exception e){toast("Could not prepare Azure Blueprint.");}
     }
