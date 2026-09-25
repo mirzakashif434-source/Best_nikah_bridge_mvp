@@ -25,7 +25,7 @@ public class SmartSeriousQuestionsActivity extends Activity {
         super.onCreate(b);
         AzureAuthManager.bindActivity(this);
         render();
-        if(!AzureAuthManager.hasAccount(this)) showAuthRecovery();
+        recoverAzureSessionAndLoadMatches();
     }
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private TextView txt(String s,int size,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(bold?dark:gray);t.setPadding(dp(6),dp(8),dp(6),dp(10));if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
@@ -45,22 +45,45 @@ public class SmartSeriousQuestionsActivity extends Activity {
         matchStatus=txt("Loading your real Azure matches…",15,false);root.addView(matchStatus);
         matchChoices=new LinearLayout(this);matchChoices.setOrientation(LinearLayout.VERTICAL);root.addView(matchChoices);
         generate=btn("Generate Questions",true);generate.setEnabled(false);root.addView(generate,new LinearLayout.LayoutParams(-1,dp(62)));generate.setOnClickListener(v->generate());
-        loadMatchChoices();
+        // Match loading starts only after a real Azure token is confirmed.
         Button health=btn("Conversation Health",true);root.addView(health,new LinearLayout.LayoutParams(-1,dp(62)));health.setOnClickListener(v->startActivity(new Intent(this,ConversationHealthActivity.class)));
         Button back=btn("Back",false);root.addView(back,new LinearLayout.LayoutParams(-1,dp(62)));back.setOnClickListener(v->finish());
         results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);root.addView(results);
     }
 
+    private void recoverAzureSessionAndLoadMatches(){
+        generate.setEnabled(false);
+        if(matchStatus!=null)matchStatus.setText("Checking your secure Azure session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->loadMatchChoices());}
+            @Override public void err(String message){runOnUiThread(()->showAuthRecovery());}
+        });
+    }
+
     private void showAuthRecovery(){
         generate.setEnabled(false);
         if(matchStatus!=null)matchStatus.setText("Azure sign in is required to choose a real match.");
+        matchChoices.removeAllViews();
         Button signIn=btn("Sign in with Azure",true);
-        signIn.setOnClickListener(v->startActivity(new Intent(this,AzureExternalAuthActivity.class)));
+        signIn.setOnClickListener(v->{
+            signIn.setEnabled(false);
+            signIn.setText("Opening Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->{
+                    root.removeView(signIn);
+                    loadMatchChoices();
+                });}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Azure");
+                    matchStatus.setText("Azure sign in was not completed. Please try again.");
+                });}
+            });
+        });
         root.addView(signIn,new LinearLayout.LayoutParams(-1,dp(62)));
     }
 
     private void loadMatchChoices(){
-        if(!AzureAuthManager.hasAccount(this))return;
         AzureApiClient.get("/matches",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
@@ -92,15 +115,34 @@ public class SmartSeriousQuestionsActivity extends Activity {
                 }
             });}
             public void err(String message){runOnUiThread(()->{
-                matchStatus.setText("Real Azure matches are temporarily unavailable.");
-                generate.setEnabled(false);
+                if(message!=null&&(message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("AZURE_INTERACTION_REQUIRED")||message.contains("401"))){
+                    showAuthRecovery();
+                }else if(message!=null&&message.contains("PROFILE_NOT_READY")){
+                    matchStatus.setText("Complete your real profile first, then return to Smart Serious Questions.");
+                    generate.setEnabled(false);
+                }else{
+                    matchStatus.setText("Real Azure matches are temporarily unavailable.");
+                    generate.setEnabled(false);
+                }
             });}
         });
     }
 
     private void generate(){
-        if(!AzureAuthManager.hasAccount(this)){showAuthRecovery();return;}
         String id=selectedMatchId.trim();if(id.isEmpty()){LanguageManager.toast(this,"Choose a real match first.",Toast.LENGTH_LONG).show();return;}
+        generate.setEnabled(false);
+        generate.setText("Checking Azure session…");
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->generateAuthorized(id));}
+            @Override public void err(String message){runOnUiThread(()->{
+                generate.setEnabled(true);
+                generate.setText("Generate Questions");
+                showAuthRecovery();
+            });}
+        });
+    }
+
+    private void generateAuthorized(String id){
         results.removeAllViews();
         generate.setEnabled(false);
         generate.setText("Loading real match…");
@@ -120,7 +162,17 @@ public class SmartSeriousQuestionsActivity extends Activity {
                     results.addView(txt("These are discussion prompts only. They do not determine character, safety, religious standing, or marriage success.",14,false));
                 }catch(Exception e){toast("Azure match response could not be read.");}
             });}
-            public void err(String message){runOnUiThread(()->{generate.setEnabled(true);generate.setText("Generate Questions");toast("Could not load real Azure match: "+message);});}
+            public void err(String message){runOnUiThread(()->{
+                generate.setEnabled(true);
+                generate.setText("Generate Questions");
+                if(message!=null&&(message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("AZURE_INTERACTION_REQUIRED")||message.contains("401"))){
+                    showAuthRecovery();
+                }else if(message!=null&&message.contains("PROFILE_NOT_READY")){
+                    toast("Complete your real profile first, then try again.");
+                }else{
+                    toast("Could not load the real Azure match. Please try again.");
+                }
+            });}
         });
     }
     private void add(String label,String detail,String q){results.addView(txt(label+"\n"+detail+"\nDiscussion question: "+q,16,true));}
