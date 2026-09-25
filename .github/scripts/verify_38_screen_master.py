@@ -57,7 +57,13 @@ for label, listener in SCREENS:
         raise SystemExit(f"HOME LABEL MISSING: {label}")
     if listener not in home:
         raise SystemExit(f"CLICK LISTENER MISSING: {label} -> {listener}")
-    if label not in flow:
+
+    # Maestro may intentionally use a stable regex for labels with punctuation/price text.
+    if label.startswith("Premium Plans"):
+        maestro_ok = ("Premium Plans.*" in flow) or (label in flow)
+    else:
+        maestro_ok = label in flow
+    if not maestro_ok:
         raise SystemExit(f"MAESTRO FLOW MISSING: {label}")
 
 # Destructive controls must be test-safe: verify dialogs, never confirm destructive actions.
