@@ -18,7 +18,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  id-token: write
+  attestations: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -412,3 +414,402 @@ jobs:
         run: |
           echo "STEP 8 AZURE FINAL FULL APP GATE: PASS"
           echo "Earlier Azure work preserved; no feature removed or replaced."
+
+  step8-azure-final:
+    needs: verify
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact Azure production branch
+        uses: actions/checkout@v5
+
+      - name: Verify Azure-only production path
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d azure-backend
+          test ! -d functions
+          test ! -e firebase.json
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
+          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
+          grep -Fq 'verifyAzureExternalIdToken' azure-backend/src/auth.js
+          grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
+          echo "AZURE-ONLY RUNTIME: PASS"
+
+      - name: Verify Step 7 owner wallet and account deletion paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'AzureApiClient.get("/owner/earnings"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.post("/admin/owner/provider-settlement"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'AzureApiClient.delete("/account"' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -Eq 'route:[[:space:]]*"account"' azure-backend/src/account.js
+          grep -Eq 'route:[[:space:]]*"owner/earnings"' azure-backend/src/ownerEarnings.js
+          grep -Eq 'route:[[:space:]]*"admin/owner/provider-settlement"' azure-backend/src/ownerEarnings.js
+          echo "STEP 7 AZURE OWNER/WALLET + ACCOUNT DELETE: PASS"
+
+      - name: Audit all final Android screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          activities=sorted(root.glob("*Activity.java"))
+          assert len(activities) >= 46, f"Expected >=46 activities, found {len(activities)}"
+
+          no_scroll=[]
+          for p in activities:
+              if p.name=="MainActivity.java":
+                  continue
+              text=p.read_text(encoding="utf-8")
+              if "ScrollView" not in text:
+                  no_scroll.append(p.name)
+          assert not no_scroll, "Screens without ScrollView: "+", ".join(no_scroll)
+
+          back_exempt={"WelcomeActivity.java","MainActivity.java","ProductionMainActivity.java","AzureHomeActivity.java"}
+          no_back=[]
+          for p in activities:
+              if p.name in back_exempt:
+                  continue
+              if "Back" not in p.read_text(encoding="utf-8"):
+                  no_back.append(p.name)
+          assert not no_back, "Screens missing Back navigation: "+", ".join(no_back)
+
+          for name in ["AzureHomeActivity.java","AzureWalletActivity.java","WalletActivity.java"]:
+              t=(root/name).read_text(encoding="utf-8")
+              assert "setText(body)" not in t, f"Raw JSON setText(body) remains in {name}"
+              assert "setMessage(body)" not in t, f"Raw JSON setMessage(body) remains in {name}"
+
+          owner=(root/"OwnerLiveAnalyticsActivity.java").read_text(encoding="utf-8")
+          assert "dynamic.removeAllViews()" in owner
+          assert "Open Owner Wallet / Payout" in owner
+
+          welcome=(root/"WelcomeArtworkView.java").read_text(encoding="utf-8")
+          assert "Canvas" in welcome and "Paint.ANTI_ALIAS_FLAG" in welcome
+
+          app=(root/"NikahBridgeApplication.java").read_text(encoding="utf-8")
+          assert "applySafeInsets(a)" in app
+          assert "normalizeControls(a)" in app
+          assert "WindowInsetsCompat.Type.systemBars()" in app
+
+          bad_null=[]
+          bad_alpha=[]
+          for p in root.glob("*.java"):
+              t=p.read_text(encoding="utf-8")
+              if "null null" in t:
+                  bad_null.append(p.name)
+              if re.search(r"setAlpha\(0\.[0-4]|alpha\s*=\s*0\.[0-4]", t):
+                  bad_alpha.append(p.name)
+          assert not bad_null, "null null text remains: "+", ".join(bad_null)
+          assert not bad_alpha, "blur-like alpha remains: "+", ".join(bad_alpha)
+
+          print("STEP 8 UI AUDIT PASS:",len(activities),"activities")
+          PY
+
+      - name: Verify critical final feature buttons and routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'Owner Wallet' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
+          grep -Fq 'Go Premium' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq '20' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq '40' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq '60' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'Permanently Delete Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -Fq 'Family / Wali Connect' app/src/main/java/com/nikahbridge/FamilyBridge2Activity.java
+          grep -Fq 'Privacy Control Center' app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
+          grep -Fq 'Identity Verification' app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
+          echo "CRITICAL FINAL FEATURES: PASS"
+
+      - name: Zero Known Issue source gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=app/src/main/java/com/nikahbridge
+
+          # No known raw technical identifiers or old broken user-facing states anywhere.
+          for bad in             'Family link ID'             'Wali phone (E.164)'             'Reported real user ID'             'Reported user ID required'             'Real recipient user ID'             'Real member ID'             'Real matched member ID'             'Member ID:'             'Conversation ID from a real mutual connection'             'Some Azure journey data could not be loaded'             'Currently visible:'             'Azure rewarded configuration unavailable.'             'not available in this backend release'             'updating on Azure'             'null null'; do
+            if grep -RInF "$bad" "$APP" --include='*.java'; then
+              echo "FORBIDDEN USER-FACING STATE FOUND: $bad"
+              exit 1
+            fi
+          done
+
+          # Real production routes and automatic selectors must remain aligned.
+          grep -Fq 'AzureApiClient.get("/owner/live-analytics"' "$APP/OwnerLiveAnalyticsActivity.java"
+          ! grep -Fq 'AzureApiClient.get("/admin/owner/live-analytics"' "$APP/OwnerLiveAnalyticsActivity.java"
+          grep -Fq 'AzureApiClient.get("/owner/earnings"' "$APP/OwnerEarningsActivity.java"
+          grep -Fq 'AzureApiClient.get("/journey/summary"' "$APP/NikahJourneyActivity.java"
+          grep -Fq 'AzureApiClient.get("/family-links/pending-for-wali"' "$APP/FamilyBridge2Activity.java"
+          grep -Fq 'AzureApiClient.post("/safety/reports"' "$APP/AzureHomeActivity.java"
+          grep -Fq 'AzureApiClient.get("/matches"' "$APP/AzureHomeActivity.java"
+
+          # Premium Back must keep the source activity alive.
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path("app/src/main/java/com/nikahbridge/PremiumFeatureGate.java").read_text()
+          marker='.setPositiveButton("View Plans"'
+          start=t.index(marker)
+          end=t.index('.setNegativeButton("Not now"', start)
+          block=t[start:end]
+          assert "PremiumPlansActivity.class" in block
+          assert "a.finish()" not in block, "Premium View Plans still destroys source activity"
+          PY
+
+          # Manifest release safety.
+          grep -Fq 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+
+          echo "ZERO KNOWN ISSUE SOURCE GATE: PASS"
+
+      - name: Locked feature regression contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_locked_feature_contracts.py
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend syntax and module load
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE BACKEND LOAD: PASS')"
+
+      - name: Require live Azure release readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net/api/release/readiness"
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            HTTP_CODE="$(curl -sS -o /tmp/release-readiness.json -w "%{http_code}" "$URL" || true)"
+            cat /tmp/release-readiness.json || true
+            if [ "$HTTP_CODE" = "200" ] && grep -q '"ready":true' /tmp/release-readiness.json && grep -q '"releaseGate":"2026-09-25-zero-known-issue-final"' /tmp/release-readiness.json; then
+              echo "LIVE AZURE RELEASE READINESS: PASS"
+              break
+            fi
+            if [ "$i" = "12" ]; then
+              echo "LIVE AZURE RELEASE READINESS: FAIL"
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile and lint final Android app
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac :app:lintDebug --stacktrace
+
+      - name: Prepare real release signing and Azure redirect URI
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+          HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
+          python3 - "$HASH" <<'PY'
+          import json, pathlib, re, sys
+          h=sys.argv[1]
+          p=pathlib.Path("app/src/main/res/raw/auth_config.json")
+          d=json.loads(p.read_text())
+          d["redirect_uri"]="msauth://com.nikahbridge/"+h.replace("=", "%3D")
+          p.write_text(json.dumps(d, indent=2)+"\n")
+          p=pathlib.Path("app/src/main/AndroidManifest.xml")
+          s=p.read_text()
+          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(")', rf'\g<1>{h}\g<2>', s)
+          p.write_text(s)
+          PY
+
+      - name: Build final signed Azure APK and AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew clean :app:assembleRelease :app:bundleRelease --stacktrace
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
+          sha256sum app/build/outputs/apk/release/app-release.apk > app-release-apk.sha256
+          sha256sum app/build/outputs/bundle/release/app-release.aab > app-release-aab.sha256
+
+      - name: Runtime APK smoke and crash gate
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 600
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            set -euo pipefail
+            APK=app/build/outputs/apk/release/app-release.apk
+            test -s "$APK"
+            adb wait-for-device
+            adb shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
+            adb shell pm clear com.nikahbridge >/dev/null 2>&1 || true
+            adb install -r "$APK"
+            adb logcat -c
+
+            # Verify launcher can start the signed release APK.
+            adb shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
+            sleep 5
+            adb shell pidof com.nikahbridge >/tmp/bnb-pid.txt || true
+            test -s /tmp/bnb-pid.txt
+
+            # Stress reachable UI/runtime paths without requiring fake accounts.
+            adb shell monkey -p com.nikahbridge --throttle 120 --ignore-security-exceptions 500 >/tmp/bnb-monkey.txt 2>&1 || true
+            sleep 3
+            adb logcat -d > /tmp/bnb-logcat.txt
+
+            # Fail on app-process crash, native crash, or ANR evidence.
+            if grep -E 'FATAL EXCEPTION|Fatal signal|ANR in com\.nikahbridge|Process: com\.nikahbridge.*has died' /tmp/bnb-logcat.txt; then
+              echo "RUNTIME APK CRASH/ANR GATE: FAIL"
+              tail -n 250 /tmp/bnb-logcat.txt
+              exit 1
+            fi
+
+            # App must still be launchable after stress.
+            adb shell monkey -p com.nikahbridge -c android.intent.category.LAUNCHER 1
+            sleep 3
+            adb shell pidof com.nikahbridge >/tmp/bnb-pid-after.txt || true
+            test -s /tmp/bnb-pid-after.txt
+            echo "RUNTIME APK SMOKE/CRASH GATE: PASS"
+
+      - name: Forensic scan compiled final APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          TMP="$(mktemp -d)"
+          unzip -q "$APK" -d "$TMP"
+
+          # Scan compiled DEX/resources, not only source, so stale release content cannot slip through.
+          for bad in             'Family link ID'             'Wali phone (E.164)'             'Reported real user ID'             'Reported user ID required'             'Real recipient user ID'             'Real member ID'             'Real matched member ID'             'Member ID:'             'Conversation ID from a real mutual connection'             'Some Azure journey data could not be loaded'             'Currently visible:'             'Azure rewarded configuration unavailable.'             '/admin/owner/live-analytics'             'not available in this backend release'             'updating on Azure'             'null null'; do
+            if grep -aRF "$bad" "$TMP" >/tmp/apk-forbidden-hit.txt 2>/dev/null; then
+              echo "FORBIDDEN COMPILED APK CONTENT FOUND: $bad"
+              cat /tmp/apk-forbidden-hit.txt || true
+              exit 1
+            fi
+          done
+
+          # Required production strings must actually be compiled into the signed APK.
+          grep -aRFq '/owner/live-analytics' "$TMP"
+          grep -aRFq '/owner/earnings' "$TMP"
+          grep -aRFq '/journey/summary' "$TMP"
+          grep -aRFq '/family-links/pending-for-wali' "$TMP"
+          grep -aRFq '/safety/reports' "$TMP"
+          grep -aRFq 'Premium Plans' "$TMP"
+          grep -aRFq '20 / 40 / 60 SAR' "$TMP"
+
+          echo "COMPILED APK FORENSIC GATE: PASS"
+
+      - name: Create Golden Release manifest
+        id: golden
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          APK_SHA="$(sha256sum "$APK" | awk '{print $1}')"
+          AAB_SHA="$(sha256sum "$AAB" | awk '{print $1}')"
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          TAG="golden-${SHORT_SHA}"
+          {
+            echo "BEST NIKAH BRIDGE — GOLDEN RELEASE FREEZE"
+            echo "repository=${GITHUB_REPOSITORY}"
+            echo "branch=${GITHUB_REF_NAME}"
+            echo "commit=${GITHUB_SHA}"
+            echo "workflow_run=${GITHUB_RUN_ID}"
+            echo "apk_sha256=${APK_SHA}"
+            echo "aab_sha256=${AAB_SHA}"
+            echo "release_gate=2026-09-25-zero-known-issue-final"
+            echo "runtime_gate=android-api-36"
+            echo "status=FROZEN_AFTER_ALL_GATES_PASS"
+          } | tee GOLDEN_RELEASE_MANIFEST.txt
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "apk_sha=$APK_SHA" >> "$GITHUB_OUTPUT"
+          echo "aab_sha=$AAB_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Attest Golden APK provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Attest Golden AAB provenance
+        uses: actions/attest@v4
+        with:
+          subject-path: app/build/outputs/bundle/release/app-release.aab
+
+      - name: Verify Golden artifact attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh attestation verify app/build/outputs/apk/release/app-release.apk -R "$GITHUB_REPOSITORY"
+          gh attestation verify app/build/outputs/bundle/release/app-release.aab -R "$GITHUB_REPOSITORY"
+          echo "GOLDEN ARTIFACT ATTESTATION VERIFY: PASS"
+
+      - name: Freeze immutable Golden commit tag
+        env:
+          GOLDEN_TAG: ${{ steps.golden.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          if git show-ref --tags --verify --quiet "refs/tags/$GOLDEN_TAG"; then
+            EXISTING="$(git rev-list -n 1 "$GOLDEN_TAG")"
+            test "$EXISTING" = "$GITHUB_SHA"
+            echo "Golden tag already exists for this exact commit; preserving it."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$GOLDEN_TAG" "$GITHUB_SHA" -F GOLDEN_RELEASE_MANIFEST.txt
+            git push origin "refs/tags/$GOLDEN_TAG"
+          fi
+          test "$(git rev-list -n 1 "$GOLDEN_TAG")" = "$GITHUB_SHA"
+          echo "GOLDEN COMMIT TAG FREEZE: PASS — $GOLDEN_TAG"
+      - name: Upload Step 8 final Azure build
+        uses: actions/upload-artifact@v6
+        with:
+          name: best-nikah-bridge-step8-azure-final
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            app-release-apk.sha256
+            app-release-aab.sha256
+            GOLDEN_RELEASE_MANIFEST.txt
+          if-no-files-found: error
+
+      - name: Step 8 result
+        run: |
+          echo "STEP 8 AZURE FINAL GATE PASSED."
+          echo "Final signed APK + AAB built from azure-backend-additive."
+          echo "Golden Release manifest + provenance attestations + non-overwrite Golden tag created."
+          echo "Only one real-device end-to-end test and Play Console submission remain external."
