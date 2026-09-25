@@ -203,10 +203,37 @@ manifest=contains(ROOT/"app/src/main/AndroidManifest.xml",
     'android:usesCleartextTraffic="false"',
     'android:allowBackup="false"')
 
+# CONTRACT 15 — Fortress Budget Mode: additive cost guards must stay intact.
+deploy=read(ROOT/".github/workflows/azure-backend-deploy.yml")
+host=read(ROOT/"azure-backend/host.json")
+db=read(ROOT/"azure-backend/src/db.js")
+cost_guard=read(ROOT/"azure-backend/src/costGuard.js")
+fortress=read(ROOT/"FORTRESS_BUDGET_MODE.md")
+for required in (
+    '--instance-memory 512',
+    '--maximum-instance-count 20',
+    'always-ready delete',
+    'AZURE_DB_POOL_MAX=3',
+    'AI_DAILY_LIMIT_PLUS=5',
+    'AI_DAILY_LIMIT_VIP=12',
+    'AI_NIKAH_MAX_TOKENS=350',
+    'AI_ADVANCED_MAX_TOKENS=500',
+    'bnb-verification-documents-cool',
+    'Self-Healing Golden Master',
+    'Auto-rollback Azure backend to last known-good Golden release',
+):
+    need(f"Fortress Budget deploy contract missing: {required}", required in deploy)
+need("Fortress Budget telemetry cap must remain 2/sec", '"maxTelemetryItemsPerSecond": 2' in host)
+need("Fortress Budget DB pool default must remain 3", 'AZURE_DB_POOL_MAX || 3' in db)
+need("Fortress Budget Plus AI quota default must remain 5", 'AI_DAILY_LIMIT_PLUS", 5' in cost_guard)
+need("Fortress Budget VIP AI quota default must remain 12", 'AI_DAILY_LIMIT_VIP", 12' in cost_guard)
+for required in ("512 MB","20","150-200 SAR","Self-Healing","Auto-Rollback"):
+    need(f"Fortress Budget documentation contract missing: {required}", required in fortress)
+
 if fail:
     print("LOCKED FEATURE CONTRACTS: FAIL")
     for x in fail: print(" -",x)
     sys.exit(1)
 
 print(f"LOCKED FEATURE CONTRACTS: PASS ({len(activities)} activities)")
-print("Protected contracts: Family/Wali, Journey, Safety, Premium Back, Auth, Rewarded, Terms, match selectors, Success Plan, Wallet, 46-screen UI, Azure-only runtime.")
+print("Protected contracts: Family/Wali, Journey, Safety, Premium Back, Auth, Rewarded, Terms, match selectors, Success Plan, Wallet, 46-screen UI, Azure-only runtime, Fortress Budget Mode.")
