@@ -95,7 +95,7 @@ app.http("premiumAdvancedFiltersGet",{
   handler:requireAuth(async(request,context,authUser)=>{
     try{
       const {user,capabilities}=await accessForAuth(authUser);
-      if(!capabilities.advancedMatching) return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};
+      if(!capabilities.paid20Features) return {status:402,jsonBody:{ok:false,error:"PREMIUM_BASIC_REQUIRED",locked:true}};
       const r=await query(
         "SELECT countries,cities,education_levels,family_involvement FROM partner_preferences WHERE user_id=$1 LIMIT 1",
         [user.id]
@@ -113,7 +113,7 @@ app.http("premiumAdvancedFiltersSave",{
   handler:requireAuth(async(request,context,authUser)=>{
     try{
       const {user,capabilities}=await accessForAuth(authUser);
-      if(!capabilities.advancedMatching) return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};
+      if(!capabilities.paid20Features) return {status:402,jsonBody:{ok:false,error:"PREMIUM_BASIC_REQUIRED",locked:true}};
       const b=await request.json();
       const cleanList=(v)=>Array.isArray(v)?v.map(x=>String(x||"").trim().slice(0,120)).filter(Boolean).slice(0,30):[];
       const countries=cleanList(b?.countries);
