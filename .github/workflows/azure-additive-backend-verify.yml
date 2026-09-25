@@ -280,6 +280,56 @@ jobs:
           set -euo pipefail
           python3 .github/scripts/verify_locked_feature_contracts.py
 
+      - name: Self-Healing + Auto-Rollback regression lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Production readiness and health gate — first pass' "$WF"
+          grep -Fq 'Self-heal Azure runtime after transient production failure' "$WF"
+          grep -Fq 'Production readiness and health gate — after self-heal' "$WF"
+          grep -Fq 'Prepare last-known-good Golden backend rollback' "$WF"
+          grep -Fq 'Auto-rollback Azure backend to last known-good Golden release' "$WF"
+          grep -Fq 'Verify production after Golden rollback' "$WF"
+          grep -Fq 'Self-Healing Golden Master result' "$WF"
+          echo "SELF-HEALING + AUTO-ROLLBACK: LOCKED ABOVE GOLDEN"
+
+      - name: Fortress Budget Regression lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/azure-backend-deploy.yml
+          test -f FORTRESS_BUDGET_MODE.md
+          grep -Fq -- '--instance-memory 512 --maximum-instance-count 20' "$WF"
+          grep -Fq 'always-ready delete' "$WF"
+          grep -Fq 'AZURE_DB_POOL_MAX=3' "$WF"
+          grep -Fq 'AI_DAILY_LIMIT_PLUS=5' "$WF"
+          grep -Fq 'AI_DAILY_LIMIT_VIP=12' "$WF"
+          grep -Fq 'AI_NIKAH_MAX_TOKENS=350' "$WF"
+          grep -Fq 'AI_ADVANCED_MAX_TOKENS=500' "$WF"
+          grep -Fq 'bnb-verification-documents-cool' "$WF"
+          grep -Fq 'max: Number(process.env.AZURE_DB_POOL_MAX || 3)' azure-backend/src/db.js
+          grep -Fq 'positiveInt("AI_DAILY_LIMIT_PLUS", 5)' azure-backend/src/costGuard.js
+          grep -Fq 'positiveInt("AI_DAILY_LIMIT_VIP", 12)' azure-backend/src/costGuard.js
+          python3 - <<'PY'
+          import json
+          d=json.load(open("azure-backend/host.json"))
+          s=d["logging"]["applicationInsights"]["samplingSettings"]
+          assert s["isEnabled"] is True
+          assert s["maxTelemetryItemsPerSecond"] == 2
+          assert "Exception" in s["excludedTypes"]
+          print("FORTRESS TELEMETRY SAMPLING: PASS")
+          PY
+          echo "FORTRESS BUDGET REGRESSION: LOCKED ABOVE SELF-HEALING"
+
+      - name: Golden+ protection stack contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          echo "GOLDEN+ STACK: APP + SELF-HEALING + AUTO-ROLLBACK + FORTRESS BUDGET"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
@@ -415,9 +465,12 @@ jobs:
           sha256sum app/build/outputs/bundle/release/app-release.aab
           echo "STEP 8 FINAL SIGNED AZURE APK + AAB: PASS"
 
-      - name: Step 8 lock
+      - name: Golden+ final lock — Self-Healing + Auto-Rollback + Fortress Budget
         run: |
           echo "STEP 8 AZURE FINAL FULL APP GATE: PASS"
+          echo "SELF-HEALING + AUTO-ROLLBACK: LOCKED"
+          echo "FORTRESS BUDGET REGRESSION: LOCKED"
+          echo "GOLDEN+ PROTECTION STACK: LOCKED"
           echo "Earlier Azure work preserved; no feature removed or replaced."
 
   step8-azure-final:
@@ -688,27 +741,68 @@ jobs:
           disable-animations: true
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
           script: |
-            test -s "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+            set -eu
+            APK="$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+            test -s "$APK"
+
+            adb_recover() {
+              attempt=1
+              while [ "$attempt" -le 3 ]; do
+                if adb get-state >/dev/null 2>&1; then
+                  return 0
+                fi
+                echo "ADB transport unavailable (attempt $attempt/3); self-healing ADB transport."
+                adb kill-server >/dev/null 2>&1 || true
+                adb start-server >/dev/null 2>&1 || true
+                adb wait-for-device >/dev/null 2>&1 || true
+                sleep 2
+                attempt=$((attempt+1))
+              done
+              echo "ADB transport could not self-heal."
+              return 1
+            }
+
+            capture_logcat() {
+              target="$1"
+              attempt=1
+              while [ "$attempt" -le 3 ]; do
+                adb_recover || true
+                if adb logcat -d > "$target" 2>/tmp/bnb-adb-logcat-error.txt; then
+                  return 0
+                fi
+                echo "logcat transport retry $attempt/3"
+                cat /tmp/bnb-adb-logcat-error.txt || true
+                sleep 2
+                attempt=$((attempt+1))
+              done
+              echo "Unable to capture logcat after ADB self-heal retries."
+              return 1
+            }
+
             adb wait-for-device
             adb shell getprop sys.boot_completed | grep -qx 1
-            adb install -r "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+            adb install -r "$APK"
             adb shell pm clear com.nikahbridge >/dev/null 2>&1 || true
-            adb logcat -c
+            adb logcat -c || true
+
             adb shell am start -W -n com.nikahbridge/.WelcomeActivity > /tmp/bnb-launch.txt
             grep -Eq 'Status: ok|Activity: com\.nikahbridge/.WelcomeActivity|ThisTime:|TotalTime:' /tmp/bnb-launch.txt
             sleep 5
+
             adb shell monkey -p com.nikahbridge --throttle 120 --ignore-security-exceptions 500 > /tmp/bnb-monkey.txt 2>&1 || true
             sleep 3
-            adb logcat -d > /tmp/bnb-logcat.txt
+            capture_logcat /tmp/bnb-logcat.txt
             ! grep -E 'Process: com\.nikahbridge|ANR in com\.nikahbridge|Fatal signal.*com\.nikahbridge|Force finishing activity.*com\.nikahbridge' /tmp/bnb-logcat.txt
-            adb shell am force-stop com.nikahbridge
-            adb logcat -c
+
+            adb_recover
+            adb shell am force-stop com.nikahbridge || true
+            adb logcat -c || true
             adb shell am start -W -n com.nikahbridge/.WelcomeActivity > /tmp/bnb-relaunch.txt
             grep -Eq 'Status: ok|Activity: com\.nikahbridge/.WelcomeActivity|ThisTime:|TotalTime:' /tmp/bnb-relaunch.txt
             sleep 5
-            adb logcat -d > /tmp/bnb-relaunch-logcat.txt
+            capture_logcat /tmp/bnb-relaunch-logcat.txt
             ! grep -E 'Process: com\.nikahbridge|ANR in com\.nikahbridge|Fatal signal.*com\.nikahbridge|Force finishing activity.*com\.nikahbridge' /tmp/bnb-relaunch-logcat.txt
-            echo "RUNTIME APK SMOKE/CRASH GATE: PASS"
+            echo "RUNTIME APK SMOKE/CRASH GATE: PASS — ADB SELF-HEAL ENABLED"
 
       - name: Forensic scan compiled final APK
         shell: bash
