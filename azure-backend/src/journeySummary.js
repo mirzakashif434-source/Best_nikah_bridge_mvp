@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
+const { accessForAuth } = require("./premiumAccess");
 
 async function currentUser(user){
   const key=String(user.azure_subject||user.uid||"").trim();
@@ -18,8 +19,9 @@ app.http("nikahJourneySummaryAzure",{
   route:"journey/summary",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      const me=await currentUser(user);
-      if(me.status!=="active") return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
+      const access=await accessForAuth(user);
+      if(!access.capabilities.paid20Features) return {status:402,jsonBody:{ok:false,error:"PREMIUM_BASIC_REQUIRED",locked:true}};
+      const me=access.user;
 
       const [profile,living,verification,conversations,family,candidates]=await Promise.all([
         query("SELECT profile_completed,is_visible FROM profiles WHERE user_id=$1 LIMIT 1",[me.id]),
