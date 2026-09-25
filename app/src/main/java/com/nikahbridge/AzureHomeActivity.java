@@ -344,7 +344,22 @@ public class AzureHomeActivity extends Activity {
                     }
                 }catch(Exception e){out.setText("Interests could not be displayed.");}
             });}
-            public void err(String m){runOnUiThread(()->out.setText("Interests unavailable: "+m));}
+            public void err(String m){runOnUiThread(()->{
+                if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401"))){
+                    out.setText("Your Azure session needs to be refreshed before interests can load.");
+                    LanguageManager.dialog(AzureHomeActivity.this)
+                        .setTitle("Sign in required")
+                        .setMessage("Sign in with Azure to load your real mutual interests.")
+                        .setPositiveButton("Sign in",(d,w)->AzureAuthManager.acquireTokenInteractive(AzureHomeActivity.this,new AzureAuthManager.Callback(){
+                            @Override public void ok(String accessToken){runOnUiThread(()->interests());}
+                            @Override public void err(String message){runOnUiThread(()->out.setText("Azure sign in was not completed. Please try again."));}
+                        }))
+                        .setNegativeButton("Not now",null)
+                        .show();
+                }else{
+                    out.setText("Interests are temporarily unavailable. Please try again.");
+                }
+            });}
         });
         sectionTitle("Send a New Interest");
         TextView matchStatus=text("Loading your compatible Azure matches…",15,false);root.addView(matchStatus);
@@ -370,7 +385,24 @@ public class AzureHomeActivity extends Activity {
                     }
                 }catch(Exception e){matchStatus.setText("Compatible profiles could not be displayed.");}
             });}
-            public void err(String m){runOnUiThread(()->matchStatus.setText("Compatible profiles unavailable: "+m));}
+            public void err(String m){runOnUiThread(()->{
+                if(m!=null&&m.contains("PROFILE_NOT_READY")){
+                    matchStatus.setText("Complete your real profile first. Then compatible profiles will appear here.");
+                }else if(m!=null&&(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401"))){
+                    matchStatus.setText("Your Azure session needs to be refreshed before compatible profiles can load.");
+                    LanguageManager.dialog(AzureHomeActivity.this)
+                        .setTitle("Sign in required")
+                        .setMessage("Sign in with Azure to load your real compatible profiles.")
+                        .setPositiveButton("Sign in",(d,w)->AzureAuthManager.acquireTokenInteractive(AzureHomeActivity.this,new AzureAuthManager.Callback(){
+                            @Override public void ok(String accessToken){runOnUiThread(()->interests());}
+                            @Override public void err(String message){runOnUiThread(()->matchStatus.setText("Azure sign in was not completed. Please try again."));}
+                        }))
+                        .setNegativeButton("Not now",null)
+                        .show();
+                }else{
+                    matchStatus.setText("Compatible profiles are temporarily unavailable. Please try again.");
+                }
+            });}
         });
         Button back=button("Back",false);back.setOnClickListener(v->home());
     }
