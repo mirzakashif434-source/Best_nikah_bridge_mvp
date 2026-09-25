@@ -63,10 +63,15 @@ public class TrustPassportActivity extends Activity {
     }
 
     private void loadMatchChoices(){
-        if(!AzureAuthManager.hasAccount(this)){
-            matchStatus.setText("Azure sign in is required to choose a real match.");
-            return;
-        }
+        matchStatus.setText("Checking your secure Azure session…");
+        checkButton.setEnabled(false);
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->loadMatchChoicesAuthorized());}
+            @Override public void err(String message){runOnUiThread(()->showMatchAuthRecovery());}
+        });
+    }
+
+    private void loadMatchChoicesAuthorized(){
         AzureApiClient.get("/matches",new AzureApiClient.Callback(){
             public void ok(int code,String body){runOnUiThread(()->{
                 try{
@@ -93,21 +98,46 @@ public class TrustPassportActivity extends Activity {
                     }
                 }catch(Exception e){matchStatus.setText("Real Azure matches could not be displayed.");}
             });}
-            public void err(String message){runOnUiThread(()->matchStatus.setText("Real Azure matches are temporarily unavailable."));}
+            public void err(String message){runOnUiThread(()->{
+                if(message!=null&&(message.contains("AZURE_SIGN_IN_REQUIRED")||message.contains("AZURE_INTERACTION_REQUIRED")||message.contains("401"))){
+                    showMatchAuthRecovery();
+                }else{
+                    matchStatus.setText("Real Azure matches are temporarily unavailable.");
+                }
+            });}
+        });
+    }
+
+    private void showMatchAuthRecovery(){
+        matchChoices.removeAllViews();
+        selectedMatchId="";
+        checkButton.setEnabled(false);
+        matchStatus.setText("Azure sign in is required to choose a real match.");
+        Button signIn=choiceBtn("Sign in with Azure");
+        matchChoices.addView(signIn,new LinearLayout.LayoutParams(-1,dp(56)));
+        signIn.setOnClickListener(v->{
+            signIn.setEnabled(false);
+            signIn.setText("Opening Azure Sign In…");
+            AzureAuthManager.acquireTokenInteractive(this,new AzureAuthManager.Callback(){
+                @Override public void ok(String accessToken){runOnUiThread(()->loadMatchChoicesAuthorized());}
+                @Override public void err(String message){runOnUiThread(()->{
+                    signIn.setEnabled(true);
+                    signIn.setText("Sign in with Azure");
+                    matchStatus.setText("Azure sign in was not completed. Please try again.");
+                });}
+            });
         });
     }
 
     private void load(String id){
-        if(!AzureAuthManager.hasAccount(this)){
-            LanguageManager.dialog(this)
-                .setTitle("Sign in required")
-                .setMessage("Sign in with Azure to view real Trust Passport evidence.")
-                .setPositiveButton("Sign in",(d,w)->startActivity(new Intent(this,AzureExternalAuthActivity.class)))
-                .setNegativeButton("Not now",null)
-                .show();
-            return;
-        }
         if(id.isEmpty()){toast("Choose a real match first.");return;}
+        AzureAuthManager.acquireToken(this,new AzureAuthManager.Callback(){
+            @Override public void ok(String accessToken){runOnUiThread(()->loadAuthorized(id));}
+            @Override public void err(String message){runOnUiThread(()->showMatchAuthRecovery());}
+        });
+    }
+
+    private void loadAuthorized(String id){
         results.removeAllViews();
         checkButton.setEnabled(false);
         checkButton.setText("Loading real Trust Passport…");
