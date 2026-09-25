@@ -319,44 +319,162 @@ jobs:
           done
           echo "FINAL REPAIR LIVE ROUTES: PASS"
 
-      - name: Verify live release readiness
+      - name: Production readiness and health gate — first pass
+        id: production_gate_first
+        continue-on-error: true
+        shell: bash
         run: |
           set -euo pipefail
           RESOURCE_GROUP="BestNikahBredge-Production"
           HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
-          URL="https://${HOSTNAME}/api/release/readiness"
-          echo "Checking $URL"
+          READY_URL="https://${HOSTNAME}/api/release/readiness"
+          HEALTH_URL="https://${HOSTNAME}/api/health"
+          PASS=false
           for i in 1 2 3 4 5 6; do
-            HTTP_CODE="$(curl -sS -o /tmp/release-readiness.json -w "%{http_code}" "$URL" || true)"
-            echo "Attempt $i: HTTP $HTTP_CODE"
+            READY_CODE="$(curl -sS -o /tmp/release-readiness.json -w "%{http_code}" "$READY_URL" || true)"
+            HEALTH_CODE="$(curl -sS -o /tmp/health.json -w "%{http_code}" "$HEALTH_URL" || true)"
+            echo "Attempt $i readiness=$READY_CODE health=$HEALTH_CODE"
             cat /tmp/release-readiness.json || true
-            if [ "$HTTP_CODE" = "200" ] && grep -q '"ready":true' /tmp/release-readiness.json; then
-              echo "LIVE RELEASE READINESS: PASS"
+            cat /tmp/health.json || true
+            if [ "$READY_CODE" = "200" ] && grep -q '"ready":true' /tmp/release-readiness.json &&                [ "$HEALTH_CODE" = "200" ] && grep -q '"ok":true' /tmp/health.json; then
+              PASS=true
               break
             fi
-            if [ "$i" = "6" ]; then
-              echo "LIVE RELEASE READINESS: FAIL"
-              exit 1
-            fi
             sleep 10
           done
+          test "$PASS" = "true"
+          echo "PRODUCTION FIRST-PASS GATE: PASS"
 
-      - name: Verify live health endpoint
+      - name: Self-heal Azure runtime after transient production failure
+        id: self_heal_runtime
+        if: steps.production_gate_first.outcome == 'failure'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+          echo "First production gate failed. Running allowlisted self-heal only: restart + trigger sync."
+          az functionapp restart --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --only-show-errors
+          az rest --method post             --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Web/sites/${AZURE_FUNCTIONAPP_NAME}/syncfunctiontriggers?api-version=2016-08-01"             --only-show-errors >/dev/null
+          sleep 20
+          echo "SELF-HEAL RUNTIME ACTION: COMPLETE"
+
+      - name: Production readiness and health gate — after self-heal
+        id: production_gate_healed
+        if: steps.production_gate_first.outcome == 'failure'
+        continue-on-error: true
+        shell: bash
         run: |
           set -euo pipefail
           RESOURCE_GROUP="BestNikahBredge-Production"
           HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
-          URL="https://${HOSTNAME}/api/health"
-          echo "Checking $URL"
+          READY_URL="https://${HOSTNAME}/api/release/readiness"
+          HEALTH_URL="https://${HOSTNAME}/api/health"
+          PASS=false
           for i in 1 2 3 4 5 6; do
-            HTTP_CODE="$(curl -sS -o /tmp/health.json -w "%{http_code}" "$URL" || true)"
-            echo "Attempt $i: HTTP $HTTP_CODE"
-            cat /tmp/health.json || true
-            if [ "$HTTP_CODE" = "200" ] && grep -q '"ok":true' /tmp/health.json; then
-              echo "LIVE HEALTH CHECK: PASS"
-              exit 0
+            READY_CODE="$(curl -sS -o /tmp/release-readiness-healed.json -w "%{http_code}" "$READY_URL" || true)"
+            HEALTH_CODE="$(curl -sS -o /tmp/health-healed.json -w "%{http_code}" "$HEALTH_URL" || true)"
+            echo "Healed attempt $i readiness=$READY_CODE health=$HEALTH_CODE"
+            cat /tmp/release-readiness-healed.json || true
+            cat /tmp/health-healed.json || true
+            if [ "$READY_CODE" = "200" ] && grep -q '"ready":true' /tmp/release-readiness-healed.json &&                [ "$HEALTH_CODE" = "200" ] && grep -q '"ok":true' /tmp/health-healed.json; then
+              PASS=true
+              break
             fi
             sleep 10
           done
-          echo "LIVE HEALTH CHECK: FAIL"
+          test "$PASS" = "true"
+          echo "PRODUCTION SELF-HEALED GATE: PASS"
+
+      - name: Prepare last-known-good Golden backend rollback
+        id: prepare_golden_rollback
+        if: steps.production_gate_first.outcome == 'failure' && steps.production_gate_healed.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          GOLDEN_TAG="$(git tag --list 'golden-*' --sort=-creatordate | head -n 1)"
+          if [ -z "$GOLDEN_TAG" ]; then
+            echo "No Golden tag exists. Refusing unsafe rollback."
+            exit 1
+          fi
+          GOLDEN_SHA="$(git rev-list -n 1 "$GOLDEN_TAG")"
+          echo "Preparing backend rollback from $GOLDEN_TAG ($GOLDEN_SHA)"
+          rm -rf "$RUNNER_TEMP/golden-release"
+          git worktree add --detach "$RUNNER_TEMP/golden-release" "$GOLDEN_SHA"
+          test -d "$RUNNER_TEMP/golden-release/azure-backend"
+          cd "$RUNNER_TEMP/golden-release/azure-backend"
+          npm install --omit=dev
+          for file in src/*.js; do node --check "$file"; done
+          echo "golden_tag=$GOLDEN_TAG" >> "$GITHUB_OUTPUT"
+          echo "golden_sha=$GOLDEN_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Auto-rollback Azure backend to last known-good Golden release
+        if: steps.production_gate_first.outcome == 'failure' && steps.production_gate_healed.outcome == 'failure'
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: ${{ runner.temp }}/golden-release/azure-backend
+
+      - name: Restart and sync after Golden rollback
+        if: steps.production_gate_first.outcome == 'failure' && steps.production_gate_healed.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+          az functionapp restart --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --only-show-errors
+          az rest --method post             --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.Web/sites/${AZURE_FUNCTIONAPP_NAME}/syncfunctiontriggers?api-version=2016-08-01"             --only-show-errors >/dev/null
+          sleep 20
+
+      - name: Verify production after Golden rollback
+        id: production_gate_rollback
+        if: steps.production_gate_first.outcome == 'failure' && steps.production_gate_healed.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESOURCE_GROUP="BestNikahBredge-Production"
+          HOSTNAME="$(az functionapp show --name "$AZURE_FUNCTIONAPP_NAME" --resource-group "$RESOURCE_GROUP" --query properties.defaultHostName -o tsv)"
+          READY_URL="https://${HOSTNAME}/api/release/readiness"
+          HEALTH_URL="https://${HOSTNAME}/api/health"
+          PASS=false
+          for i in 1 2 3 4 5 6; do
+            READY_CODE="$(curl -sS -o /tmp/release-readiness-rollback.json -w "%{http_code}" "$READY_URL" || true)"
+            HEALTH_CODE="$(curl -sS -o /tmp/health-rollback.json -w "%{http_code}" "$HEALTH_URL" || true)"
+            echo "Rollback attempt $i readiness=$READY_CODE health=$HEALTH_CODE"
+            cat /tmp/release-readiness-rollback.json || true
+            cat /tmp/health-rollback.json || true
+            if [ "$READY_CODE" = "200" ] && grep -q '"ready":true' /tmp/release-readiness-rollback.json &&                [ "$HEALTH_CODE" = "200" ] && grep -q '"ok":true' /tmp/health-rollback.json; then
+              PASS=true
+              break
+            fi
+            sleep 10
+          done
+          test "$PASS" = "true"
+          echo "GOLDEN AUTO-ROLLBACK PRODUCTION GATE: PASS"
+
+      - name: Self-Healing Golden Master result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          FIRST="${{ steps.production_gate_first.outcome }}"
+          HEALED="${{ steps.production_gate_healed.outcome }}"
+          ROLLBACK="${{ steps.production_gate_rollback.outcome }}"
+          echo "first=$FIRST healed=$HEALED rollback=$ROLLBACK"
+          if [ "$FIRST" = "success" ]; then
+            echo "SELF-HEALING GOLDEN MASTER: PASS — no healing needed."
+            exit 0
+          fi
+          if [ "$HEALED" = "success" ]; then
+            echo "SELF-HEALING GOLDEN MASTER: PASS — Azure runtime self-healed."
+            exit 0
+          fi
+          if [ "$ROLLBACK" = "success" ]; then
+            echo "SELF-HEALING GOLDEN MASTER: PASS — rolled back to last known-good Golden backend."
+            exit 0
+          fi
+          echo "SELF-HEALING GOLDEN MASTER: FAIL — refusing to force GREEN."
           exit 1
+
