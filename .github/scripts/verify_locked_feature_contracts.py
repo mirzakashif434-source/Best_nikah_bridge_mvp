@@ -311,7 +311,44 @@ paid40_doc=read(ROOT/"PAID_40_FEATURES_LOCK.md")
 for required in ("premium_plus_40","Global Community Chat","Four-Photo Verification","Nikah Success Network","60 SAR Azure AI remains a separate VIP-only entitlement"):
     need(f"40 SAR documentation contract missing: {required}", required in paid40_doc)
 
-# CONTRACT 17 — Fortress Budget Mode: additive cost guards must stay intact.
+# CONTRACT 17 — Step 3 60 SAR VIP-only Azure AI lock.
+premium_access_60=read(AZ/"premiumAccess.js")
+need("60 SAR tier-level AI entitlement alias missing", "paid60Ai:vip" in premium_access_60)
+need("Nikah Assistant must remain VIP-only", "aiNikahAssistant:vip" in premium_access_60)
+need("Advanced Azure AI must remain VIP-only", "aiAdvanced:vip" in premium_access_60)
+
+assistant_client=read(APP/"NikahAssistantActivity.java")
+mediator_client=read(APP/"NikahMediatorActivity.java")
+future_client=read(APP/"FutureLifeSimulationActivity.java")
+need("Nikah Assistant client VIP gate missing",
+     'PremiumFeatureGate.require(this,"aiNikahAssistant","VIP 60 SAR"' in assistant_client)
+need("AI Nikah Mediator client VIP gate missing",
+     'PremiumFeatureGate.require(this,"aiAdvanced","VIP 60 SAR"' in mediator_client)
+need("Future Life Simulation client VIP gate missing",
+     'PremiumFeatureGate.require(this,"aiAdvanced","VIP 60 SAR"' in future_client)
+
+ai_assistant=read(AZ/"aiNikahAssistant.js")
+need("Nikah Assistant Azure route must enforce VIP",
+     "capabilities.aiNikahAssistant" in ai_assistant and "PREMIUM_VIP_REQUIRED" in ai_assistant)
+ai_compat_60=read(AZ/"aiCompatibility.js")
+need("AI Mediator and Future Life Azure routes must enforce VIP",
+     ai_compat_60.count("capabilities.aiAdvanced") >= 2 and ai_compat_60.count("PREMIUM_VIP_REQUIRED") >= 2)
+
+cost_guard_60=read(AZ/"costGuard.js")
+need("Only VIP plan may receive AI quota",
+     'planKey === "premium_vip_60"' in cost_guard_60 and "premium_plus_40" not in cost_guard_60)
+need("VIP AI daily limit must remain 12",
+     'AI_DAILY_LIMIT_VIP", 12' in cost_guard_60)
+
+deploy_60=read(ROOT/".github/workflows/azure-backend-deploy.yml")
+for required in ("AI_DAILY_LIMIT_VIP=12","AI_NIKAH_MAX_TOKENS=350","AI_ADVANCED_MAX_TOKENS=500"):
+    need(f"Step 3 Fortress AI contract missing: {required}", required in deploy_60)
+
+paid60_doc=read(ROOT/"PAID_60_AI_LOCK.md")
+for required in ("premium_vip_60","Azure AI Nikah Assistant","AI Nikah Mediator","Future Life Simulation","Free / 20 / 40 SAR users must not receive Azure AI quota"):
+    need(f"60 SAR documentation contract missing: {required}", required in paid60_doc)
+
+# CONTRACT 18 — Fortress Budget Mode: additive cost guards must stay intact.
 deploy=read(ROOT/".github/workflows/azure-backend-deploy.yml")
 host=read(ROOT/"azure-backend/host.json")
 db=read(ROOT/"azure-backend/src/db.js")
