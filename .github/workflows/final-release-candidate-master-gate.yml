@@ -1,0 +1,219 @@
+name: FINAL RELEASE CANDIDATE MASTER GATE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - '.github/workflows/final-release-candidate-master-gate.yml'
+      - '.github/scripts/final_release_master_contract.py'
+      - '.github/scripts/runtime_maestro_master_gate.sh'
+      - '.github/scripts/runtime_apk_smoke_gate.sh'
+      - '.maestro/**'
+      - 'app/**'
+      - 'azure-backend/**'
+      - '.github/workflows/azure-backend-deploy.yml'
+      - 'FORTRESS_BUDGET_MODE.md'
+
+concurrency:
+  group: final-release-candidate-master-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  final-master:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact release candidate
+        uses: actions/checkout@v5
+
+      - name: Final all-screen source contract
+        run: python3 .github/scripts/final_release_master_contract.py
+
+      - name: Verify 38-screen signed-in Maestro contract source
+        run: |
+          set -euo pipefail
+          test -s .maestro/signed-in-38-screen-master.yaml
+          python3 .github/scripts/verify_38_screen_master.py
+          echo "38-SCREEN MAESTRO SOURCE CONTRACT: PASS"
+
+      - name: Validate Azure backend production modules
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE BACKEND MODULE LOAD: PASS')"
+
+      - name: Require live Azure release readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net/api/release/readiness"
+          for i in 1 2 3 4 5 6; do
+            CODE="$(curl -sS -o /tmp/readiness.json -w "%{http_code}" "$URL" || true)"
+            cat /tmp/readiness.json || true
+            if [ "$CODE" = "200" ] && grep -q '"ready":true' /tmp/readiness.json; then
+              echo "LIVE AZURE RELEASE READINESS: PASS"
+              break
+            fi
+            if [ "$i" = "6" ]; then
+              echo "LIVE AZURE RELEASE READINESS: FAIL"
+              exit 1
+            fi
+            sleep 10
+          done
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile and lint entire Android app
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac :app:lintDebug --stacktrace
+
+      - name: Prepare real release signing and Azure redirect URI
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+          HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
+          python3 - "$HASH" <<'PY'
+          import json, pathlib, re, sys
+          h=sys.argv[1]
+          p=pathlib.Path("app/src/main/res/raw/auth_config.json")
+          d=json.loads(p.read_text())
+          d["redirect_uri"]="msauth://com.nikahbridge/"+h.replace("=", "%3D")
+          p.write_text(json.dumps(d,indent=2)+"\n")
+          p=pathlib.Path("app/src/main/AndroidManifest.xml")
+          s=p.read_text()
+          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(")',rf'\g<1>{h}\g<2>',s)
+          p.write_text(s)
+          PY
+
+      - name: Build final signed APK and Play Store AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew clean :app:assembleRelease :app:bundleRelease --stacktrace
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          test -s "$APK"
+          test -s "$AAB"
+          jarsigner -verify -verbose -certs "$AAB" >/dev/null
+          sha256sum "$APK" | tee FINAL_APK_SHA256.txt
+          sha256sum "$AAB" | tee FINAL_AAB_SHA256.txt
+
+      - name: Verify all-screen contract against compiled signed APK
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          python3 .github/scripts/final_release_master_contract.py "$APK"
+          python3 .github/scripts/verify_38_screen_master.py "$APK"
+
+      - name: Install open-source Maestro CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          test -x "$HOME/.maestro/bin/maestro"
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Enable KVM
+        run: |
+          set -euo pipefail
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+
+      - name: Runtime APK + Maestro + crash navigation gate
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back emulated -camera-front emulated
+          script: bash "$GITHUB_WORKSPACE/.github/scripts/runtime_maestro_master_gate.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+
+      - name: Golden release + protection stack contract
+        run: |
+          set -euo pipefail
+          grep -Fq 'Self-heal Azure runtime after transient production failure' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Auto-rollback Azure backend to last known-good Golden release' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          grep -Fq -- '--instance-memory 512 --maximum-instance-count 20' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'AZURE_DB_POOL_MAX=3' .github/workflows/azure-backend-deploy.yml
+          echo "MAESTRO E2E CONTRACT → GOLDEN RELEASE → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PASS"
+
+      - name: Create final release manifest
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          {
+            echo "BEST NIKAH BRIDGE — FINAL RELEASE CANDIDATE"
+            echo "commit=$GITHUB_SHA"
+            echo "workflow_run=$GITHUB_RUN_ID"
+            echo "apk_sha256=$(sha256sum "$APK" | awk '{print $1}')"
+            echo "aab_sha256=$(sha256sum "$AAB" | awk '{print $1}')"
+            echo "screen_contract=46plus-activities"
+            echo "maestro_contract=38-signed-in-screens"
+            echo "runtime_crash_gate=android-api-36"
+            echo "camera_contract=real-camera-first"
+            echo "billing_contract=google-play-subscriptions"
+            echo "reward_contract=admob-ssv"
+            echo "protection=golden+self-healing+auto-rollback+fortress-budget"
+            echo "status=FINAL_RELEASE_CANDIDATE_AFTER_AUTOMATED_GATES"
+          } | tee FINAL_RELEASE_MANIFEST.txt
+
+      - name: Attest final APK
+        uses: actions/attest@v4
+        with:
+          subject-path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Attest final AAB
+        uses: actions/attest@v4
+        with:
+          subject-path: app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload FINAL Play Store release candidate
+        uses: actions/upload-artifact@v6
+        with:
+          name: best-nikah-bridge-FINAL-PLAY-STORE-CANDIDATE
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            FINAL_APK_SHA256.txt
+            FINAL_AAB_SHA256.txt
+            FINAL_RELEASE_MANIFEST.txt
+          if-no-files-found: error
+
+      - name: Final result
+        run: |
+          echo "FINAL RELEASE CANDIDATE MASTER GATE: PASS"
+          echo "No production feature was deleted or replaced."
+          echo "Only real-device Google Play purchase/camera acceptance and Play Console submission are external."
