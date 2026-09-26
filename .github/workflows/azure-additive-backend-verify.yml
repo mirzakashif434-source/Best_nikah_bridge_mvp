@@ -369,8 +369,8 @@ jobs:
           set -euo pipefail
           grep -Fq 'com.google.android.gms.permission.AD_ID' app/src/main/AndroidManifest.xml
           grep -Fq 'com.google.android.gms.ads.APPLICATION_ID' app/src/main/AndroidManifest.xml
-          grep -Fq 'import androidx.activity.EdgeToEdge;' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
-          grep -Fq 'EdgeToEdge.enable(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'import androidx.core.view.WindowCompat;' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'WindowCompat.setDecorFitsSystemWindows(a.getWindow(),false);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'applySafeInsets(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Eq 'versionCode[[:space:]]+30' app/build.gradle
           echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION LOCK: PASS"
