@@ -23,7 +23,7 @@ public class ViewedMeActivity extends Activity {
     @Override protected void onCreate(Bundle state){
         super.onCreate(state);
         AzureAuthManager.bindActivity(this);
-        build();
+        PremiumFeatureGate.require(this,"whoViewedYou","20 SAR Basic or higher",this::build);
     }
 
     private void build(){
@@ -108,7 +108,9 @@ public class ViewedMeActivity extends Activity {
                     refresh.setEnabled(true);
                     refresh.setText("Refresh Viewed Me");
                     String m=message==null?"":message;
-                    if(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401")){
+                    if(m.contains("PREMIUM_BASIC_REQUIRED")||m.contains("402")){
+                        PremiumFeatureGate.showUpgrade(ViewedMeActivity.this,"20 SAR Basic or higher");
+                    }else if(m.contains("AZURE_SIGN_IN_REQUIRED")||m.contains("AZURE_INTERACTION_REQUIRED")||m.contains("401")){
                         showSignInRecovery();
                     }else{
                         status.setText("Viewed Me is temporarily unavailable. Check your connection and tap Refresh.");
