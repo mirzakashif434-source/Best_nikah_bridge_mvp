@@ -6,6 +6,9 @@ tags:
 ---
 - launchApp:
     clearState: true
-- assertVisible: "Get Started"
-- assertVisible: "Sign In"
-- assertVisible: "Language:.*"
+- assertVisible:
+    id: "com.nikahbridge:id/welcome_get_started"
+- assertVisible:
+    id: "com.nikahbridge:id/welcome_sign_in"
+- assertVisible:
+    id: "com.nikahbridge:id/welcome_language"
