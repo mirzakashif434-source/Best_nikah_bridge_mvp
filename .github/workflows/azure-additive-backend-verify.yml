@@ -856,25 +856,39 @@ jobs:
           gh attestation verify app/build/outputs/bundle/release/app-release.aab -R "$GITHUB_REPOSITORY"
           echo "GOLDEN ARTIFACT ATTESTATION VERIFY: PASS"
 
-      - name: Freeze immutable Golden commit tag
+      - name: Freeze Golden release identity safely
         env:
           GOLDEN_TAG: ${{ steps.golden.outputs.tag }}
         shell: bash
         run: |
           set -euo pipefail
+          # The commit SHA + signed artifact attestations are the authoritative immutable freeze.
+          # GitHub Apps can refuse a tag that points at a commit changing workflow files unless
+          # the installation has the separate Workflows permission. That policy must never turn
+          # an otherwise verified release red.
+          test -n "$GITHUB_SHA"
+          grep -Fq "commit=$GITHUB_SHA" GOLDEN_RELEASE_MANIFEST.txt
+          git cat-file -e "$GITHUB_SHA^{commit}"
           git fetch --tags --force
+
           if git show-ref --tags --verify --quiet "refs/tags/$GOLDEN_TAG"; then
             EXISTING="$(git rev-list -n 1 "$GOLDEN_TAG")"
             test "$EXISTING" = "$GITHUB_SHA"
-            echo "Golden tag already exists for this exact commit; preserving it."
+            echo "Golden remote tag already exists for this exact commit; preserving it."
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "$GOLDEN_TAG" "$GITHUB_SHA" -F GOLDEN_RELEASE_MANIFEST.txt
-            git push origin "refs/tags/$GOLDEN_TAG"
+            if git push origin "refs/tags/$GOLDEN_TAG"; then
+              echo "GOLDEN REMOTE TAG FREEZE: PASS — $GOLDEN_TAG"
+            else
+              echo "GOLDEN REMOTE TAG: SKIPPED BY GITHUB APP WORKFLOW-PERMISSION POLICY"
+              echo "IMMUTABLE FREEZE REMAINS: commit SHA + APK/AAB SHA-256 + GitHub attestations"
+            fi
           fi
+
           test "$(git rev-list -n 1 "$GOLDEN_TAG")" = "$GITHUB_SHA"
-          echo "GOLDEN COMMIT TAG FREEZE: PASS — $GOLDEN_TAG"
+          echo "GOLDEN RELEASE IDENTITY FREEZE: PASS — $GITHUB_SHA"
       - name: Upload Step 8 final Azure build
         uses: actions/upload-artifact@v6
         with:
@@ -893,5 +907,5 @@ jobs:
           echo "Final signed APK + AAB built from azure-backend-additive."
           echo "38-screen Master Test contract + open-source Maestro CI smoke passed."
           echo "Signed-in 38-screen Maestro flow is locked without any auth/demo bypass."
-          echo "Golden Release manifest + provenance attestations + non-overwrite Golden tag created."
+          echo "Golden Release manifest + provenance attestations + immutable commit identity verified; remote Golden tag is created when GitHub App policy permits."
           echo "Only the signed-in real-session Maestro run on a device and Play Console submission remain external."
