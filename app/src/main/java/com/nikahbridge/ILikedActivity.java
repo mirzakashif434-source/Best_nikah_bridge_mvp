@@ -182,7 +182,10 @@ public class ILikedActivity extends Activity {
 
         Button view=Premium2030Ui.secondary(this,"View Profile");
         card.addView(view,new LinearLayout.LayoutParams(-1,dp(52)));
-        view.setOnClickListener(v->showProfile(name,age,country,city,intention,education,family,identityVerified,photoVerified,mutual));
+        view.setOnClickListener(v->{
+            ProfileViewTracker.record(ILikedActivity.this,userId);
+            showProfile(name,age,country,city,intention,education,family,identityVerified,photoVerified,mutual);
+        });
 
         Button cancel=Premium2030Ui.secondary(this,"Cancel Like");
         card.addView(cancel,new LinearLayout.LayoutParams(-1,dp(52)));
