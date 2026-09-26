@@ -175,7 +175,7 @@ public class ILikedActivity extends Activity {
         if(!country.isEmpty())details.append(country);
         if(!city.isEmpty())details.append(details.length()>0?" • ":"").append(city);
         if(!intention.isEmpty())details.append(details.length()>0?"\n":"").append("Nikah intention: ").append(intention);
-        details.append(details.length()>0?"\n":"").append(mutual?"♥ Mutual like":"Like sent");
+        details.append(details.length()>0?"\n":"").append(mutual?"♥ Mutual like":"Pending • waiting for like back");
         TextView detailText=Premium2030Ui.subtitle(this,details.toString());
         detailText.setGravity(Gravity.START);
         card.addView(detailText);
@@ -208,7 +208,7 @@ public class ILikedActivity extends Activity {
         if(!family.isEmpty())body.append("Family involvement: ").append(family).append("\n");
         body.append("\nIdentity verified: ").append(identityVerified?"Yes":"Not yet");
         body.append("\nPhoto verified: ").append(photoVerified?"Yes":"Not yet");
-        body.append("\nLike status: ").append(mutual?"Mutual like":"Sent");
+        body.append("\nLike status: ").append(mutual?"Mutual like":"Pending • waiting for like back");
         body.append("\n\nOnly privacy-safe Azure profile fields are shown.");
 
         LanguageManager.dialog(this)
