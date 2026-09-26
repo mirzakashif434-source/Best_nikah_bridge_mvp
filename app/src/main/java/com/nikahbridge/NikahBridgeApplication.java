@@ -17,9 +17,9 @@ import com.google.android.gms.ads.MobileAds;
 import com.google.android.ump.ConsentInformation;
 import com.google.android.ump.ConsentRequestParameters;
 import com.google.android.ump.UserMessagingPlatform;
-import androidx.activity.EdgeToEdge;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
@@ -104,5 +104,5 @@ public class NikahBridgeApplication extends Application implements Application.A
         normalizeControls(a);
         attachLocalization(a);
     }
-    @Override public void onActivityCreated(Activity a,Bundle s){if(a!=null)EdgeToEdge.enable(a);} @Override public void onActivityStarted(Activity a){} @Override public void onActivityPaused(Activity a){} @Override public void onActivityStopped(Activity a){} @Override public void onActivitySaveInstanceState(Activity a,Bundle s){} @Override public void onActivityDestroyed(Activity a){}
+    @Override public void onActivityCreated(Activity a,Bundle s){if(a!=null)WindowCompat.setDecorFitsSystemWindows(a.getWindow(),false);} @Override public void onActivityStarted(Activity a){} @Override public void onActivityPaused(Activity a){} @Override public void onActivityStopped(Activity a){} @Override public void onActivitySaveInstanceState(Activity a,Bundle s){} @Override public void onActivityDestroyed(Activity a){}
 }
