@@ -41,6 +41,7 @@ function capabilitiesFor(premium){
     paid20Features:basic,
     paid40Features:plus,
     whoLikedYou:basic,
+    whoViewedYou:basic,
     unlimitedInterests:basic,
     advancedMatching:plus,
     whyWeMatched:plus,
