@@ -198,4 +198,34 @@ app.http("likeCancelAzure", {
   })
 });
 
+app.http("likeReceivedIgnoreAzure", {
+  methods:["DELETE"],
+  authLevel:"anonymous",
+  route:"likes/received/{sourceUserId}",
+  handler:requireAuth(async(request,context,authUser)=>{
+    try{
+      const {user}=await accessForAuth(authUser);
+      const sourceKey=String(request.params?.sourceUserId||context.triggerMetadata?.sourceUserId||"").trim();
+      if(!sourceKey) return {status:400,jsonBody:{ok:false,error:"LIKE_SOURCE_REQUIRED"}};
+      const source=await query(
+        "SELECT id FROM users WHERE id::text=$1 OR azure_subject=$1 OR firebase_uid=$1 LIMIT 1",
+        [sourceKey]
+      );
+      if(!source.rows[0]) return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};
+      const result=await query(
+        `UPDATE likes
+            SET active=false
+          WHERE from_user_id=$1 AND to_user_id=$2 AND active=true
+          RETURNING id`,
+        [source.rows[0].id,user.id]
+      );
+      if(!result.rows[0]) return {status:404,jsonBody:{ok:false,error:"ACTIVE_INCOMING_LIKE_NOT_FOUND"}};
+      return {status:200,jsonBody:{ok:true,ignored:true}};
+    }catch(e){
+      context.error("INCOMING_LIKE_IGNORE_FAILED",e);
+      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"INCOMING_LIKE_IGNORE_FAILED"}};
+    }
+  })
+});
+
 module.exports={};
