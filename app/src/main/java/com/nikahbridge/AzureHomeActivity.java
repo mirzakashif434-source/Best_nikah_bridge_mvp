@@ -103,6 +103,7 @@ public class AzureHomeActivity extends Activity {
         Button likedMe=button("Liked Me",true);
         Button iLiked=button("I Liked",true);
         Button viewedMe=button("Viewed Me",true);
+        Button iViewed=button("I Viewed",true);
         Button seriousPlus=button("Serious Nikah Plus",true);
         Button premiumPlans=button("Premium Plans — 20 / 40 / 60 SAR",true);
         Button interests=button("Mutual Interests",true);
@@ -150,6 +151,7 @@ public class AzureHomeActivity extends Activity {
         likedMe.setOnClickListener(v->startActivity(new Intent(this,LikedMeActivity.class)));
         iLiked.setOnClickListener(v->startActivity(new Intent(this,ILikedActivity.class)));
         viewedMe.setOnClickListener(v->startActivity(new Intent(this,ViewedMeActivity.class)));
+        iViewed.setOnClickListener(v->startActivity(new Intent(this,IViewedActivity.class)));
         seriousPlus.setOnClickListener(v->startActivity(new Intent(this,SeriousNikahPlusActivity.class)));
         premiumPlans.setOnClickListener(v->startActivity(new Intent(this,PremiumPlansActivity.class)));
         interests.setOnClickListener(v->interests());
