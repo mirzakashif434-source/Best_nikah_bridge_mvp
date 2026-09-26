@@ -61,6 +61,7 @@ require("./helpLine");
 require("./ownerEarnings");
 require("./ownerAnalytics");
 require("./featureParity");
+require("./likeHistory");
 
 require("./settings");
 
