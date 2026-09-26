@@ -160,6 +160,7 @@ public class ViewedMeActivity extends Activity {
         final boolean iLiked=item.optBoolean("i_liked",false);
         final boolean likedMe=item.optBoolean("liked_me",false);
         final int viewCount=Math.max(1,item.optInt("view_count",1));
+        final String lastViewedAt=item.optString("last_viewed_at","");
 
         LinearLayout card=Premium2030Ui.card(this);
 
@@ -175,6 +176,7 @@ public class ViewedMeActivity extends Activity {
         if(!country.isEmpty())details.append(country);
         if(!city.isEmpty())details.append(details.length()>0?" • ":"").append(city);
         details.append(details.length()>0?"\n":"").append("Profile opens: ").append(viewCount);
+        if(!lastViewedAt.isEmpty())details.append("\nLast viewed: ").append(viewTime(lastViewedAt));
         if(iLiked&&likedMe)details.append("\n♥ Mutual like");
         else if(likedMe)details.append("\n♥ This member liked you");
         else if(iLiked)details.append("\nYou liked this member");
@@ -198,6 +200,15 @@ public class ViewedMeActivity extends Activity {
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
         lp.setMargins(0,dp(6),0,dp(6));
         list.addView(card,lp);
+    }
+
+    private String viewTime(String raw){
+        if(raw==null||raw.trim().isEmpty())return "";
+        String s=raw.trim().replace('T',' ');
+        int dot=s.indexOf('.');
+        if(dot>0)s=s.substring(0,dot);
+        if(s.endsWith("Z"))s=s.substring(0,s.length()-1);
+        return s.length()>16?s.substring(0,16):s;
     }
 
     private void showProfile(String name,int age,String country,String city,String intention,
