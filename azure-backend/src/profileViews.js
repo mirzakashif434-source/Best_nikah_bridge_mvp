@@ -125,4 +125,68 @@ app.http("profileViewsReceivedAzure",{
   })
 });
 
+
+app.http("profileViewsSentAzure",{
+  methods:["GET"],
+  authLevel:"anonymous",
+  route:"profile-views/sent",
+  handler:requireAuth(async(request,context,authUser)=>{
+    try{
+      const {user}=await accessForAuth(authUser);
+      const result=await query(
+        `SELECT
+            pv.id AS view_id,
+            pv.first_viewed_at,
+            pv.last_viewed_at,
+            pv.view_count,
+            COALESCE(u.azure_subject,u.firebase_uid,u.id::text) AS user_id,
+            COALESCE(p.display_name,'Member') AS display_name,
+            EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,
+            p.gender,
+            p.country,
+            CASE WHEN COALESCE(ps.show_city,false) THEN p.city ELSE NULL END AS city,
+            p.marriage_intention,
+            p.education,
+            p.family_involvement,
+            COALESCE(p.photo_verified,false) AS photo_verified,
+            EXISTS(
+              SELECT 1 FROM verifications v
+               WHERE v.user_id=u.id AND v.status='approved'
+            ) AS identity_verified,
+            COALESCE(up.last_seen_at >= now()-interval '2 minutes',false) AS is_online,
+            EXISTS(
+              SELECT 1 FROM likes l
+               WHERE l.from_user_id=$1 AND l.to_user_id=pv.viewed_user_id AND l.active=true
+            ) AS i_liked,
+            EXISTS(
+              SELECT 1 FROM likes l
+               WHERE l.from_user_id=pv.viewed_user_id AND l.to_user_id=$1 AND l.active=true
+            ) AS liked_me
+         FROM profile_views pv
+         JOIN users u ON u.id=pv.viewed_user_id
+         LEFT JOIN profiles p ON p.user_id=u.id
+         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
+         LEFT JOIN user_presence up ON up.user_id=u.id
+        WHERE pv.viewer_user_id=$1
+          AND u.status='active'
+          AND COALESCE(p.profile_completed,false)=true
+          AND COALESCE(p.is_visible,false)=true
+          AND COALESCE(ps.profile_discoverable,false)=true
+          AND NOT EXISTS (
+            SELECT 1 FROM blocked_users b
+             WHERE (b.blocker_user_id=$1 AND b.blocked_user_id=pv.viewed_user_id)
+                OR (b.blocked_user_id=$1 AND b.blocker_user_id=pv.viewed_user_id)
+          )
+        ORDER BY pv.last_viewed_at DESC
+        LIMIT 200`,
+        [user.id]
+      );
+      return {status:200,jsonBody:{ok:true,count:result.rows.length,viewed:result.rows}};
+    }catch(e){
+      context.error("PROFILE_VIEWS_SENT_FAILED",e);
+      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"PROFILE_VIEWS_SENT_FAILED"}};
+    }
+  })
+});
+
 module.exports={};
