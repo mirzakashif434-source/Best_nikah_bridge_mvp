@@ -1,0 +1,252 @@
+appId: com.nikahbridge
+name: Best Nikah Bridge - Final Release 42 Screen Signed-In Master
+tags:
+  - final-release
+  - signed-in
+  - 42-screen
+  - golden
+---
+# Real Azure session only. No demo/mock auth and no destructive confirmation.
+- launchApp:
+    clearState: false
+- assertVisible: "Secure Azure session verified"
+
+# Core journey + Step 4 history
+- scrollUntilVisible: { element: "My Real Azure Profile", direction: DOWN }
+- tapOn: "My Real Azure Profile"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Real Compatibility Matches", direction: DOWN }
+- tapOn: "Real Compatibility Matches"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Liked Me", direction: DOWN }
+- tapOn: "Liked Me"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "I Liked", direction: DOWN }
+- tapOn: "I Liked"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Viewed Me", direction: DOWN }
+- tapOn: "Viewed Me"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "I Viewed", direction: DOWN }
+- tapOn: "I Viewed"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Serious Nikah Plus", direction: DOWN }
+- tapOn: "Serious Nikah Plus"
+- runFlow:
+    when: { visible: "Not now|NOT NOW" }
+    commands: [ back ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Premium Plans.*", direction: DOWN }
+- tapOn: "Premium Plans.*"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Mutual Interests", direction: DOWN }
+- tapOn: "Mutual Interests"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Family / Wali Connect", direction: DOWN }
+- tapOn: "Family / Wali Connect"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Privacy Controls", direction: DOWN }
+- tapOn: "Privacy Controls"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Verification Status", direction: DOWN }
+- tapOn: "Verification Status"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Safety Reports", direction: DOWN }
+- tapOn: "Safety Reports"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Azure AI Nikah Assistant", direction: DOWN }
+- tapOn: "Azure AI Nikah Assistant"
+- runFlow:
+    when: { visible: "Premium.*|Not now|NOT NOW" }
+    commands: [ back ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Real Profile Photo", direction: DOWN }
+- tapOn: "Real Profile Photo"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Four-Photo Verification", direction: DOWN }
+- tapOn: "Four-Photo Verification"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Global Community Chat", direction: DOWN }
+- tapOn: "Global Community Chat"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Earn Message Credits", direction: DOWN }
+- tapOn: "Earn Message Credits"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Blocked Members", direction: DOWN }
+- tapOn: "Blocked Members"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Terms & Community Guidelines", direction: DOWN }
+- tapOn: "Terms & Community Guidelines"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Nikah Journey", direction: DOWN }
+- tapOn: "Nikah Journey"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Nikah Blueprint", direction: DOWN }
+- tapOn: "Nikah Blueprint"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Smart Serious Questions", direction: DOWN }
+- tapOn: "Smart Serious Questions"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Why We Matched", direction: DOWN }
+- tapOn: "Why We Matched"
+- runFlow:
+    when: { visible: "Premium.*|Not now|NOT NOW" }
+    commands: [ back ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Advanced Match Filters", direction: DOWN }
+- tapOn: "Advanced Match Filters"
+- runFlow:
+    when: { visible: "Premium.*|Not now|NOT NOW" }
+    commands: [ back ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Compatibility Deal-Breakers", direction: DOWN }
+- tapOn: "Compatibility Deal-Breakers"
+- runFlow:
+    when: { visible: "Premium.*|Not now|NOT NOW" }
+    commands: [ back ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Compatibility Traffic Light", direction: DOWN }
+- tapOn: "Compatibility Traffic Light"
+- runFlow:
+    when: { visible: "Premium.*|Not now|NOT NOW" }
+    commands: [ back ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Marriage Timeline Matching", direction: DOWN }
+- tapOn: "Marriage Timeline Matching"
+- runFlow:
+    when: { visible: "Premium.*|Not now|NOT NOW" }
+    commands: [ back ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Family Circle", direction: DOWN }
+- tapOn: "Family Circle"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Trust Passport", direction: DOWN }
+- tapOn: "Trust Passport"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Safe Communication", direction: DOWN }
+- tapOn: "Safe Communication"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Nikah Intelligence", direction: DOWN }
+- tapOn: "Nikah Intelligence"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Conversation Health", direction: DOWN }
+- tapOn: "Conversation Health"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "AI Nikah Mediator", direction: DOWN }
+- tapOn: "AI Nikah Mediator"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Nikah Success Plan", direction: DOWN }
+- tapOn: "Nikah Success Plan"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Nikah Success Network", direction: DOWN }
+- tapOn: "Nikah Success Network"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Future Life Simulation", direction: DOWN }
+- tapOn: "Future Life Simulation"
+- runFlow:
+    when: { visible: "Premium.*|Not now|NOT NOW" }
+    commands: [ back ]
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Owner Live Analytics", direction: DOWN }
+- tapOn: "Owner Live Analytics"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Owner Wallet / Payout", direction: DOWN }
+- tapOn: "Owner Wallet / Payout"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- scrollUntilVisible: { element: "Azure Wallet", direction: DOWN }
+- tapOn: "Azure Wallet"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# Destructive operations are opened but never confirmed.
+- scrollUntilVisible: { element: "Permanently Delete Account", direction: DOWN }
+- tapOn: "Permanently Delete Account"
+- assertVisible: "Delete Azure account data permanently.*"
+- assertVisible: "CANCEL"
+- tapOn: "CANCEL"
+
+- scrollUntilVisible: { element: "Sign out of Azure", direction: DOWN }
+- tapOn: "Sign out of Azure"
+- assertVisible: "Sign out of Azure"
+- assertVisible: "CANCEL"
+- tapOn: "CANCEL"
+
+- assertVisible: "Sign out of Azure"
