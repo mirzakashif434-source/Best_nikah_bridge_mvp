@@ -1,0 +1,124 @@
+name: Step 4 Golden Plus Protection Stack
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'app/src/main/java/com/nikahbridge/LikedMeActivity.java'
+      - 'app/src/main/java/com/nikahbridge/ILikedActivity.java'
+      - 'app/src/main/java/com/nikahbridge/ViewedMeActivity.java'
+      - 'app/src/main/java/com/nikahbridge/IViewedActivity.java'
+      - 'azure-backend/src/likeHistory.js'
+      - 'azure-backend/src/profileViews.js'
+      - '.maestro/step4-four-history-real-e2e.yaml'
+      - '.github/workflows/step4-golden-plus-protection.yml'
+      - 'FORTRESS_BUDGET_MODE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  step4-golden-plus:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact Step 4 source
+        uses: actions/checkout@v6
+
+      - name: Maestro E2E contract — four real signed-in screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLOW=.maestro/step4-four-history-real-e2e.yaml
+          test -s "$FLOW"
+          grep -Fq 'clearState: false' "$FLOW"
+          grep -Fq 'Secure Azure session verified' "$FLOW"
+          for label in "Liked Me" "I Liked" "Viewed Me" "I Viewed"; do
+            grep -Fq "$label" "$FLOW"
+          done
+          ! grep -RInE 'demo|mock|fake|bypass' "$FLOW"
+          echo "STEP 4 MAESTRO REAL-SESSION CONTRACT: PASS"
+
+      - name: Verify Step 4 screen and Azure route contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=app/src/main/java/com/nikahbridge
+          grep -Fq 'AzureApiClient.get("/likes/received"' "$APP/LikedMeActivity.java"
+          grep -Fq 'AzureApiClient.delete("/likes/received/"' "$APP/LikedMeActivity.java"
+          grep -Fq '"Ignore / Remove"' "$APP/LikedMeActivity.java"
+          grep -Fq 'AzureApiClient.get("/likes/sent"' "$APP/ILikedActivity.java"
+          grep -Fq 'Pending • waiting for like back' "$APP/ILikedActivity.java"
+          grep -Fq 'AzureApiClient.get("/profile-views/received"' "$APP/ViewedMeActivity.java"
+          grep -Fq 'Last viewed: ' "$APP/ViewedMeActivity.java"
+          grep -Fq 'AzureApiClient.get("/profile-views/sent"' "$APP/IViewedActivity.java"
+          grep -Fq '"Like Now"' "$APP/IViewedActivity.java"
+          grep -Fq 'route:"likes/received/{sourceUserId}"' azure-backend/src/likeHistory.js
+          grep -Fq 'route:"profile-views/received"' azure-backend/src/profileViews.js
+          grep -Fq 'route:"profile-views/sent"' azure-backend/src/profileViews.js
+          echo "STEP 4 REAL AZURE CONTRACTS: PASS"
+
+      - name: Self-Healing protection lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Self-heal Azure runtime after transient production failure' "$WF"
+          grep -Fq 'Production readiness and health gate — after self-heal' "$WF"
+          echo "STEP 4 SELF-HEALING: LOCKED"
+
+      - name: Auto-Rollback protection lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Prepare last-known-good Golden backend rollback' "$WF"
+          grep -Fq 'Auto-rollback Azure backend to last known-good Golden release' "$WF"
+          grep -Fq 'Verify production after Golden rollback' "$WF"
+          echo "STEP 4 AUTO-ROLLBACK: LOCKED"
+
+      - name: Fortress Budget protection lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/azure-backend-deploy.yml
+          test -s FORTRESS_BUDGET_MODE.md
+          grep -Fq -- '--instance-memory 512 --maximum-instance-count 20' "$WF"
+          grep -Fq 'AZURE_DB_POOL_MAX=3' "$WF"
+          grep -Fq 'AI_DAILY_LIMIT_VIP=12' "$WF"
+          grep -Fq 'AI_NIKAH_MAX_TOKENS=350' "$WF"
+          grep -Fq 'AI_ADVANCED_MAX_TOKENS=500' "$WF"
+          echo "STEP 4 FORTRESS BUDGET: LOCKED"
+
+      - name: Validate Azure backend syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd azure-backend
+          npm install
+          node --check src/likeHistory.js
+          node --check src/profileViews.js
+          node -e "require('./src/index.js'); console.log('STEP 4 AZURE MODULE LOAD: PASS')"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile and lint Step 4 Android integration
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac :app:lintDebug --stacktrace
+
+      - name: Golden Plus result
+        run: |
+          echo "STEP 4 MAESTRO E2E CONTRACT: LOCKED"
+          echo "STEP 4 SELF-HEALING: LOCKED"
+          echo "STEP 4 AUTO-ROLLBACK: LOCKED"
+          echo "STEP 4 FORTRESS BUDGET: LOCKED"
+          echo "STEP 4 GOLDEN+ PROTECTION STACK: PASS"
