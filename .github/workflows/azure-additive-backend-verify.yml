@@ -16,6 +16,8 @@ on:
       - '.github/workflows/azure-backend-deploy.yml'
       - '.github/workflows/step8-azure-final-full-app-gate.yml'
       - '.github/scripts/**'
+      - '.maestro/final-release-42-screen-master.yaml'
+      - '.github/workflows/final-release-master-gate.yml'
   workflow_dispatch:
 
 concurrency:
@@ -351,6 +353,15 @@ jobs:
           grep -Fq 'CREATE TABLE IF NOT EXISTS profile_views' azure-backend/database/migrations/20260926_profile_views.sql
           grep -Fq 'ProfileViewTracker.record' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
           echo "GOLDEN RELATIONSHIP HISTORY 4-SCREEN LOCK: PASS"
+
+      - name: Final Release Master 42-screen source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .maestro/final-release-42-screen-master.yaml
+          test -s .github/scripts/verify_final_release_master.py
+          python3 .github/scripts/verify_final_release_master.py
+          echo "AZURE ADDITIVE FINAL RELEASE MASTER SOURCE CONTRACT: PASS"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -742,6 +753,13 @@ jobs:
           python3 .github/scripts/verify_38_screen_master.py app/build/outputs/apk/release/app-release.apk
           echo "38-SCREEN SOURCE + APK + MAESTRO CONTRACT: PASS"
 
+      - name: Verify Final Release Master 42-screen contract against signed APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_final_release_master.py app/build/outputs/apk/release/app-release.apk
+          echo "42-SCREEN FINAL MASTER SOURCE + APK + MAESTRO CONTRACT: PASS"
+
       - name: Install open-source Maestro CLI — no Maestro Cloud
         shell: bash
         run: |
@@ -905,7 +923,9 @@ jobs:
         run: |
           echo "STEP 8 AZURE FINAL GATE PASSED."
           echo "Final signed APK + AAB built from azure-backend-additive."
-          echo "38-screen Master Test contract + open-source Maestro CI smoke passed."
-          echo "Signed-in 38-screen Maestro flow is locked without any auth/demo bypass."
+          echo "38-screen legacy contract preserved and passed."
+          echo "42-screen Final Release Master contract + signed APK verification passed."
+          echo "Open-source Maestro runtime smoke passed."
+          echo "Signed-in 38-screen legacy flow preserved; signed-in 42-screen Final Release Master flow is locked without any auth/demo bypass."
           echo "Golden Release manifest + provenance attestations + immutable commit identity verified; remote Golden tag is created when GitHub App policy permits."
           echo "Only the signed-in real-session Maestro run on a device and Play Console submission remain external."
