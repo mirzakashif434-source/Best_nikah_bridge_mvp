@@ -62,6 +62,7 @@ require("./ownerEarnings");
 require("./ownerAnalytics");
 require("./featureParity");
 require("./likeHistory");
+require("./profileViews");
 
 require("./settings");
 
