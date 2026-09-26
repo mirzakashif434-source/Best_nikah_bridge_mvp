@@ -331,6 +331,27 @@ jobs:
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "GOLDEN+ STACK: APP + SELF-HEALING + AUTO-ROLLBACK + FORTRESS BUDGET"
 
+      - name: Golden relationship history 4-screen lock
+        run: |
+          set -euo pipefail
+          test -s app/src/main/java/com/nikahbridge/LikedMeActivity.java
+          test -s app/src/main/java/com/nikahbridge/ILikedActivity.java
+          test -s app/src/main/java/com/nikahbridge/ViewedMeActivity.java
+          test -s app/src/main/java/com/nikahbridge/IViewedActivity.java
+          grep -Fq 'Button likedMe=button("Liked Me",true);' app/src/main/java/com/nikahbridge/AzureHomeActivity.java
+          grep -Fq 'Button iLiked=button("I Liked",true);' app/src/main/java/com/nikahbridge/AzureHomeActivity.java
+          grep -Fq 'Button viewedMe=button("Viewed Me",true);' app/src/main/java/com/nikahbridge/AzureHomeActivity.java
+          grep -Fq 'Button iViewed=button("I Viewed",true);' app/src/main/java/com/nikahbridge/AzureHomeActivity.java
+          grep -Fq 'route:"likes/received"' azure-backend/src/likeHistory.js
+          grep -Fq 'route:"likes/sent"' azure-backend/src/likeHistory.js
+          grep -Fq 'route:"likes/{targetUserId}"' azure-backend/src/likeHistory.js
+          grep -Fq 'route:"profile-views"' azure-backend/src/profileViews.js
+          grep -Fq 'route:"profile-views/received"' azure-backend/src/profileViews.js
+          grep -Fq 'route:"profile-views/sent"' azure-backend/src/profileViews.js
+          grep -Fq 'CREATE TABLE IF NOT EXISTS profile_views' azure-backend/database/migrations/20260926_profile_views.sql
+          grep -Fq 'ProfileViewTracker.record' app/src/main/java/com/nikahbridge/GenderFilteredMatchesActivity.java
+          echo "GOLDEN RELATIONSHIP HISTORY 4-SCREEN LOCK: PASS"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
