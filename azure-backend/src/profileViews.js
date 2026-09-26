@@ -68,7 +68,33 @@ app.http("profileViewsReceivedAzure",{
   route:"profile-views/received",
   handler:requireAuth(async(request,context,authUser)=>{
     try{
-      const {user}=await accessForAuth(authUser);
+      const {user,capabilities}=await accessForAuth(authUser);
+
+      const countResult=await query(
+        `SELECT count(*)::int AS count
+           FROM profile_views pv
+          WHERE pv.viewed_user_id=$1
+            AND NOT EXISTS (
+              SELECT 1 FROM blocked_users b
+               WHERE (b.blocker_user_id=$1 AND b.blocked_user_id=pv.viewer_user_id)
+                  OR (b.blocked_user_id=$1 AND b.blocker_user_id=pv.viewer_user_id)
+            )`,
+        [user.id]
+      );
+      const viewerCount=Number(countResult.rows[0]?.count||0);
+
+      if(!capabilities.whoViewedYou){
+        return {
+          status:402,
+          jsonBody:{
+            ok:false,
+            error:"PREMIUM_BASIC_REQUIRED",
+            locked:true,
+            viewerCount
+          }
+        };
+      }
+
       const result=await query(
         `SELECT
             pv.id AS view_id,
