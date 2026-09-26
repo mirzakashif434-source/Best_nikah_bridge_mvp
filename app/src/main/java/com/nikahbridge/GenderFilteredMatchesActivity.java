@@ -82,6 +82,27 @@ public class GenderFilteredMatchesActivity extends Activity {
                             TextView w=Premium2030Ui.subtitle(GenderFilteredMatchesActivity.this,why.toString());
                             w.setGravity(android.view.Gravity.START);card.addView(w);
                         }
+                        Button viewProfile=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"View Profile");
+                        LinearLayout.LayoutParams vlp=new LinearLayout.LayoutParams(-1,dp(52));vlp.setMargins(0,dp(6),0,0);
+                        card.addView(viewProfile,vlp);
+                        viewProfile.setOnClickListener(v->{
+                            ProfileViewTracker.record(GenderFilteredMatchesActivity.this,receiverId);
+                            StringBuilder profileDetails=new StringBuilder();
+                            int profileAge=m.optInt("age",0);
+                            if(profileAge>0)profileDetails.append("Age: ").append(profileAge).append("\n");
+                            if(!m.optString("country","").isEmpty())profileDetails.append("Country: ").append(m.optString("country")).append("\n");
+                            if(!m.optString("city","").isEmpty())profileDetails.append("City: ").append(m.optString("city")).append("\n");
+                            if(!m.optString("marriageIntention","").isEmpty())profileDetails.append("Nikah intention: ").append(m.optString("marriageIntention")).append("\n");
+                            if(!m.optString("marriageTimeline","").isEmpty())profileDetails.append("Marriage timeline: ").append(m.optString("marriageTimeline")).append("\n");
+                            profileDetails.append("Compatibility: ").append(m.optInt("compatibilityScore",0)).append("/100");
+                            profileDetails.append("\n\nOnly privacy-safe Azure match fields are shown.");
+                            LanguageManager.dialog(GenderFilteredMatchesActivity.this)
+                                .setTitle(displayName)
+                                .setMessage(profileDetails.toString())
+                                .setPositiveButton("Close",null)
+                                .show();
+                        });
+
                         LinearLayout actions=new LinearLayout(GenderFilteredMatchesActivity.this);
                         actions.setOrientation(LinearLayout.HORIZONTAL);
                         Button like=Premium2030Ui.secondary(GenderFilteredMatchesActivity.this,"✅");
