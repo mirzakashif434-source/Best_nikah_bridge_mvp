@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="welcome_get_started" type="id" />
+    <item name="welcome_sign_in" type="id" />
+    <item name="welcome_language" type="id" />
+</resources>
