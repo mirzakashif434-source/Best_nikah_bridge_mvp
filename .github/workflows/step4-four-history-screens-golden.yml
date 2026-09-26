@@ -1,0 +1,106 @@
+name: Step 4 Four History Screens Golden Gate
+
+on:
+  push:
+    branches: [azure-backend-additive]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  step4-four-screens:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Azure production branch
+        uses: actions/checkout@v6
+
+      - name: Verify four real Step 4 screens
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=app/src/main/java/com/nikahbridge
+          for f in LikedMeActivity.java ILikedActivity.java ViewedMeActivity.java IViewedActivity.java; do
+            test -s "$APP/$f"
+            grep -Fq 'AzureApiClient' "$APP/$f"
+            grep -Fq 'ScrollView' "$APP/$f"
+            grep -Fq '"Back"' "$APP/$f"
+          done
+          grep -Fq 'AzureApiClient.get("/likes/received"' "$APP/LikedMeActivity.java"
+          grep -Fq '"View Profile"' "$APP/LikedMeActivity.java"
+          grep -Fq '"Like Back"' "$APP/LikedMeActivity.java"
+          grep -Fq '"Ignore / Remove"' "$APP/LikedMeActivity.java"
+          grep -Fq 'AzureApiClient.delete("/likes/received/"' "$APP/LikedMeActivity.java"
+
+          grep -Fq 'AzureApiClient.get("/likes/sent"' "$APP/ILikedActivity.java"
+          grep -Fq 'Pending • waiting for like back' "$APP/ILikedActivity.java"
+          grep -Fq '♥ Mutual like' "$APP/ILikedActivity.java"
+          grep -Fq '"Cancel Like"' "$APP/ILikedActivity.java"
+
+          grep -Fq 'AzureApiClient.get("/profile-views/received"' "$APP/ViewedMeActivity.java"
+          grep -Fq 'Last viewed: ' "$APP/ViewedMeActivity.java"
+          grep -Fq '"View Profile"' "$APP/ViewedMeActivity.java"
+          grep -Fq 'else like.setOnClickListener' "$APP/ViewedMeActivity.java"
+
+          grep -Fq 'AzureApiClient.get("/profile-views/sent"' "$APP/IViewedActivity.java"
+          grep -Fq '"View Profile Again"' "$APP/IViewedActivity.java"
+          grep -Fq '"Like Now"' "$APP/IViewedActivity.java"
+          echo "STEP 4 FOUR SCREEN CONTRACT: PASS"
+
+      - name: Verify Azure backend routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'route:"likes/received"' azure-backend/src/likeHistory.js
+          grep -Fq 'route:"likes/sent"' azure-backend/src/likeHistory.js
+          grep -Fq 'route:"likes/{targetUserId}"' azure-backend/src/likeHistory.js
+          grep -Fq 'route:"likes/received/{sourceUserId}"' azure-backend/src/likeHistory.js
+          grep -Fq 'route:"profile-views"' azure-backend/src/profileViews.js
+          grep -Fq 'route:"profile-views/received"' azure-backend/src/profileViews.js
+          grep -Fq 'route:"profile-views/sent"' azure-backend/src/profileViews.js
+          grep -Fq 'require("./likeHistory")' azure-backend/src/index.js
+          grep -Fq 'require("./profileViews")' azure-backend/src/index.js
+          echo "STEP 4 AZURE ROUTES: PASS"
+
+      - name: Verify manifest registrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          for s in LikedMeActivity ILikedActivity ViewedMeActivity IViewedActivity; do
+            grep -Fq "android:name=\".$s\"" app/src/main/AndroidManifest.xml
+          done
+          echo "STEP 4 MANIFEST: PASS"
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Validate Azure backend
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          node --check src/likeHistory.js
+          node --check src/profileViews.js
+          node -e "require('./src/index.js'); console.log('AZURE STEP 4 MODULE LOAD: PASS')"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile and lint Android
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:compileDebugJavaWithJavac :app:lintDebug --stacktrace
+
+      - name: Golden result
+        run: |
+          echo "STEP 4 GOLDEN GATE PASSED"
+          echo "Liked Me + I Liked + Viewed Me + I Viewed are source-verified against real Azure routes."
