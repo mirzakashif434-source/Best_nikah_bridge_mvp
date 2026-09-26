@@ -1,0 +1,46 @@
+appId: com.nikahbridge
+name: Step 4 - Four Relationship History Screens - Real Signed-In E2E
+tags:
+  - step4
+  - golden
+  - signed-in
+  - azure
+---
+# Requires a genuine signed-in Azure session. No auth bypass and no demo data.
+- launchApp:
+    clearState: false
+- assertVisible: "Secure Azure session verified"
+
+# 1 — Liked Me
+- scrollUntilVisible: { element: "Liked Me", direction: DOWN }
+- tapOn: "Liked Me"
+- assertVisible: "Liked Me"
+- assertVisible: "Refresh Liked Me"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 2 — I Liked
+- scrollUntilVisible: { element: "I Liked", direction: DOWN }
+- tapOn: "I Liked"
+- assertVisible: "I Liked"
+- assertVisible: "Refresh I Liked"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 3 — Viewed Me
+- scrollUntilVisible: { element: "Viewed Me", direction: DOWN }
+- tapOn: "Viewed Me"
+- assertVisible: "Viewed Me"
+- assertVisible: "Refresh Viewed Me"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+# 4 — I Viewed
+- scrollUntilVisible: { element: "I Viewed", direction: DOWN }
+- tapOn: "I Viewed"
+- assertVisible: "I Viewed"
+- assertVisible: "Refresh I Viewed"
+- assertVisible: "Back"
+- tapOn: "Back"
+
+- assertVisible: "Secure Azure session verified"
