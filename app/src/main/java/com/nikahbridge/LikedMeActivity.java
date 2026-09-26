@@ -165,7 +165,10 @@ public class LikedMeActivity extends Activity {
 
         Button view=Premium2030Ui.secondary(this,"View Profile");
         card.addView(view,new LinearLayout.LayoutParams(-1,dp(52)));
-        view.setOnClickListener(v->showProfile(name,age,country,city,intention,education,family,identityVerified,photoVerified));
+        view.setOnClickListener(v->{
+            ProfileViewTracker.record(LikedMeActivity.this,userId);
+            showProfile(name,age,country,city,intention,education,family,identityVerified,photoVerified);
+        });
 
         Button likeBack=Premium2030Ui.primary(this,likedBack?"♥ Liked Back":"Like Back");
         card.addView(likeBack,new LinearLayout.LayoutParams(-1,dp(54)));
