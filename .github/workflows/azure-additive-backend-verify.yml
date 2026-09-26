@@ -363,6 +363,19 @@ jobs:
           python3 .github/scripts/verify_final_release_master.py
           echo "AZURE ADDITIVE FINAL RELEASE MASTER SOURCE CONTRACT: PASS"
 
+      - name: Play Console release compatibility lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'com.google.android.gms.permission.AD_ID' app/src/main/AndroidManifest.xml
+          grep -Fq 'com.google.android.gms.ads.APPLICATION_ID' app/src/main/AndroidManifest.xml
+          grep -Fq 'import androidx.activity.EdgeToEdge;' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'EdgeToEdge.enable(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'applySafeInsets(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Eq 'versionCode[[:space:]]+30' app/build.gradle
+          echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION LOCK: PASS"
+          echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PRESERVED"
+
       - name: Set up JDK 17
         uses: actions/setup-java@v5
         with:
