@@ -25,7 +25,7 @@ public class WelcomeActivity extends Activity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setVerticalScrollBarEnabled(false);scroll.setBackgroundColor(Color.rgb(250,247,239));
         FrameLayout canvas=new FrameLayout(this);WelcomeArtworkView artwork=new WelcomeArtworkView(this);canvas.addView(artwork,new FrameLayout.LayoutParams(-1,-2));
-        TextView start=hit("Get Started"),login=hit("Sign In"),lang=hit("Language: "+LanguageManager.currentName(this));
+        TextView start=hit("Get Started"),login=hit("Sign In"),lang=hit("Language: "+LanguageManager.currentName(this));\n        start.setId(R.id.welcome_get_started);\n        login.setId(R.id.welcome_sign_in);\n        lang.setId(R.id.welcome_language);
         canvas.addView(start);canvas.addView(login);canvas.addView(lang);
         artwork.post(()->position(artwork,start,login,lang));
         start.setOnClickListener(v->openAzure());
