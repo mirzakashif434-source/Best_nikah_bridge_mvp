@@ -49,10 +49,16 @@ jobs:
           grep -Fq '"Ignore / Remove"' "$APP/LikedMeActivity.java"
           grep -Fq 'AzureApiClient.get("/likes/sent"' "$APP/ILikedActivity.java"
           grep -Fq 'Pending • waiting for like back' "$APP/ILikedActivity.java"
+          grep -Fq 'PremiumFeatureGate.require(this,"whoViewedYou","20 SAR Basic or higher"' "$APP/ViewedMeActivity.java"
           grep -Fq 'AzureApiClient.get("/profile-views/received"' "$APP/ViewedMeActivity.java"
           grep -Fq 'Last viewed: ' "$APP/ViewedMeActivity.java"
+          grep -Fq 'whoViewedYou:basic' azure-backend/src/premiumAccess.js
+          grep -Fq 'capabilities.whoViewedYou' azure-backend/src/profileViews.js
+          grep -Fq 'PREMIUM_BASIC_REQUIRED' azure-backend/src/profileViews.js
           grep -Fq 'AzureApiClient.get("/profile-views/sent"' "$APP/IViewedActivity.java"
           grep -Fq '"Like Now"' "$APP/IViewedActivity.java"
+          ! grep -Fq 'PremiumFeatureGate.require' "$APP/ILikedActivity.java"
+          ! grep -Fq 'PremiumFeatureGate.require' "$APP/IViewedActivity.java"
           grep -Fq 'route:"likes/received/{sourceUserId}"' azure-backend/src/likeHistory.js
           grep -Fq 'route:"profile-views/received"' azure-backend/src/profileViews.js
           grep -Fq 'route:"profile-views/sent"' azure-backend/src/profileViews.js
