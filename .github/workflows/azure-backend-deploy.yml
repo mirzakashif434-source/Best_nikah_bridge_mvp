@@ -317,6 +317,8 @@ jobs:
 
           export PGPASSWORD="$DB_PASSWORD"
           CONN="host=$DB_HOST port=5432 dbname=$DB_NAME user=$DB_USER sslmode=require"
+          psql "$CONN" -v ON_ERROR_STOP=1 -f azure-backend/database/migrations/20260926_profile_views.sql
+          echo "PROFILE VIEWS ADDITIVE MIGRATION: PASS"
           ADMIN_COUNT="$(psql "$CONN" -Atc "SELECT count(*) FROM users WHERE status='active' AND role IN ('admin','moderator');")"
           ACTIVE_COUNT="$(psql "$CONN" -Atc "SELECT count(*) FROM users WHERE status='active';")"
           echo "Active production users: $ACTIVE_COUNT"
