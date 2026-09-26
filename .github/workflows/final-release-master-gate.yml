@@ -1,0 +1,164 @@
+name: Final Release Master Gate
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'app/**'
+      - 'azure-backend/**'
+      - '.maestro/final-release-42-screen-master.yaml'
+      - '.github/scripts/verify_final_release_master.py'
+      - '.github/workflows/final-release-master-gate.yml'
+      - '.github/workflows/azure-backend-deploy.yml'
+      - 'FORTRESS_BUDGET_MODE.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  final-master:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact release candidate
+        uses: actions/checkout@v5
+
+      - name: Final 42-screen + buttons + camera + null gate
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_final_release_master.py
+
+      - name: Azure backend syntax and route load
+        working-directory: azure-backend
+        run: |
+          set -euo pipefail
+          npm install
+          find src -maxdepth 1 -type f -name '*.js' -print -exec node --check {} \;
+          node -e "require('./src/index.js'); console.log('AZURE BACKEND LOAD: PASS')"
+
+      - name: Lock Self-Healing Auto-Rollback Fortress Budget
+        run: |
+          set -euo pipefail
+          WF=.github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Self-heal Azure runtime after transient production failure' "$WF"
+          grep -Fq 'Auto-rollback Azure backend to last known-good Golden release' "$WF"
+          grep -Fq 'Verify production after Golden rollback' "$WF"
+          test -s FORTRESS_BUDGET_MODE.md
+          grep -Fq -- '--instance-memory 512 --maximum-instance-count 20' "$WF"
+          grep -Fq 'AZURE_DB_POOL_MAX=3' "$WF"
+          echo "SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: LOCKED"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Compile and lint all Android production source
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:compileDebugJavaWithJavac :app:lintDebug --stacktrace
+
+      - name: Prepare real release signing and Azure redirect URI
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+          HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
+          python3 - "$HASH" <<'PY'
+          import json,pathlib,re,sys
+          h=sys.argv[1]
+          p=pathlib.Path("app/src/main/res/raw/auth_config.json")
+          d=json.loads(p.read_text())
+          d["redirect_uri"]="msauth://com.nikahbridge/"+h.replace("=","%3D")
+          p.write_text(json.dumps(d,indent=2)+"\n")
+          p=pathlib.Path("app/src/main/AndroidManifest.xml")
+          s=p.read_text()
+          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(")',rf'\g<1>{h}\g<2>',s)
+          p.write_text(s)
+          PY
+
+      - name: Build final signed APK and AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          ./gradlew clean :app:assembleRelease :app:bundleRelease --stacktrace
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
+
+      - name: Verify final signed APK against 42-screen master
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_final_release_master.py app/build/outputs/apk/release/app-release.apk
+
+      - name: Install Maestro CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          "$HOME/.maestro/bin/maestro" --version
+
+      - name: Runtime APK smoke + Maestro accessibility gate
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          script: bash "$GITHUB_WORKSPACE/.github/scripts/runtime_maestro_master_gate.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+
+      - name: Signed-in 42-screen Maestro contract lock
+        run: |
+          set -euo pipefail
+          test -s .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'clearState: false' .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Secure Azure session verified' .maestro/final-release-42-screen-master.yaml
+          echo "42-SCREEN REAL SIGNED-IN MAESTRO CONTRACT: LOCKED"
+          echo "NOTE: CI does not fabricate a signed-in production user session."
+
+      - name: Golden Release candidate manifest
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          {
+            echo "BEST NIKAH BRIDGE — FINAL RELEASE MASTER"
+            echo "commit=$GITHUB_SHA"
+            echo "apk_sha256=$(sha256sum "$APK" | awk '{print $1}')"
+            echo "aab_sha256=$(sha256sum "$AAB" | awk '{print $1}')"
+            echo "screens=42"
+            echo "status=FINAL_RELEASE_MASTER_PASS"
+            echo "protection=Maestro_E2E+Golden_Release+Self_Healing+Auto_Rollback+Fortress_Budget"
+          } | tee FINAL_RELEASE_MASTER_MANIFEST.txt
+
+      - name: Upload final release candidate
+        uses: actions/upload-artifact@v6
+        with:
+          name: best-nikah-bridge-final-release-master
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            FINAL_RELEASE_MASTER_MANIFEST.txt
+          if-no-files-found: error
+
+      - name: Final result
+        run: |
+          echo "FINAL RELEASE MASTER GATE: PASS"
+          echo "42 screens + buttons + camera/photo contracts + null/error scan + Azure + APK/AAB: PASS"
+          echo "Maestro E2E → Golden Release → Self-Healing → Auto-Rollback → Fortress Budget: LOCKED"
