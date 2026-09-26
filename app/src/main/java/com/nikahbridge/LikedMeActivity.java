@@ -3,6 +3,7 @@ package com.nikahbridge;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.*;
@@ -175,6 +176,10 @@ public class LikedMeActivity extends Activity {
         if(likedBack)likeBack.setEnabled(false);
         else likeBack.setOnClickListener(v->likeBack(userId,likeBack));
 
+        Button ignore=Premium2030Ui.secondary(this,"Ignore / Remove");
+        card.addView(ignore,new LinearLayout.LayoutParams(-1,dp(52)));
+        ignore.setOnClickListener(v->confirmIgnore(userId,name,card,ignore));
+
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
         lp.setMargins(0,dp(6),0,dp(6));
         list.addView(card,lp);
@@ -198,6 +203,44 @@ public class LikedMeActivity extends Activity {
                 .setMessage(body.toString())
                 .setPositiveButton("Close",null)
                 .show();
+    }
+
+    private void confirmIgnore(String userId,String name,LinearLayout card,Button button){
+        if(userId==null||userId.trim().isEmpty()){
+            LanguageManager.toast(this,"This like cannot be removed right now.",Toast.LENGTH_LONG).show();
+            return;
+        }
+        LanguageManager.dialog(this)
+                .setTitle("Ignore this like?")
+                .setMessage("Remove "+name+" from Liked Me? This only dismisses the incoming like. It does not delete or block either profile.")
+                .setNegativeButton("Keep",null)
+                .setPositiveButton("Ignore / Remove",(d,w)->ignoreIncomingLike(userId,card,button))
+                .show();
+    }
+
+    private void ignoreIncomingLike(String userId,LinearLayout card,Button button){
+        button.setEnabled(false);
+        button.setText("Removing…");
+        AzureApiClient.delete("/likes/received/"+Uri.encode(userId),"{}",new AzureApiClient.Callback(){
+            @Override public void ok(int code,String body){
+                runOnUiThread(()->{
+                    list.removeView(card);
+                    LanguageManager.toast(LikedMeActivity.this,"Incoming like removed securely in Azure.",Toast.LENGTH_LONG).show();
+                    load();
+                });
+            }
+            @Override public void err(String message){
+                runOnUiThread(()->{
+                    button.setEnabled(true);
+                    button.setText("Ignore / Remove");
+                    if(message!=null&&message.contains("ACTIVE_INCOMING_LIKE_NOT_FOUND")){
+                        load();
+                    }else{
+                        LanguageManager.toast(LikedMeActivity.this,"Like could not be removed. Please try again.",Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        });
     }
 
     private void likeBack(String userId,Button button){
