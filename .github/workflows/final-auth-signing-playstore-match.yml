@@ -11,6 +11,7 @@ env:
   EXPECTED_CLIENT_ID: f5fc2b11-420f-4741-9a52-65d60cbddb7b
   EXPECTED_API_AUDIENCE: 4733ae40-3b89-4994-b99b-3890bf87e876
   EXPECTED_TENANT_ID: c4ac0560-df59-48d4-af1b-bb0ed127ce6d
+  EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
 
 jobs:
   verify:
@@ -54,16 +55,13 @@ jobs:
 
       - name: Verify GitHub upload key equals Play Console upload certificate
         env:
-          PLAY_UPLOAD_CERT_SHA1: ${{ secrets.PLAY_UPLOAD_CERT_SHA1 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$PLAY_UPLOAD_CERT_SHA1" || { echo "Missing secret PLAY_UPLOAD_CERT_SHA1"; exit 1; }
           ACTUAL="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
-          EXPECTED="$(printf '%s' "$PLAY_UPLOAD_CERT_SHA1" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           echo "GitHub upload-key SHA1: $ACTUAL"
-          test "$ACTUAL" = "$EXPECTED"
+          test "$ACTUAL" = "$EXPECTED_PLAY_UPLOAD_SHA1"
           echo "UPLOAD KEY <-> PLAY CONSOLE UPLOAD CERT: PASS"
 
       - name: Verify Play app-signing certificate drives Microsoft redirect
