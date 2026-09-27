@@ -1,0 +1,107 @@
+name: Final Auth Signing Play Store Match
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_PACKAGE: com.nikahbridge
+  EXPECTED_CLIENT_ID: f5fc2b11-420f-4741-9a52-65d60cbddb7b
+  EXPECTED_API_AUDIENCE: 4733ae40-3b89-4994-b99b-3890bf87e876
+  EXPECTED_TENANT_ID: c4ac0560-df59-48d4-af1b-bb0ed127ce6d
+  EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
+  EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout production branch
+        uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+
+      - name: Protect locked 610 feature source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git status --porcelain)"
+          echo "BUILD 610 SOURCE: READ-ONLY / UNCHANGED"
+
+      - name: Verify package and Azure auth identifiers
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "applicationId '$EXPECTED_PACKAGE'" app/build.gradle
+          grep -Fq '"client_id": "'$EXPECTED_CLIENT_ID'"' app/src/main/res/raw/auth_config.json
+          grep -Fq "api://$EXPECTED_API_AUDIENCE/access_as_user" app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq "api://$EXPECTED_API_AUDIENCE/access_as_user" app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
+          grep -Fq "const tenantId = \"$EXPECTED_TENANT_ID\";" azure-backend/src/azureExternalAuth.js
+          grep -Fq "$EXPECTED_API_AUDIENCE" azure-backend/src/azureExternalAuth.js
+          echo "PACKAGE + AZURE IDS: PASS"
+
+      - name: Restore real upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+
+      - name: Verify GitHub upload key equals Play Console upload certificate
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          echo "GitHub upload-key SHA1: $ACTUAL"
+          test "$ACTUAL" = "$EXPECTED_PLAY_UPLOAD_SHA1"
+          echo "UPLOAD KEY <-> PLAY CONSOLE UPLOAD CERT: PASS"
+
+      - name: Verify Play app-signing certificate drives Microsoft redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEX="$EXPECTED_PLAY_APP_SIGNING_SHA1"
+          B64="$(printf '%s' "$HEX" | xxd -r -p | openssl base64 -A)"
+          URL_B64="$(printf '%s' "$B64" | sed 's/=/%3D/g')"
+          echo "Play app-signing redirect hash: $B64"
+          test "$B64" = "haUulU8x36wsEGKo1k7aLZtIW0g="
+          grep -Fq "\"redirect_uri\": \"msauth://$EXPECTED_PACKAGE/$URL_B64\"" app/src/main/res/raw/auth_config.json
+          grep -Fq "android:scheme=\"msauth\" android:host=\"$EXPECTED_PACKAGE\" android:path=\"/$B64\"" app/src/main/AndroidManifest.xml
+          echo "PLAY APP-SIGNING CERT <-> ANDROID MSAL REDIRECT: PASS"
+
+      - name: Build exact signed upload AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean :app:assembleRelease :app:bundleRelease --stacktrace
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
+          echo "SIGNED UPLOAD APK + AAB: PASS"
+
+      - name: Verify Build 610 source stayed untouched by this gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          echo "BUILD 610 FEATURE SOURCE: UNCHANGED"
+
+      - name: Final result
+        run: |
+          echo "FINAL AUTH/SIGNING/PLAY STORE MATCH: PASS"
+          echo "Upload certificate and Play app-signing certificate were checked separately."
