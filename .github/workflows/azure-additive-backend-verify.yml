@@ -373,7 +373,12 @@ jobs:
           grep -Fq 'WindowCompat.setDecorFitsSystemWindows(a.getWindow(),false);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'applySafeInsets(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Eq 'versionCode[[:space:]]+31' app/build.gradle
-          echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION LOCK: PASS"
+          grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
+          echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION 31 + PLAY APP-SIGNING MSAL LOCK: PASS"
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PRESERVED"
 
       - name: Set up JDK 17
