@@ -1,0 +1,73 @@
+name: Build 620 Full Safety Backup ZIP
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - '.github/workflows/build-620-full-backup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout exact production branch
+        uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Verify locked Build 620/32 production state
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Eq 'versionCode[[:space:]]+32' app/build.gradle
+          grep -Fq 'appId: com.nikahbridge' .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PRESERVED' .github/workflows/azure-additive-backend-verify.yml
+          echo "BUILD 620/32 PRODUCTION CONTRACT: PASS"
+
+      - name: Create recovery manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          COMMIT="$(git rev-parse HEAD)"
+          {
+            echo "BEST NIKAH BRIDGE — BUILD 620 FULL SAFETY BACKUP"
+            echo "branch=azure-backend-additive"
+            echo "commit=$COMMIT"
+            echo "versionCode=32"
+            echo "versionName=2.5"
+            echo "package=com.nikahbridge"
+            echo "contents=Android app + 42-screen Maestro + Azure backend + database + workflows + Master Gate + Self-Healing + Auto-Rollback + Fortress Budget + release/auth configs"
+            echo "secrets=NOT INCLUDED (GitHub Secrets and private passwords are intentionally excluded)"
+            echo "restore=Extract ZIP, restore secrets separately, then build from this exact source snapshot."
+          } > BUILD_620_BACKUP_README.txt
+          git ls-files > BUILD_620_FILE_MANIFEST.txt
+          sha256sum BUILD_620_BACKUP_README.txt BUILD_620_FILE_MANIFEST.txt > BUILD_620_MANIFEST_SHA256.txt
+
+      - name: Build full source ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/bnb-backup
+          rsync -a --exclude '.git' ./ /tmp/bnb-backup/Best_Nikah_Bridge_Build620_Full_Backup/
+          cd /tmp/bnb-backup
+          zip -r -9 "$GITHUB_WORKSPACE/Best_Nikah_Bridge_Build620_Full_Backup.zip" Best_Nikah_Bridge_Build620_Full_Backup >/dev/null
+          cd "$GITHUB_WORKSPACE"
+          test -s Best_Nikah_Bridge_Build620_Full_Backup.zip
+          sha256sum Best_Nikah_Bridge_Build620_Full_Backup.zip > Best_Nikah_Bridge_Build620_Full_Backup.zip.sha256
+
+      - name: Upload full backup
+        uses: actions/upload-artifact@v6
+        with:
+          name: Best-Nikah-Bridge-Build620-Full-Backup
+          path: |
+            Best_Nikah_Bridge_Build620_Full_Backup.zip
+            Best_Nikah_Bridge_Build620_Full_Backup.zip.sha256
+          if-no-files-found: error
+          retention-days: 90
