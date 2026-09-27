@@ -10,7 +10,7 @@ android {
         applicationId 'com.nikahbridge'
         minSdk 24
         targetSdk 36
-        versionCode 30
+        versionCode 31
         versionName '2.5'
     }
 
