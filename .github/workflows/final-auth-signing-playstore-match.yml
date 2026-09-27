@@ -98,6 +98,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # The build step temporarily chmods gradlew so Linux can execute it.
+          # Restore that tracked file mode before checking for real source changes.
+          git restore --worktree -- gradlew
           git diff --exit-code
           echo "BUILD 610 FEATURE SOURCE: UNCHANGED"
 
