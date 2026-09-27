@@ -11,8 +11,6 @@ env:
   EXPECTED_CLIENT_ID: f5fc2b11-420f-4741-9a52-65d60cbddb7b
   EXPECTED_API_AUDIENCE: 4733ae40-3b89-4994-b99b-3890bf87e876
   EXPECTED_TENANT_ID: c4ac0560-df59-48d4-af1b-bb0ed127ce6d
-  EXPECTED_RELEASE_CERT_SHA1: 5EED8420F561C0268EEC6A431B1000C221A050DD
-  EXPECTED_REDIRECT_B64: Xu2EIPVhwCaO7GpDGxAAwiGgUN0=
 
 jobs:
   verify:
@@ -27,11 +25,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git status --porcelain
           test -z "$(git status --porcelain)"
           echo "BUILD 610 SOURCE: READ-ONLY / UNCHANGED"
 
-      - name: Verify package and Azure auth contract
+      - name: Verify package and Azure auth identifiers
         shell: bash
         run: |
           set -euo pipefail
@@ -40,12 +37,10 @@ jobs:
           grep -Fq "api://$EXPECTED_API_AUDIENCE/access_as_user" app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq "api://$EXPECTED_API_AUDIENCE/access_as_user" app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
           grep -Fq "const tenantId = \"$EXPECTED_TENANT_ID\";" azure-backend/src/azureExternalAuth.js
-          grep -Fq "4733ae40-3b89-4994-b99b-3890bf87e876" azure-backend/src/azureExternalAuth.js
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/Xu2EIPVhwCaO7GpDGxAAwiGgUN0%3D"' app/src/main/res/raw/auth_config.json
-          grep -Fq 'android:host="com.nikahbridge" android:path="/Xu2EIPVhwCaO7GpDGxAAwiGgUN0="' app/src/main/AndroidManifest.xml
-          echo "AUTH CONTRACT: PASS"
+          grep -Fq "$EXPECTED_API_AUDIENCE" azure-backend/src/azureExternalAuth.js
+          echo "PACKAGE + AZURE IDS: PASS"
 
-      - name: Restore release keystore
+      - name: Restore real upload keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -57,33 +52,37 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
 
-      - name: Verify release signing certificate equals locked Entra redirect certificate
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          ACTUAL_HEX="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
-          ACTUAL_B64="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
-          echo "Release cert SHA1: $ACTUAL_HEX"
-          test "$ACTUAL_HEX" = "$EXPECTED_RELEASE_CERT_SHA1"
-          test "$ACTUAL_B64" = "$EXPECTED_REDIRECT_B64"
-          echo "RELEASE KEY <-> ENTRA REDIRECT: PASS"
-
-      - name: Verify Play Console upload certificate match
+      - name: Verify GitHub upload key equals Play Console upload certificate
         env:
           PLAY_UPLOAD_CERT_SHA1: ${{ secrets.PLAY_UPLOAD_CERT_SHA1 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$PLAY_UPLOAD_CERT_SHA1" || { echo "Missing GitHub secret PLAY_UPLOAD_CERT_SHA1"; exit 1; }
+          test -n "$PLAY_UPLOAD_CERT_SHA1" || { echo "Missing secret PLAY_UPLOAD_CERT_SHA1"; exit 1; }
           ACTUAL="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
           EXPECTED="$(printf '%s' "$PLAY_UPLOAD_CERT_SHA1" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          echo "GitHub upload-key SHA1: $ACTUAL"
           test "$ACTUAL" = "$EXPECTED"
-          echo "RELEASE KEY <-> PLAY CONSOLE UPLOAD CERT: PASS"
+          echo "UPLOAD KEY <-> PLAY CONSOLE UPLOAD CERT: PASS"
 
-      - name: Build exact signed release
+      - name: Verify Play app-signing certificate drives Microsoft redirect
+        env:
+          PLAY_APP_SIGNING_CERT_SHA1: ${{ secrets.PLAY_APP_SIGNING_CERT_SHA1 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$PLAY_APP_SIGNING_CERT_SHA1" || { echo "Missing secret PLAY_APP_SIGNING_CERT_SHA1"; exit 1; }
+          HEX="$(printf '%s' "$PLAY_APP_SIGNING_CERT_SHA1" | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "${#HEX}" = "40"
+          B64="$(printf '%s' "$HEX" | xxd -r -p | openssl base64 -A)"
+          URL_B64="$(printf '%s' "$B64" | sed 's/=/%3D/g')"
+          echo "Play app-signing redirect hash: $B64"
+          grep -Fq "\"redirect_uri\": \"msauth://$EXPECTED_PACKAGE/$URL_B64\"" app/src/main/res/raw/auth_config.json
+          grep -Fq "android:scheme=\"msauth\" android:host=\"$EXPECTED_PACKAGE\" android:path=\"/$B64\"" app/src/main/AndroidManifest.xml
+          echo "PLAY APP-SIGNING CERT <-> ANDROID MSAL REDIRECT: PASS"
+
+      - name: Build exact signed upload AAB
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -97,9 +96,16 @@ jobs:
           test -s app/build/outputs/apk/release/app-release.apk
           test -s app/build/outputs/bundle/release/app-release.aab
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
-          echo "SIGNED APK + AAB: PASS"
+          echo "SIGNED UPLOAD APK + AAB: PASS"
+
+      - name: Verify Build 610 source stayed untouched by this gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          echo "BUILD 610 FEATURE SOURCE: UNCHANGED"
 
       - name: Final result
         run: |
           echo "FINAL AUTH/SIGNING/PLAY STORE MATCH: PASS"
-          echo "Build 610 feature source was not modified."
+          echo "Upload certificate and Play app-signing certificate were checked separately."
