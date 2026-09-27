@@ -76,7 +76,10 @@ jobs:
           test "$B64" = "haUulU8x36wsEGKo1k7aLZtIW0g="
           grep -Fq "\"redirect_uri\": \"msauth://$EXPECTED_PACKAGE/$URL_B64\"" app/src/main/res/raw/auth_config.json
           grep -Fq "android:scheme=\"msauth\" android:host=\"$EXPECTED_PACKAGE\" android:path=\"/$B64\"" app/src/main/AndroidManifest.xml
-          echo "PLAY APP-SIGNING CERT <-> ANDROID MSAL REDIRECT: PASS"
+          grep -Fq "\"redirect_uri\": \"msauth://$EXPECTED_PACKAGE/$URL_B64\"" app/src/release/res/raw/auth_config.json
+          grep -Fq "android:host=\"$EXPECTED_PACKAGE\"" app/src/release/AndroidManifest.xml
+          grep -Fq "android:path=\"/$B64\"" app/src/release/AndroidManifest.xml
+          echo "PLAY APP-SIGNING CERT <-> MAIN + RELEASE MSAL REDIRECT: PASS"
 
       - name: Build exact signed upload AAB
         env:
