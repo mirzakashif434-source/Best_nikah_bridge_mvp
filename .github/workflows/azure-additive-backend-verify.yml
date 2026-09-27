@@ -372,7 +372,7 @@ jobs:
           grep -Fq 'import androidx.core.view.WindowCompat;' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'WindowCompat.setDecorFitsSystemWindows(a.getWindow(),false);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'applySafeInsets(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
-          grep -Eq 'versionCode[[:space:]]+30' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+31' app/build.gradle
           echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION LOCK: PASS"
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PRESERVED"
 
