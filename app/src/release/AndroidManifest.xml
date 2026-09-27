@@ -13,7 +13,7 @@
                 <data
                     android:scheme="msauth"
                     android:host="com.nikahbridge"
-                    android:path="/QQIyMPjboduCSVjlUdgoTGW6UEg=" />
+                    android:path="/haUulU8x36wsEGKo1k7aLZtIW0g=" />
             </intent-filter>
         </activity>
     </application>
