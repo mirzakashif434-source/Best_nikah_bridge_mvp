@@ -2,6 +2,7 @@ const { app } = require("@azure/functions");
 const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
 const { accessForAuth } = require("./premiumAccess");
+const { createNotification } = require("./notifications");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 
@@ -151,6 +152,17 @@ app.http("messageCreate",{
         [id,me.id,body]
       );
       await client.query("COMMIT");
+      try{
+        const profile=await query("SELECT display_name FROM profiles WHERE user_id=$1 LIMIT 1",[me.id]);
+        const name=String(profile.rows[0]?.display_name||"Someone").trim();
+        await createNotification(
+          otherId,
+          "message",
+          "New message",
+          name+" sent you a message.",
+          {actorUserId:user.azure_subject||"",conversationId:id,messageId:r.rows[0].id}
+        );
+      }catch(pushError){context.warn("MESSAGE_NOTIFICATION_FAILED",pushError);}
       return {status:201,jsonBody:{
         ok:true,
         message:r.rows[0],
