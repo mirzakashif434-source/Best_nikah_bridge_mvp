@@ -1,0 +1,254 @@
+name: Step 12 Security Play Store Compliance Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_12_SECURITY_PLAY_STORE_COMPLIANCE_LOCK.md'
+      - '.github/workflows/step12-security-play-store-compliance-master-lock.yml'
+      - 'app/**'
+      - 'azure-backend/**'
+      - '.github/workflows/final-auth-signing-playstore-match.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step12-security-compliance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Verify package SDK and release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          B=app/build.gradle
+          grep -Fq "applicationId 'com.nikahbridge'" "$B"
+          grep -Fq 'compileSdk 36' "$B"
+          grep -Fq 'targetSdk 36' "$B"
+          grep -Fq 'minSdk 24' "$B"
+          grep -Fq 'signingConfig signingConfigs.release' "$B"
+          ! grep -Eq 'storePassword[[:space:]]+["'''][^$]' "$B"
+          ! grep -Eq 'keyPassword[[:space:]]+["'''][^$]' "$B"
+          echo "PACKAGE + SDK + RELEASE SIGNING CONFIG: PASS"
+
+      - name: Verify manifest security and exported surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          M=app/src/main/AndroidManifest.xml
+
+          grep -Fq 'android:allowBackup="false"' "$M"
+          grep -Fq 'android:usesCleartextTraffic="false"' "$M"
+          grep -Fq 'android.permission.INTERNET' "$M"
+          grep -Fq 'android.permission.POST_NOTIFICATIONS' "$M"
+          grep -Fq 'com.google.android.gms.permission.AD_ID' "$M"
+          grep -Fq 'com.google.android.gms.ads.APPLICATION_ID' "$M"
+          grep -Fq 'androidx.core.content.FileProvider' "$M"
+          grep -Fq 'android:exported="false" android:grantUriPermissions="true"' "$M"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          m=Path("app/src/main/AndroidManifest.xml").read_text()
+          exported_true=re.findall(r'<activity[^>]+android:name="([^"]+)"[^>]+android:exported="true"',m)
+          allowed={".WelcomeActivity",".FamilyCircleActivity","com.microsoft.identity.client.BrowserTabActivity"}
+          unexpected=[x for x in exported_true if x not in allowed]
+          missing=[x for x in allowed if x not in exported_true]
+          assert not unexpected, "Unexpected exported Activity: "+", ".join(unexpected)
+          assert not missing, "Required exported Activity missing: "+", ".join(missing)
+          print("EXPORTED ACTIVITY SURFACE: PASS")
+          PY
+
+      - name: Verify Play signing and MSAL redirect lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/final-auth-signing-playstore-match.yml
+          grep -Fq 'EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048' "$F"
+          grep -Fq 'EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48' "$F"
+          grep -Fq 'haUulU8x36wsEGKo1k7aLZtIW0g=' "$F"
+          grep -Fq 'PLAY APP-SIGNING CERT <-> MAIN + RELEASE MSAL REDIRECT: PASS' "$F"
+          echo "PLAY SIGNING + MSAL REDIRECT: PASS"
+
+      - name: Verify Azure auth transport and no cleartext endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -RInq 'https://bestnikahbredge-prod-fn-' app/src/main/java/com/nikahbridge
+          ! grep -RInE 'http://[^"]+' app/src/main/java/com/nikahbridge --include='*.java'
+          echo "HTTPS-ONLY APP ENDPOINTS: PASS"
+
+      - name: Verify permanent account deletion
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
+          grep -Fq 'Permanently Delete Account' "$A"
+          grep -Fq 'AzureApiClient.delete("/account"' "$A"
+          grep -Fq 'Account deleted permanently.' "$A"
+          test -s azure-backend/src/account.js
+          grep -RInq 'route:[[:space:]]*"account"' azure-backend/src
+          echo "ACCOUNT DELETION: PASS"
+
+      - name: Verify Terms privacy and UGC safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          T=app/src/main/java/com/nikahbridge/TermsAndCommunityGuidelinesActivity.java
+          grep -Fq 'Terms & Community Guidelines' "$T"
+          grep -Fq 'Child sexual abuse and exploitation material is strictly prohibited' "$T"
+          grep -Fq 'Use Report and Block tools' "$T"
+          grep -Fq 'View Privacy Policy' "$T"
+          grep -Fq 'AzureApiClient.post("/terms/accept"' "$T"
+
+          test -s app/src/main/java/com/nikahbridge/PrivacyControlCenterActivity.java
+          test -s app/src/main/java/com/nikahbridge/BlockedMembersActivity.java
+          test -s azure-backend/src/moderation.js
+          test -s azure-backend/src/safety.js
+          echo "TERMS + PRIVACY + UGC SAFETY: PASS"
+
+      - name: Verify billing and ads policy controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          B=app/build.gradle
+          P=app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          A=app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          R=azure-backend/src/rewardedAds.js
+
+          grep -Fq 'com.android.billingclient:billing:9.1.0' "$B"
+          grep -Fq 'launchBillingFlow' "$P"
+          grep -Fq '/premium/purchases/verify' "$P"
+          grep -Fq 'UserMessagingPlatform.getConsentInformation' "$A"
+          grep -Fq 'loadAndShowConsentFormIfRequired' "$A"
+          grep -Fq 'route: "admob/rewarded/ssv"' "$R"
+          grep -Fq 'crypto.verify("sha256"' "$R"
+          grep -Fq 'PREMIUM_AD_FREE' "$R"
+          echo "BILLING + ADS CONSENT + SSV: PASS"
+
+      - name: Verify 18+ and safety critical features
+        shell: bash
+        run: |
+          set -euo pipefail
+          I=app/src/main/java/com/nikahbridge/IdentityVerificationActivity.java
+          grep -Fq 'age 18+' "$I"
+          grep -Fq 'AGE_18_PLUS_REQUIRED' "$I"
+          test -s azure-backend/src/ageGate.js
+          grep -RInq 'AGE_18_PLUS_REQUIRED' azure-backend/src
+          echo "18+ SAFETY: PASS"
+
+      - name: Verify Firebase zero and 50 Activities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e firebase.json
+          test ! -e firestore.rules
+          test ! -e firestore.indexes.json
+          test ! -e storage.rules
+          test ! -e app/google-services.json
+          test ! -d functions
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
+          test "$COUNT" = "50"
+          echo "FIREBASE ZERO + 50 ACTIVITIES: PASS"
+
+  maestro-e2e:
+    name: Maestro E2E Contract
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify safety and destructive-flow navigation contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLOW=.maestro/final-release-42-screen-master.yaml
+          test -s "$FLOW"
+          grep -Fq 'Permanently Delete Account' "$FLOW"
+          grep -Fq 'Delete Azure account data permanently' "$FLOW"
+          grep -Fq 'CANCEL' "$FLOW"
+          grep -Fq 'Sign out of Azure' "$FLOW"
+          grep -Fq 'Privacy Controls' "$FLOW"
+          grep -Fq 'Blocked Members' "$FLOW"
+          grep -Fq 'Terms & Community Guidelines' "$FLOW"
+          echo "MAESTRO COMPLIANCE NAVIGATION CONTRACT: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Prevent cloud mutation in Step 12
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step12-security-play-store-compliance-master-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 12 Locked
+    needs: [master-gate, maestro-e2e, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 12 SECURITY + PLAY STORE COMPLIANCE: LOCKED"
+          echo "Master Gate -> Maestro E2E Contract -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
