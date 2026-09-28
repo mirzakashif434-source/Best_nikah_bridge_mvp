@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
+const { createNotification } = require("./notifications");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 
