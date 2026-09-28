@@ -24,13 +24,13 @@ app.http("matches",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await query(`
-        SELECT u.id,u.azure_subject,u.firebase_uid,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
+        SELECT u.id,u.azure_subject,u.azure_subject,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,pp.education_levels,pp.family_involvement,ps.show_city
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
         LEFT JOIN user_presence up ON up.user_id=u.id
-        WHERE u.status='active' AND (u.azure_subject=$1 OR u.firebase_uid=$2)`,[user.azure_subject||"",user.uid]);
+        WHERE u.status='active' AND (u.azure_subject=$1 OR u.azure_subject=$2)`,[user.azure_subject||"",user.uid]);
       if(!me.rows[0]||!me.rows[0].profile_completed||!me.rows[0].is_visible)
         return {status:409,jsonBody:{ok:false,error:"PROFILE_NOT_READY"}};
 
@@ -38,7 +38,7 @@ app.http("matches",{
       const viewerPremium=await entitlementForUser(m.id);
       const viewerCaps=capabilitiesFor(viewerPremium);
       const candidates=await query(`
-        SELECT u.id,u.azure_subject,u.firebase_uid,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
+        SELECT u.id,u.azure_subject,u.azure_subject,p.*,EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,ps.show_city,
                COALESCE(ps.show_photo_to_matches,false) AS show_photo_to_matches,
                EXISTS(
@@ -100,7 +100,7 @@ app.http("matches",{
            !dealConflict(JSON.stringify(c.deal_breakers),JSON.stringify(m.preferences))){score+=7;reasons.push("no detected deal-breaker conflict");}
         score=Math.min(100,score);
         matches.push({
-          userId:c.azure_subject||c.firebase_uid||null,displayName:c.display_name,age:c.age,gender:c.gender,
+          userId:c.azure_subject||c.azure_subject||null,displayName:c.display_name,age:c.age,gender:c.gender,
           country:c.country,city:c.show_city===false?null:c.city,marriageIntention:c.marriage_intention,
           marriageTimeline:viewerCaps.marriageTimeline?c.preferred_marriage_timeline:null,
           readinessScore:viewerCaps.advancedMatching?c.readiness_score:null,
@@ -133,7 +133,7 @@ app.http("matchMessageAccess",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       const me=await query(
-        "SELECT id,status FROM users WHERE status='active' AND (azure_subject=$1 OR firebase_uid=$2) LIMIT 1",
+        "SELECT id,status FROM users WHERE status='active' AND (azure_subject=$1 OR azure_subject=$2) LIMIT 1",
         [user.azure_subject||"",user.uid||""]
       );
       if(!me.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};
@@ -142,7 +142,7 @@ app.http("matchMessageAccess",{
 
       const targetKey=String((request.params&&request.params.targetUserId)||context.triggerMetadata?.targetUserId||"").trim();
       const target=await query(
-        "SELECT id FROM users WHERE status='active' AND (azure_subject=$1 OR firebase_uid=$1 OR id::text=$1) LIMIT 1",
+        "SELECT id FROM users WHERE status='active' AND (azure_subject=$1 OR azure_subject=$1 OR id::text=$1) LIMIT 1",
         [targetKey]
       );
       if(!target.rows[0])return {status:404,jsonBody:{ok:false,error:"TARGET_NOT_FOUND"}};
