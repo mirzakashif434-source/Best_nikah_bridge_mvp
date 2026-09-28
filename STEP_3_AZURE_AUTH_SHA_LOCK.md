@@ -10,8 +10,8 @@ Target branch: `azure-backend-additive`
 - Tenant ID: `c4ac0560-df59-48d4-af1b-bb0ed127ce6d`
 - Tenant subdomain: `bestnikahbredge`
 - Expected upload certificate SHA-1: `41097230F8DBA1DB824958C851D8284C65BA5048`
-- Expected Play App Signing SHA-1: `85A52E954F31DFAC2C1062A8D64EDA2D9B485B48`
-- Play App Signing MSAL redirect hash: `haUulU8x36wsEGKo1k7aLZtIW0g=`
+- Expected Play App Signing SHA-1: `592FB39683C3697B2C9FF448AF400699DE2257E9`
+- Play App Signing MSAL redirect hash: `WS+zloPDaXssn/RIr0AGmd4iV+k=`
 
 ## Critical correction
 The GitHub upload keystore is used only to sign the AAB uploaded to Play Console.
