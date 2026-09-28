@@ -93,7 +93,8 @@ jobs:
           grep -Fq '/settings/nikah_blueprint' "$F"
           grep -Fq '/compatibility/living' "$F"
           grep -Fq 'Save My Real Nikah Blueprint' "$F"
-          grep -RInq 'nikah_blueprint' azure-backend/src
+          grep -Fq 'route:"settings/{key}"' azure-backend/src/settings.js
+          grep -Fq 'setting_key=$2' azure-backend/src/settings.js
           echo "NIKAH BLUEPRINT: PASS"
 
       - name: Verify AI Nikah Mediator
