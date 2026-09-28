@@ -21,7 +21,7 @@ async function ensureUser(user){
 
   if(!user.uid) throw new Error("AUTH_IDENTITY_REQUIRED");
   const r=await query(
-    "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status,email",
+    "INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(azure_subject) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status,email",
     [user.uid,email,Boolean(user.email_verified)]
   );
   return r.rows[0];
