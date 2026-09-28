@@ -1002,7 +1002,7 @@ jobs:
 
           # Microsoft redirect must be based on the Play App Signing certificate.
           PLAY_REDIRECT_HASH="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
-          PLAY_REDIRECT_HASH_URL="$(printf '%s' "$PLAY_REDIRECT_HASH" | sed 's/=/%3D/g')"
+          PLAY_REDIRECT_HASH_URL="$(printf '%s' "$PLAY_REDIRECT_HASH" | sed -e 's/+/%2B/g' -e 's#/#%2F#g' -e 's/=/%3D/g')"
           test "$PLAY_REDIRECT_HASH" = "WS+zloPDaXssn/RIr0AGmd4iV+k="
 
           grep -Fq "\"redirect_uri\": \"msauth://com.nikahbridge/$PLAY_REDIRECT_HASH_URL\"" app/src/main/res/raw/auth_config.json
