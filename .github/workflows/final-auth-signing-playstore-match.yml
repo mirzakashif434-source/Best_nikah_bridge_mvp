@@ -80,7 +80,7 @@ jobs:
           set -euo pipefail
           HEX="$EXPECTED_PLAY_APP_SIGNING_SHA1"
           B64="$(printf '%s' "$HEX" | xxd -r -p | openssl base64 -A)"
-          URL_B64="$(printf '%s' "$B64" | sed 's/=/%3D/g')"
+          URL_B64="$(printf '%s' "$B64" | sed -e 's/+/%2B/g' -e 's#/#%2F#g' -e 's/=/%3D/g')"
           echo "Play app-signing redirect hash: $B64"
           test "$B64" = "WS+zloPDaXssn/RIr0AGmd4iV+k="
           grep -Fq "\"redirect_uri\": \"msauth://$EXPECTED_PACKAGE/$URL_B64\"" app/src/main/res/raw/auth_config.json
