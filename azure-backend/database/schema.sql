@@ -158,7 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_photos_moderation_status ON photos (moderation_st
 -- Azure External ID identity mapping.
 -- azure_subject is the canonical production identity.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_subject TEXT;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject ON users (azure_subject) WHERE azure_subject IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject ON users (azure_subject);
 
 
 -- Production Rewarded Ad / message-credit backend.
@@ -880,5 +880,6 @@ BEGIN
   END IF;
 END $$;
 
+DROP INDEX IF EXISTS idx_users_azure_subject;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject
-  ON users (azure_subject) WHERE azure_subject IS NOT NULL;
+  ON users (azure_subject);
