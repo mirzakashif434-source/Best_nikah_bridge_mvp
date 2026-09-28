@@ -4,7 +4,8 @@ const { requireAuth } = require("./auth");
 const { getProfilePhotosContainer, getVerificationDocumentsContainer } = require("./storage");
 
 async function deleteUserData(user, context) {
-  if(!user.azure_subject) return {status:401,jsonBody:{ok:false,error:"UNAUTHENTICATED"}};\n  const r = await query("SELECT id FROM users WHERE azure_subject=$1 LIMIT 1",[user.azure_subject]);
+  if(!user.azure_subject) return {status:401,jsonBody:{ok:false,error:"UNAUTHENTICATED"}};
+  const r = await query("SELECT id FROM users WHERE azure_subject=$1 LIMIT 1",[user.azure_subject]);
   if(!r.rows[0]) return {status:404,jsonBody:{ok:false,error:"ACCOUNT_NOT_FOUND"}};
   const userId=r.rows[0].id;
   const photos=await query("SELECT blob_key FROM photos WHERE user_id=$1",[userId]);
