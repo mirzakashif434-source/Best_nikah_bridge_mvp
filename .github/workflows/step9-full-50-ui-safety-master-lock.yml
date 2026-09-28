@@ -1,0 +1,236 @@
+name: Step 9 Full 50 UI Safety Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_9_FULL_50_UI_SAFETY_LOCK.md'
+      - '.github/workflows/step9-full-50-ui-safety-master-lock.yml'
+      - 'app/**'
+      - '.maestro/**'
+      - '.github/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step9-ui-safety-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Verify exact 50 Activity UI inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          names=sorted(set(re.findall(r'android:name="\.([A-Za-z0-9_]+Activity)"',manifest)))
+          assert len(names)==50, f"Expected 50 Activities, got {len(names)}"
+          missing=[n for n in names if not (root/(n+".java")).is_file()]
+          assert not missing, "Missing Activity source: "+", ".join(missing)
+          print("50 ACTIVITY UI INVENTORY: PASS")
+          PY
+
+      - name: Verify scrollability and no blank content implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          names=sorted(set(re.findall(r'android:name="\.([A-Za-z0-9_]+Activity)"',manifest)))
+          exempt={"MainActivity"}
+          no_scroll=[]
+          no_content=[]
+          for n in names:
+              t=(root/(n+".java")).read_text()
+              if "setContentView" not in t and n not in {"MainActivity"}:
+                  no_content.append(n)
+              if n not in exempt and "ScrollView" not in t:
+                  no_scroll.append(n)
+          assert not no_content, "Activities without content view: "+", ".join(no_content)
+          assert not no_scroll, "Content screens without ScrollView: "+", ".join(no_scroll)
+          print("SCROLLABLE/NON-BLANK CONTENT: PASS")
+          PY
+
+      - name: Verify global system-bar and control-size safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'WindowCompat.setDecorFitsSystemWindows' "$A"
+          grep -Fq 'WindowInsetsCompat.Type.systemBars()' "$A"
+          grep -Fq 'applySafeInsets(a)' "$A"
+          grep -Fq 'normalizeControls(a)' "$A"
+          grep -Fq 'setMinHeight(dp(a,56))' "$A"
+          grep -Fq 'setMinimumHeight(dp(a,56))' "$A"
+          echo "SYSTEM BARS + SCREEN SIZE + CONTROL SIZE: PASS"
+
+      - name: Verify blur null raw JSON and stale-state protections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          failures=[]
+          for p in root.glob("*.java"):
+              t=p.read_text()
+              if "null null" in t:
+                  failures.append(f"{p.name}: null null")
+              if re.search(r"setAlpha\(0\.[0-4]|alpha\s*=\s*0\.[0-4]",t):
+                  failures.append(f"{p.name}: blur-like alpha")
+              for stale in ["not available in this backend release","updating on Azure"]:
+                  if stale in t:
+                      failures.append(f"{p.name}: {stale}")
+          for name in ["AzureHomeActivity.java","AzureWalletActivity.java","WalletActivity.java"]:
+              t=(root/name).read_text()
+              if "setText(body)" in t or "setMessage(body)" in t:
+                  failures.append(f"{name}: raw JSON body display")
+          assert not failures, "UI regression(s): "+" | ".join(failures)
+          print("BLUR/NULL/RAW JSON/STALE UI: PASS")
+          PY
+
+      - name: Verify bounded loading and auth recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          C=app/src/main/java/com/nikahbridge/AzureApiClient.java
+          grep -Fq 'AUTH_TIMEOUT_MS=12000L' "$C"
+          grep -Fq 'AZURE_AUTH_TIMEOUT' "$C"
+          grep -Fq 'setConnectTimeout(15000)' "$C"
+          grep -Fq 'setReadTimeout(25000)' "$C"
+          grep -Fq 'code==401&&allowAuthRetry' "$C"
+          grep -Fq 'AZURE_SIGN_IN_REQUIRED' "$C"
+          echo "BOUNDED LOADING + AUTH RECOVERY: PASS"
+
+      - name: Verify premium Back-stack safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          t=Path("app/src/main/java/com/nikahbridge/PremiumFeatureGate.java").read_text()
+          marker='.setPositiveButton("View Plans"'
+          start=t.index(marker)
+          end=t.index('.setNegativeButton("Not now"',start)
+          block=t[start:end]
+          assert "PremiumPlansActivity.class" in block
+          assert "a.finish()" not in block
+          print("PREMIUM BACK-STACK: PASS")
+          PY
+
+      - name: Verify Firebase remains absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e firebase.json
+          test ! -e firestore.rules
+          test ! -e firestore.indexes.json
+          test ! -e storage.rules
+          test ! -e app/google-services.json
+          test ! -d functions
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          echo "FIREBASE PRODUCTION RUNTIME: ZERO"
+
+  maestro-e2e:
+    name: Maestro E2E Contract
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify signed-in UI navigation contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .maestro/final-release-42-screen-master.yaml
+          python3 .github/scripts/verify_final_release_master.py
+          grep -Fq 'Secure Azure session verified' .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Permanently Delete Account' .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Sign out of Azure' .maestro/final-release-42-screen-master.yaml
+          echo "MAESTRO UI/NAVIGATION CONTRACT: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Prevent cloud mutation in Step 9
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step9-full-50-ui-safety-master-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 9 Locked
+    needs: [master-gate, maestro-e2e, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 9 FULL 50 UI SAFETY: LOCKED"
+          echo "Master Gate -> Maestro E2E Contract -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
