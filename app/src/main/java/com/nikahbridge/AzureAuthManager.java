@@ -138,6 +138,11 @@ final class AzureAuthManager {
     }
 
     static void removeCurrentAccount(Context context, java.util.function.Consumer<Boolean> callback) {
+        NotificationRegistrar.unregisterBeforeLogout(context,
+                () -> removeCurrentAccountInternal(context, callback));
+    }
+
+    private static void removeCurrentAccountInternal(Context context, java.util.function.Consumer<Boolean> callback) {
         clearCachedToken();
         initialize(context.getApplicationContext(), () -> {
             try {
