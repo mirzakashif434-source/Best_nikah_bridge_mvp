@@ -21,9 +21,9 @@ concurrency:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '33'
+  EXPECTED_VERSION_CODE: '34'
   EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
-  EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+  EXPECTED_PLAY_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448AF400699DE2257E9
 
 jobs:
   master-gate:
@@ -63,7 +63,7 @@ jobs:
           COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
           test "$COUNT" = "50"
           python3 .github/scripts/verify_final_release_master.py
-          echo "PACKAGE/SDK/V33/50-ACTIVITY/42-HOME CONTRACT: PASS"
+          echo "PACKAGE/SDK/V34/50-ACTIVITY/42-HOME CONTRACT: PASS"
 
       - name: Verify UI buttons Back loading and safety regressions
         shell: bash
@@ -83,9 +83,9 @@ jobs:
         run: |
           set -euo pipefail
           B64="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
-          test "$B64" = 'haUulU8x36wsEGKo1k7aLZtIW0g='
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
-          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
+          test "$B64" = 'WS+zloPDaXssn/RIr0AGmd4iV+k='
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIr0AGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config.json
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIr0AGmd4iV+k="' app/src/main/AndroidManifest.xml
           grep -Fq 'jwtVerify(token,jwks,{audience:cfg.audience})' azure-backend/src/azureExternalAuth.js
           grep -Fq 'issuerAllowed(payload.iss, allowedIssuers)' azure-backend/src/azureExternalAuth.js
           grep -Fq '/discovery/v2.0/keys' azure-backend/src/azureExternalAuth.js
@@ -189,13 +189,13 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step13-final-signed-apk-v33
+          name: step13-final-signed-apk-v34
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step13-final-play-store-aab-v33
+          name: step13-final-play-store-aab-v34
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
@@ -263,5 +263,5 @@ jobs:
     steps:
       - run: |
           echo "STEP 13 FINAL MASTER RELEASE GATE: LOCKED"
-          echo "Azure-only / Firebase-zero / 50 Activities / V33 / signed APK+AAB"
+          echo "Azure-only / Firebase-zero / 50 Activities / V34 / signed APK+AAB"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
