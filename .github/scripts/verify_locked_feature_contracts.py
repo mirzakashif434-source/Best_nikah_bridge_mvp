@@ -195,13 +195,22 @@ owner_backend=contains(AZ/"ownerAnalytics.js",
     'route:"owner/live-analytics"',
     'ADMIN_REQUIRED')
 
-# CONTRACT 14 — Azure-only runtime and release safety.
+# CONTRACT 14 — Azure auth/data runtime and release safety.
+# FCM is allowed only as Android push transport; Firebase Auth/DB/Functions/Storage/AI stay retired.
 all_java="\n".join(read(p) for p in APP.glob("*.java"))
-for bad in ("FirebaseAuth","FirebaseFirestore","FirebaseFunctions","FirebaseStorage","getHttpsCallable","com.google.firebase"):
-    need(f"Firebase runtime regression returned: {bad}",bad not in all_java)
+for bad in ("FirebaseAuth","FirebaseFirestore","FirebaseFunctions","FirebaseStorage","FirebaseAI","getHttpsCallable",
+            "com.google.firebase.auth","com.google.firebase.firestore","com.google.firebase.functions",
+            "com.google.firebase.storage","com.google.firebase.ai"):
+    need(f"Firebase auth/data runtime regression returned: {bad}",bad not in all_java)
+gradle=read(ROOT/"app/build.gradle")
+need("FCM push transport dependency missing","com.google.firebase:firebase-messaging" in gradle)
+for bad_dep in ("firebase-auth","firebase-firestore","firebase-functions","firebase-storage","firebase-ai"):
+    need(f"Forbidden Firebase product dependency returned: {bad_dep}",bad_dep not in gradle)
 manifest=contains(ROOT/"app/src/main/AndroidManifest.xml",
     'android:usesCleartextTraffic="false"',
-    'android:allowBackup="false"')
+    'android:allowBackup="false"',
+    'android.permission.POST_NOTIFICATIONS',
+    '.PushMessagingService')
 
 # CONTRACT 15 — Step 1 20 SAR paid feature lock.
 premium_access=read(AZ/"premiumAccess.js")
@@ -385,4 +394,4 @@ if fail:
     sys.exit(1)
 
 print(f"LOCKED FEATURE CONTRACTS: PASS ({len(activities)} activities)")
-print("Protected contracts: Family/Wali, Journey, Safety, Premium Back, Auth, Rewarded, Terms, match selectors, Success Plan, Wallet, 46-screen UI, Azure-only runtime, Fortress Budget Mode.")
+print("Protected contracts: Family/Wali, Journey, Safety, Premium Back, Azure Auth/Data, FCM push transport, Rewarded, Terms, match selectors, Success Plan, Wallet, 46-screen UI, Fortress Budget Mode.")
