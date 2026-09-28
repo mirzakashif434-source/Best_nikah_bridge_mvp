@@ -6,7 +6,7 @@ const { accessForAuth } = require("./premiumAccess");
 async function currentUser(user){
   const key=String(user.azure_subject||user.uid||"").trim();
   const r=await query(
-    "SELECT id,status FROM users WHERE (azure_subject=$1 OR firebase_uid=$1) LIMIT 1",
+    "SELECT id,status FROM users WHERE (azure_subject=$1 OR azure_subject=$1) LIMIT 1",
     [key]
   );
   if(!r.rows[0]){const e=new Error("USER_NOT_FOUND");e.statusCode=404;throw e;}
