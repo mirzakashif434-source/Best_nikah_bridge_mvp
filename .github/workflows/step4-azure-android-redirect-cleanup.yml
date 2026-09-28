@@ -74,8 +74,16 @@ jobs:
           curl -fsS             -H "Authorization: Bearer $TOKEN"             -H "Content-Type: application/json"             "https://graph.microsoft.com/v1.0/applications/$EXPECTED_ANDROID_OBJECT_ID"             -o /tmp/android-app-after.json
           COUNT="$(jq '.publicClient.redirectUris | length' /tmp/android-app-after.json)"
           ACTUAL="$(jq -r '.publicClient.redirectUris[0]' /tmp/android-app-after.json)"
+          echo "Azure stored redirect: $ACTUAL"
           test "$COUNT" = "1"
-          test "$ACTUAL" = "$EXPECTED_PLAY_REDIRECT"
+          python3 - "$ACTUAL" "$EXPECTED_PLAY_REDIRECT" <<'PY'
+          import sys, urllib.parse
+          actual=urllib.parse.unquote(sys.argv[1])
+          expected=urllib.parse.unquote(sys.argv[2])
+          print("Azure decoded redirect:", actual)
+          print("Expected decoded redirect:", expected)
+          assert actual == expected, f"Azure redirect mismatch: {actual!r} != {expected!r}"
+          PY
           echo "AZURE ANDROID REDIRECT = CURRENT PLAY APP-SIGNING HASH ONLY: PASS"
 
       - name: Locked protection stack
