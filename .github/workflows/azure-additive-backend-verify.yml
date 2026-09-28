@@ -431,10 +431,9 @@ jobs:
           ! grep -Fq 'INSERT INTO users (azure_subject,firebase_uid' "$AUTH"
           ! grep -Fq 'RETURNING id,email,status,role,azure_subject,firebase_uid' "$AUTH"
 
-          grep -Fq -- '-- Step 6 / Azure identity canonicalization:' "$SCHEMA"
-          grep -Fq "firebase_uid LIKE 'azure:%'" "$SCHEMA"
-          grep -Fq 'SET azure_subject = substring(firebase_uid from 7)' "$SCHEMA"
+          grep -Fq 'ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_subject TEXT' "$SCHEMA"
           grep -Fq 'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject' "$SCHEMA"
+          grep -Fq -- '-- Step 6.3 / final Azure identity cutover.' "$SCHEMA"
 
           echo "STEP 6.1 AZURE SUBJECT CANONICAL IDENTITY: PASS"
 
