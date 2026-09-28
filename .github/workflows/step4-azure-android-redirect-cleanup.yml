@@ -40,11 +40,11 @@ jobs:
       - name: Azure login via OIDC
         uses: azure/login@v3
         with:
-          client-id: 391167a0-0777-4f6e-be91-c7902181523b
-          tenant-id: adminbestnikahbredge.onmicrosoft.com
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: 256ca508-50c5-4877-bc12-f20993fb97c4
+          tenant-id: c4ac0560-df59-48d4-af1b-bb0ed127ce6d
           audience: api://AzureADTokenExchange
           environment: azurecloud
+          allow-no-subscriptions: true
 
       - name: Read exact Android app registration
         shell: bash
