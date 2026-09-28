@@ -1,0 +1,78 @@
+name: Release 34 Pre-Upload Golden Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'RELEASE_34_PREUPLOAD_GOLDEN_LOCK.md'
+      - '.github/workflows/release34-preupload-golden-lock.yml'
+      - 'app/build.gradle'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/src/release/AndroidManifest.xml'
+      - 'app/src/main/res/raw/auth_config.json'
+      - 'app/src/release/res/raw/auth_config.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_PACKAGE: com.nikahbridge
+  EXPECTED_VERSION_CODE: '34'
+  EXPECTED_PLAY_SHA1: 592FB39683C3697B2C9FF448AF400699DE2257E9
+  EXPECTED_MSAL_HASH: WS+zloPDaXssn/RIr0AGmd4iV+k=
+  EXPECTED_MSAL_REDIRECT: msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIr0AGmd4iV%2Bk%3D
+
+jobs:
+  golden-lock:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Freeze package version and 50 Activities
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "applicationId '$EXPECTED_PACKAGE'" app/build.gradle
+          grep -Eq "versionCode[[:space:]]+$EXPECTED_VERSION_CODE" app/build.gradle
+          grep -Fq "versionName '2.5'" app/build.gradle
+          grep -Fq 'minSdk 24' app/build.gradle
+          grep -Fq 'targetSdk 36' app/build.gradle
+          COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
+          test "$COUNT" = "50"
+          echo "PACKAGE + V34 + 50 ACTIVITIES: PASS"
+
+      - name: Freeze Play signing to MSAL redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          B64="$(printf '%s' "$EXPECTED_PLAY_SHA1" | xxd -r -p | openssl base64 -A)"
+          test "$B64" = "$EXPECTED_MSAL_HASH"
+          grep -Fq "\"redirect_uri\": \"$EXPECTED_MSAL_REDIRECT\"" app/src/main/res/raw/auth_config.json
+          grep -Fq "\"redirect_uri\": \"$EXPECTED_MSAL_REDIRECT\"" app/src/release/res/raw/auth_config.json
+          grep -Fq "android:path=\"/$EXPECTED_MSAL_HASH\"" app/src/main/AndroidManifest.xml
+          grep -Fq "android:path=\"/$EXPECTED_MSAL_HASH\"" app/src/release/AndroidManifest.xml
+          ! grep -RInF 'haUulU8x36wsEGKo1k7aLZtIW0g' app/src/main app/src/release
+          echo "PLAY SHA -> MSAL REDIRECT: PASS"
+
+      - name: Freeze Azure-only runtime and security
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -RInq 'https://bestnikahbredge-prod-fn-' app/src/main/java/com/nikahbridge
+          grep -RInq 'api://4733ae40-3b89-4994-b99b-3890bf87e876/access_as_user' app/src/main/java/com/nikahbridge
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          grep -Fq 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          grep -Fq 'com.android.billingclient:billing:9.1.0' app/build.gradle
+          grep -Fq 'play-services-ads:25.4.0' app/build.gradle
+          grep -Fq 'user-messaging-platform:4.0.0' app/build.gradle
+          echo "AZURE-ONLY + SECURITY + BILLING/ADS: PASS"
+
+      - name: Golden checkpoint
+        run: |
+          echo "RELEASE 34 PRE-UPLOAD GOLDEN LOCK: PASS"
+          echo "Final runtime lock still requires Google Play install + real Azure sign-in."
