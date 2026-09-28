@@ -119,13 +119,13 @@ async function ensureAzureUser(claims) {
   const email=String(claims.email||claims.preferred_username||claims.emails?.[0]||"").trim().toLowerCase();
   if (!email) { const e=new Error("AUTH_EMAIL_REQUIRED"); e.statusCode=400; throw e; }
   const bySubject=await query(
-    `SELECT id,email,status,role,azure_subject,firebase_uid FROM users WHERE azure_subject=$1 LIMIT 1`,
+    `SELECT id,email,status,role,azure_subject FROM users WHERE azure_subject=$1 LIMIT 1`,
     [subject]
   );
   if(bySubject.rows[0]) return bySubject.rows[0];
 
   const byEmail=await query(
-    `SELECT id,email,status,role,azure_subject,firebase_uid FROM users WHERE lower(email)=lower($1) LIMIT 1`,
+    `SELECT id,email,status,role,azure_subject FROM users WHERE lower(email)=lower($1) LIMIT 1`,
     [email]
   );
   if(byEmail.rows[0]){
@@ -136,21 +136,20 @@ async function ensureAzureUser(claims) {
     }
     const linked=await query(
       `UPDATE users SET azure_subject=$1,
-        firebase_uid=COALESCE(firebase_uid,$4),
         email_verified_at=COALESCE(email_verified_at,CASE WHEN $3 THEN now() ELSE NULL END),
         updated_at=now()
        WHERE id=$2
-       RETURNING id,email,status,role,azure_subject,firebase_uid`,
-      [subject,byEmail.rows[0].id,Boolean(claims.email_verified),`azure:${subject}`]
+       RETURNING id,email,status,role,azure_subject`,
+      [subject,byEmail.rows[0].id,Boolean(claims.email_verified)]
     );
     return linked.rows[0];
   }
 
   const created=await query(
-    `INSERT INTO users (azure_subject,firebase_uid,email,email_verified_at)
-     VALUES ($1,$4,$2,CASE WHEN $3 THEN now() ELSE NULL END)
-     RETURNING id,email,status,role,azure_subject,firebase_uid`,
-    [subject,email,Boolean(claims.email_verified),`azure:${subject}`]
+    `INSERT INTO users (azure_subject,email,email_verified_at)
+     VALUES ($1,$2,CASE WHEN $3 THEN now() ELSE NULL END)
+     RETURNING id,email,status,role,azure_subject`,
+    [subject,email,Boolean(claims.email_verified)]
   );
   return created.rows[0];
 }
