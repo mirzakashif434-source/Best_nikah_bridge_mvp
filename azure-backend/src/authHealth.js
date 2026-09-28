@@ -7,6 +7,6 @@ app.http("authHealth", {
   route: "auth/health",
   handler: requireAuth(async (request, context, user) => ({
     status: 200,
-    jsonBody: { ok: true, authenticated: true, uid: user.uid, provider: user.firebase?.sign_in_provider || null }
+    jsonBody: { ok: true, authenticated: true, uid: user.azure_subject, provider: "azure_external_id" }
   }))
 });
