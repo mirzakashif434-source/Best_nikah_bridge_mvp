@@ -881,3 +881,33 @@ END $$;
 DROP INDEX IF EXISTS idx_users_azure_subject;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject
   ON users (azure_subject);
+
+
+-- Real Azure push-notification persistence and device binding.
+CREATE TABLE IF NOT EXISTS notification_devices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL CHECK (platform IN ('android')),
+  device_token TEXT NOT NULL UNIQUE,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_notification_devices_user_active
+  ON notification_devices(user_id,active,last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  data JSONB NOT NULL DEFAULT '{}'::jsonb,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created
+  ON notifications(user_id,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
+  ON notifications(user_id,read_at,created_at DESC);
