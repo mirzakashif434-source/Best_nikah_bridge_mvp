@@ -195,7 +195,7 @@ jobs:
           test "$LEGACY_COL" = "0"
 
           # New-user + existing-user-link + profile persistence smoke, fully rolled back.
-          psql "$CONN" -v ON_ERROR_STOP=1 <<'SQL'
+          SMOKE_RESULT="$(psql "$CONN" -X -qAt -v ON_ERROR_STOP=1 <<'SQL'
           BEGIN;
           INSERT INTO users(azure_subject,email,email_verified_at)
           VALUES('ci-step6-4-new-user','ci-step6-4@invalid.example',now())
@@ -212,13 +212,15 @@ jobs:
            WHERE azure_subject='ci-step6-4-new-user'
           ON CONFLICT(user_id) DO UPDATE SET display_name=EXCLUDED.display_name,updated_at=now();
 
-          SELECT CASE WHEN count(*)=1 THEN 1 ELSE 1/0 END AS smoke_ok
+          SELECT count(*)
             FROM users u
             JOIN profiles p ON p.user_id=u.id
            WHERE u.azure_subject='ci-step6-4-new-user'
              AND p.display_name='CI Azure User';
           ROLLBACK;
           SQL
+          )"
+          test "$(printf '%s\n' "$SMOKE_RESULT" | tail -n 1 | tr -d '[:space:]')" = "1"
 
           echo "STEP 6.4 LIVE AZURE EXISTING + NEW USER PROFILE FLOW: PASS"
 
