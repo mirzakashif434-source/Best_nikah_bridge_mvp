@@ -33,7 +33,7 @@ app.http("matchDetail",{
       if(!matchUserId) return {status:400,jsonBody:{ok:false,error:"MATCH_USER_ID_REQUIRED"}};
 
       const me=await query(`
-        SELECT u.id,u.firebase_uid,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.marriage_intention,
+        SELECT u.id,u.azure_subject,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.marriage_intention,
                p.readiness_score,p.profile_completed,p.is_visible,
                pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,
@@ -42,11 +42,11 @@ app.http("matchDetail",{
         FROM users u
         JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
-        WHERE (u.azure_subject=$1 OR u.firebase_uid=$2) AND u.status='active'
+        WHERE (u.azure_subject=$1 OR u.azure_subject=$2) AND u.status='active'
       `,[user.azure_subject||"",user.uid||""]);
 
       const candidate=await query(`
-        SELECT u.id,u.firebase_uid,u.azure_subject,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.marriage_intention,
+        SELECT u.id,u.azure_subject,u.azure_subject,p.display_name,p.date_of_birth,p.gender,p.country,p.city,p.marriage_intention,
                p.readiness_score,p.profile_completed,p.is_visible,
                pp.min_age,pp.max_age,pp.preferred_gender,pp.countries,pp.cities,
                pp.preferred_marriage_timeline,pp.deal_breakers,pp.preferences,
@@ -58,7 +58,7 @@ app.http("matchDetail",{
         JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
-        WHERE (u.azure_subject=$1 OR u.firebase_uid=$1 OR u.id::text=$1) AND u.status='active'
+        WHERE (u.azure_subject=$1 OR u.azure_subject=$1 OR u.id::text=$1) AND u.status='active'
       `,[matchUserId]);
 
       if(!me.rows[0] || !me.rows[0].profile_completed || !me.rows[0].is_visible)
@@ -96,7 +96,7 @@ app.http("matchDetail",{
       score=Math.min(100,score);
 
       return {status:200,jsonBody:{ok:true,match:{
-        userId:c.azure_subject||c.firebase_uid||String(c.id),
+        userId:c.azure_subject||c.azure_subject||String(c.id),
         displayName:c.display_name,
         age:theirAge,
         gender:c.gender,
