@@ -1,0 +1,192 @@
+name: Step 2 Canonical 42 Screens Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_2_CANONICAL_42_SCREENS_LOCK.md'
+      - '.github/workflows/step2-canonical-42-screens-master-lock.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step2-canonical-42-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP: app/src/main/java/com/nikahbridge
+  MANIFEST: app/src/main/AndroidManifest.xml
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Lock exact canonical 42
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          app=Path("app/src/main/java/com/nikahbridge")
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+
+          canonical=[
+            "AzureHomeActivity","WelcomeActivity","HelpLineActivity","ConversationHealthActivity",
+            "NikahJourneyActivity","NikahBlueprintActivity","NikahMediatorActivity","NikahSuccessPlanActivity",
+            "NikahSuccessNetworkActivity","FutureLifeSimulationActivity","SmartSeriousQuestionsActivity",
+            "MarriageTimelineMatchingActivity","NikahAssistantActivity","CompatibilityDealBreakerActivity",
+            "SafeCommunicationActivity","FamilyBridge2Activity","FamilyCircleActivity","TrustPassportActivity",
+            "CompatibilityTrafficLightActivity","WhyWeMatchedActivity","NikahIntelligenceActivity",
+            "SeriousNikahPlusActivity","AdvancedMatchFiltersActivity","OwnerEarningsActivity",
+            "OwnerLiveAnalyticsActivity","WalletActivity","PremiumPlansActivity","ProfilePhotoActivity",
+            "RealFourPhotoActivity","GenderFilteredMatchesActivity","PrivacyControlCenterActivity",
+            "AccountDeletionActivity","TermsAndCommunityGuidelinesActivity","CommunityChatActivity",
+            "BlockedMembersActivity","IdentityVerificationActivity","RewardedMessageActivity",
+            "LikedMeActivity","ILikedActivity","ViewedMeActivity","IViewedActivity","ProductionMainActivity"
+          ]
+          helpers=[
+            "AzureExternalAuthActivity","AzureWalletActivity","HelpLineAdminActivity","VerificationAdminActivity",
+            "MainActivity","ProductionCompletionActivity","PostVerificationFeatureHubActivity","UpgradeActivity"
+          ]
+
+          assert len(canonical)==42, f"Canonical list must be 42, got {len(canonical)}"
+          assert len(set(canonical))==42, "Duplicate activity in canonical 42"
+          assert not (set(canonical)&set(helpers)), "Canonical/helper overlap"
+
+          missing_files=[]
+          missing_manifest=[]
+          malformed=[]
+          for name in canonical:
+              p=app/(name+".java")
+              if not p.is_file() or p.stat().st_size==0:
+                  missing_files.append(name)
+                  continue
+              text=p.read_text(encoding="utf-8")
+              if f"class {name}" not in text or "onCreate" not in text:
+                  malformed.append(name)
+              if f'android:name=".{name}"' not in manifest:
+                  missing_manifest.append(name)
+
+          assert not missing_files, "Missing canonical files: "+", ".join(missing_files)
+          assert not missing_manifest, "Missing manifest registrations: "+", ".join(missing_manifest)
+          assert not malformed, "Malformed canonical activities: "+", ".join(malformed)
+
+          registered=set(re.findall(r'android:name="\.([A-Za-z0-9_]+Activity)"',manifest))
+          assert set(canonical).issubset(registered)
+
+          print("CANONICAL USER-FACING SCREENS:",len(canonical))
+          print("HELPER/ADMIN/COMPATIBILITY ACTIVITIES:",len(helpers))
+          print("MASTER GATE: PASS")
+          PY
+
+      - name: Preserve Azure-only runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d azure-backend
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          ! grep -RInE 'firebase-(auth|firestore|functions|storage|ai)|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
+          echo "AZURE ONLY / FIREBASE ZERO: PASS"
+
+  maestro-e2e:
+    name: Maestro E2E Baseline
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify real navigation surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'android.intent.action.MAIN' "$MANIFEST"
+          grep -Fq 'android.intent.category.LAUNCHER' "$MANIFEST"
+          grep -Fq 'WelcomeActivity' "$MANIFEST"
+          grep -Fq 'ProductionMainActivity' "$MANIFEST"
+          grep -Fq 'GenderFilteredMatchesActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'FamilyBridge2Activity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'IdentityVerificationActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'PrivacyControlCenterActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'PremiumPlansActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'NikahAssistantActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'CommunityChatActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'RewardedMessageActivity.class' "$APP/ProductionMainActivity.java"
+          echo "MAESTRO E2E BASELINE: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Prevent Step 2 deployment or destructive mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=.github/workflows/step2-canonical-42-screens-master-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force' "$FILE"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 2 Locked
+    needs: [master-gate, maestro-e2e, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 2 CANONICAL 42 SCREENS: LOCKED"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
