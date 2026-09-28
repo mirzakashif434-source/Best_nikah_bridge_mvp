@@ -2,10 +2,9 @@ const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
 const { getProfilePhotosContainer, getVerificationDocumentsContainer } = require("./storage");
-const { getFirebaseAdmin } = require("./auth");
 
 async function deleteUserData(user, context) {
-  const r = await query("SELECT id FROM users WHERE firebase_uid=$1 LIMIT 1",[user.uid]);
+  if(!user.azure_subject) return {status:401,jsonBody:{ok:false,error:"UNAUTHENTICATED"}};\n  const r = await query("SELECT id FROM users WHERE azure_subject=$1 LIMIT 1",[user.azure_subject]);
   if(!r.rows[0]) return {status:404,jsonBody:{ok:false,error:"ACCOUNT_NOT_FOUND"}};
   const userId=r.rows[0].id;
   const photos=await query("SELECT blob_key FROM photos WHERE user_id=$1",[userId]);
@@ -13,7 +12,6 @@ async function deleteUserData(user, context) {
   for(const x of photos.rows) if(x.blob_key) await getProfilePhotosContainer().getBlockBlobClient(x.blob_key).deleteIfExists({deleteSnapshots:"include"});
   for(const x of docs.rows) if(x.document_blob_key) await getVerificationDocumentsContainer().getBlockBlobClient(x.document_blob_key).deleteIfExists({deleteSnapshots:"include"});
   await query("DELETE FROM users WHERE id=$1",[userId]);
-  try { await getFirebaseAdmin().auth().deleteUser(user.uid); } catch(e){ context.error("EXTERNAL_ACCOUNT_DELETE_AUTH_CLEANUP",e); }
   return {status:200,jsonBody:{ok:true,deleted:true}};
 }
 
