@@ -9,7 +9,7 @@ async function resolveActiveVisibleTarget(targetKey){
        FROM users u
        JOIN profiles p ON p.user_id=u.id
        LEFT JOIN privacy_settings ps ON ps.user_id=u.id
-      WHERE (u.id::text=$1 OR u.azure_subject=$1 OR u.firebase_uid=$1)
+      WHERE (u.id::text=$1 OR u.azure_subject=$1 OR u.azure_subject=$1)
         AND u.status='active'
         AND COALESCE(p.profile_completed,false)=true
         AND COALESCE(p.is_visible,false)=true
@@ -101,7 +101,7 @@ app.http("profileViewsReceivedAzure",{
             pv.first_viewed_at,
             pv.last_viewed_at,
             pv.view_count,
-            COALESCE(u.azure_subject,u.firebase_uid,u.id::text) AS user_id,
+            COALESCE(u.azure_subject,u.id::text) AS user_id,
             COALESCE(p.display_name,'Member') AS display_name,
             EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,
             p.gender,
@@ -165,7 +165,7 @@ app.http("profileViewsSentAzure",{
             pv.first_viewed_at,
             pv.last_viewed_at,
             pv.view_count,
-            COALESCE(u.azure_subject,u.firebase_uid,u.id::text) AS user_id,
+            COALESCE(u.azure_subject,u.id::text) AS user_id,
             COALESCE(p.display_name,'Member') AS display_name,
             EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,
             p.gender,
