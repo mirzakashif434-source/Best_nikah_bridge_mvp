@@ -37,10 +37,13 @@ jobs:
           grep -Fq 'compileSdk 36' "$B"
           grep -Fq 'targetSdk 36' "$B"
           grep -Fq 'minSdk 24' "$B"
+          grep -Fq 'versionCode 33' "$B"
           grep -Fq 'signingConfig signingConfigs.release' "$B"
-          ! grep -Eq 'storePassword[[:space:]]+["'''][^$]' "$B"
-          ! grep -Eq 'keyPassword[[:space:]]+["'''][^$]' "$B"
-          echo "PACKAGE + SDK + RELEASE SIGNING CONFIG: PASS"
+          ! grep -Fq 'storePassword "' "$B"
+          ! grep -Fq "storePassword '" "$B"
+          ! grep -Fq 'keyPassword "' "$B"
+          ! grep -Fq "keyPassword '" "$B"
+          echo "PACKAGE + SDK + VERSION CODE 33 + RELEASE SIGNING CONFIG: PASS"
 
       - name: Verify manifest security and exported surface
         shell: bash
