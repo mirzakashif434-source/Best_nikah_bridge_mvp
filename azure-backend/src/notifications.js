@@ -1,6 +1,5 @@
 const { app } = require("@azure/functions");
-const crypto = require("crypto");
-const { query } = require("./db");
+const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
@@ -13,126 +12,35 @@ async function currentUser(authUser){
   return r.rows[0];
 }
 
-function hubConfig(){
-  return {
-    namespace:text(process.env.AZURE_NOTIFICATION_HUB_NAMESPACE,200),
-    hub:text(process.env.AZURE_NOTIFICATION_HUB_NAME,200),
-    keyName:text(process.env.AZURE_NOTIFICATION_HUB_SAS_KEY_NAME,200),
-    key:text(process.env.AZURE_NOTIFICATION_HUB_SAS_KEY,500)
-  };
-}
-
-function sasToken(resourceUri,keyName,key){
-  const expiry=Math.floor(Date.now()/1000)+3600;
-  const encoded=encodeURIComponent(resourceUri.toLowerCase());
-  const toSign=encoded+"\n"+expiry;
-  const signature=encodeURIComponent(
-    crypto.createHmac("sha256",key).update(toSign,"utf8").digest("base64")
-  );
-  return `SharedAccessSignature sr=${encoded}&sig=${signature}&se=${expiry}&skn=${encodeURIComponent(keyName)}`;
-}
-
-async function sendDirectFcmV1(deviceToken,notification){
-  const cfg=hubConfig();
-  if(!cfg.namespace||!cfg.hub||!cfg.keyName||!cfg.key) return {sent:false,reason:"HUB_NOT_CONFIGURED"};
-  const resource=`https://${cfg.namespace}.servicebus.windows.net/${encodeURIComponent(cfg.hub)}`;
-  const url=`${resource}/messages/?direct&api-version=2015-04`;
-  const data={};
-  for(const [k,v] of Object.entries(notification.data||{})) data[String(k)]=String(v??"");
-  data.type=String(notification.type||"general");
-  data.notificationId=String(notification.id||"");
-  const payload={
-    message:{
-      notification:{title:notification.title,body:notification.body},
-      data,
-      android:{
-        priority:"high",
-        notification:{channel_id:"nikah_events",sound:"default"}
-      }
-    }
-  };
-  const response=await fetch(url,{
-    method:"POST",
-    headers:{
-      Authorization:sasToken(resource,cfg.keyName,cfg.key),
-      "Content-Type":"application/json;charset=utf-8",
-      "ServiceBusNotification-DeviceHandle":deviceToken,
-      "ServiceBusNotification-Format":"fcmV1",
-      "x-ms-version":"2015-04"
-    },
-    body:JSON.stringify(payload)
-  });
-  if(!response.ok){
-    const body=await response.text().catch(()=>"");
-    throw new Error(`AZURE_NOTIFICATION_HUB_${response.status}: ${body.slice(0,300)}`);
-  }
-  return {sent:true};
-}
-
 async function createNotification(userId,type,title,body,data={}){
-  const saved=await query(
+  const r=await query(
     `INSERT INTO notifications(user_id,type,title,body,data)
      VALUES($1,$2,$3,$4,$5::jsonb)
-     RETURNING id,user_id,type,title,body,data,created_at`,
+     RETURNING id,user_id,type,title,body,data,read_at,created_at`,
     [userId,text(type,60)||"general",text(title,140)||"Best Nikah Bridge",text(body,500),JSON.stringify(data||{})]
   );
-  const n=saved.rows[0];
-  const devices=await query(
-    "SELECT device_token FROM notification_devices WHERE user_id=$1 AND active=true ORDER BY last_seen_at DESC LIMIT 10",
-    [userId]
-  );
-  for(const d of devices.rows){
-    try{await sendDirectFcmV1(d.device_token,n);}
-    catch(e){console.warn("PUSH_DELIVERY_FAILED",{notificationId:n.id,message:e.message});}
-  }
-  return n;
+  return r.rows[0];
 }
 
-app.http("notificationDeviceRegister",{
-  methods:["POST"],authLevel:"anonymous",route:"notifications/devices",
-  handler:requireAuth(async(request,context,authUser)=>{
-    try{
-      const user=await currentUser(authUser);
-      if(user.status!=="active")return {status:403,jsonBody:{ok:false,error:"ACCOUNT_NOT_ACTIVE"}};
-      const b=await request.json();
-      const token=text(b.token,4096);
-      const platform=text(b.platform,30).toLowerCase()||"android";
-      if(!token)return {status:400,jsonBody:{ok:false,error:"DEVICE_TOKEN_REQUIRED"}};
-      if(platform!=="android")return {status:400,jsonBody:{ok:false,error:"UNSUPPORTED_PLATFORM"}};
-      await query(
-        `INSERT INTO notification_devices(user_id,platform,device_token,active,last_seen_at)
-         VALUES($1,$2,$3,true,now())
-         ON CONFLICT(device_token) DO UPDATE SET
-           user_id=EXCLUDED.user_id,platform=EXCLUDED.platform,active=true,last_seen_at=now(),updated_at=now()`,
-        [user.id,platform,token]
-      );
-      return {status:200,jsonBody:{ok:true,registered:true}};
-    }catch(e){
-      context.error("NOTIFICATION_DEVICE_REGISTER_FAILED",e);
-      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"NOTIFICATION_DEVICE_REGISTER_FAILED"}};
-    }
-  })
-});
-
-app.http("notificationDeviceUnregister",{
-  methods:["DELETE"],authLevel:"anonymous",route:"notifications/devices/current",
-  handler:requireAuth(async(request,context,authUser)=>{
-    try{
-      const user=await currentUser(authUser);
-      const b=await request.json().catch(()=>({}));
-      const token=text(b.token,4096);
-      if(!token)return {status:400,jsonBody:{ok:false,error:"DEVICE_TOKEN_REQUIRED"}};
-      await query(
-        "UPDATE notification_devices SET active=false,updated_at=now() WHERE user_id=$1 AND device_token=$2",
-        [user.id,token]
-      );
-      return {status:200,jsonBody:{ok:true,unregistered:true}};
-    }catch(e){
-      context.error("NOTIFICATION_DEVICE_UNREGISTER_FAILED",e);
-      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"NOTIFICATION_DEVICE_UNREGISTER_FAILED"}};
-    }
-  })
-});
+async function scheduleNotification(userId,type,title,body,data,dueAt,dedupeKey){
+  const due=new Date(dueAt);
+  if(!Number.isFinite(due.getTime()))throw new Error("INVALID_NOTIFICATION_DUE_AT");
+  const key=text(dedupeKey,300);
+  if(!key)throw new Error("NOTIFICATION_DEDUPE_KEY_REQUIRED");
+  const r=await query(
+    `INSERT INTO notification_schedules(user_id,type,title,body,data,due_at,dedupe_key)
+     VALUES($1,$2,$3,$4,$5::jsonb,$6,$7)
+     ON CONFLICT(dedupe_key) DO UPDATE SET
+       due_at=EXCLUDED.due_at,
+       title=EXCLUDED.title,
+       body=EXCLUDED.body,
+       data=EXCLUDED.data
+     WHERE notification_schedules.dispatched_at IS NULL
+     RETURNING id,due_at,dispatched_at`,
+    [userId,text(type,60),text(title,140),text(body,500),JSON.stringify(data||{}),due.toISOString(),key]
+  );
+  return r.rows[0]||null;
+}
 
 app.http("notificationList",{
   methods:["GET"],authLevel:"anonymous",route:"notifications",
@@ -188,4 +96,36 @@ app.http("notificationReadAll",{
   })
 });
 
-module.exports={createNotification,sendDirectFcmV1};
+app.timer("notificationScheduleDispatch",{
+  schedule:"0 */5 * * * *",
+  handler:async(_timer,context)=>{
+    const client=await getPool().connect();
+    try{
+      await client.query("BEGIN");
+      const due=await client.query(
+        `SELECT id,user_id,type,title,body,data
+           FROM notification_schedules
+          WHERE dispatched_at IS NULL AND due_at<=now()
+          ORDER BY due_at ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT 100`
+      );
+      for(const row of due.rows){
+        await client.query(
+          `INSERT INTO notifications(user_id,type,title,body,data)
+           VALUES($1,$2,$3,$4,$5::jsonb)`,
+          [row.user_id,row.type,row.title,row.body,JSON.stringify(row.data||{})]
+        );
+        await client.query("UPDATE notification_schedules SET dispatched_at=now() WHERE id=$1",[row.id]);
+      }
+      await client.query("COMMIT");
+      if(due.rowCount)context.log("AZURE_NOTIFICATION_SCHEDULE_DISPATCHED",due.rowCount);
+    }catch(e){
+      await client.query("ROLLBACK").catch(()=>{});
+      context.error("AZURE_NOTIFICATION_SCHEDULE_FAILED",e);
+      throw e;
+    }finally{client.release();}
+  }
+});
+
+module.exports={createNotification,scheduleNotification};
