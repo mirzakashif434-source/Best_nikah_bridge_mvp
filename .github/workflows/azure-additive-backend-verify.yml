@@ -628,13 +628,13 @@ jobs:
           grep -Fq 'import androidx.core.view.WindowCompat;' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'WindowCompat.setDecorFitsSystemWindows(a.getWindow(),false);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'applySafeInsets(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
-          grep -Eq 'versionCode[[:space:]]+33' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+34' app/build.gradle
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
-          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
-          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
-          echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION 33 + PLAY APP-SIGNING MSAL LOCK: PASS"
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIr0AGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config.json
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIr0AGmd4iV+k="' app/src/main/AndroidManifest.xml
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIr0AGmd4iV%2Bk%3D"' app/src/release/res/raw/auth_config.json
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIr0AGmd4iV+k="' app/src/release/AndroidManifest.xml
+          echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION 34 + PLAY APP-SIGNING MSAL LOCK: PASS"
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PRESERVED"
 
       - name: Set up JDK 17
@@ -987,7 +987,7 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
-          EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+          EXPECTED_PLAY_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448AF400699DE2257E9
         run: |
           set -euo pipefail
           test -n "$KEYSTORE_BASE64"
@@ -1003,7 +1003,7 @@ jobs:
           # Microsoft redirect must be based on the Play App Signing certificate.
           PLAY_REDIRECT_HASH="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
           PLAY_REDIRECT_HASH_URL="$(printf '%s' "$PLAY_REDIRECT_HASH" | sed 's/=/%3D/g')"
-          test "$PLAY_REDIRECT_HASH" = "haUulU8x36wsEGKo1k7aLZtIW0g="
+          test "$PLAY_REDIRECT_HASH" = "WS+zloPDaXssn/RIr0AGmd4iV+k="
 
           grep -Fq "\"redirect_uri\": \"msauth://com.nikahbridge/$PLAY_REDIRECT_HASH_URL\"" app/src/main/res/raw/auth_config.json
           grep -Fq "android:scheme=\"msauth\" android:host=\"com.nikahbridge\" android:path=\"/$PLAY_REDIRECT_HASH\"" app/src/main/AndroidManifest.xml
