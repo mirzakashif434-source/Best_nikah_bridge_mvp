@@ -5,6 +5,7 @@ const { requireAuth } = require("./auth");
 const { accessForAuth } = require("./premiumAccess");
 const { getVerificationDocumentsContainer } = require("./storage");
 const { requireAdultProfile } = require("./ageGate");
+const { createNotification } = require("./notifications");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 const ALLOWED_TYPES=new Set(["image/jpeg","image/png","application/pdf"]);
