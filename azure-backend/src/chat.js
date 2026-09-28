@@ -22,7 +22,7 @@ async function ensureUser(user){
 
   if(!user.uid) throw new Error("AUTH_IDENTITY_REQUIRED");
   const r=await query(
-    "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",
+    "INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(azure_subject) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",
     [user.uid,email,Boolean(user.email_verified)]
   );
   return r.rows[0];
@@ -42,7 +42,7 @@ app.http("conversationsList",{
       const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;
       const r=await query(
         `SELECT c.id,c.status,c.created_at,
-                CASE WHEN c.user_a_id=$1 THEN COALESCE(ub.azure_subject,ub.firebase_uid) ELSE COALESCE(ua.azure_subject,ua.firebase_uid) END AS other_user_id,
+                CASE WHEN c.user_a_id=$1 THEN ub.azure_subject ELSE ua.azure_subject END AS other_user_id,
                 CASE WHEN c.user_a_id=$1 THEN pb.display_name ELSE pa.display_name END AS other_display_name,
                 (SELECT m.body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message,
                 (SELECT m.created_at FROM messages m WHERE m.conversation_id=c.id ORDER BY m.created_at DESC LIMIT 1) AS last_message_at
@@ -76,7 +76,7 @@ app.http("messagesList",{
       if(!c)return {status:404,jsonBody:{ok:false,error:"CONVERSATION_NOT_FOUND"}};
       if(c.status!=="mutual")return {status:403,jsonBody:{ok:false,error:"CHAT_NOT_AVAILABLE"}};
       const r=await query(
-        "SELECT m.id,m.conversation_id,COALESCE(u.azure_subject,u.firebase_uid) AS sender_user_id,m.body,m.created_at,m.read_at FROM messages m JOIN users u ON u.id=m.sender_user_id WHERE m.conversation_id=$1 ORDER BY m.created_at ASC LIMIT 500",
+        "SELECT m.id,m.conversation_id,u.azure_subject AS sender_user_id,m.body,m.created_at,m.read_at FROM messages m JOIN users u ON u.id=m.sender_user_id WHERE m.conversation_id=$1 ORDER BY m.created_at ASC LIMIT 500",
         [id]);
       return {status:200,jsonBody:{ok:true,messages:r.rows}};
     }catch(e){context.error("MESSAGES_LIST_FAILED",e);return {status:500,jsonBody:{ok:false,error:"MESSAGES_LIST_FAILED"}};}
