@@ -41,7 +41,7 @@ jobs:
       - name: Checkout exact cutover source
         uses: actions/checkout@v5
 
-      - name: Verify Firebase runtime is retired
+      - name: Verify Azure auth/data runtime with FCM transport only
         shell: bash
         run: |
           set -euo pipefail
@@ -51,9 +51,10 @@ jobs:
           test ! -e firestore.rules
           test ! -e storage.rules
           test ! -e .github/workflows/firebase-production-deploy.yml
-          ! grep -RInE 'import[[:space:]]+com\.google\.firebase|FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable' app/src/main/java --include='*.java'
-          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
-          echo "FIREBASE RUNTIME RETIRED: PASS"
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase\.(auth|firestore|functions|storage|ai)' app/src/main/java --include='*.java'
+          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|google-services' app/build.gradle build.gradle settings.gradle
+          grep -Fq "implementation 'com.google.firebase:firebase-messaging'" app/build.gradle
+          echo "AZURE AUTH/DATA RUNTIME + FCM TRANSPORT-ONLY: PASS"
 
       - name: Set up Node 22
         uses: actions/setup-node@v5
@@ -453,8 +454,8 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -RInF 'firebase_uid' azure-backend/src app/src/main/java --include='*.js' --include='*.java'
-          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main/java azure-backend/src --include='*.java' --include='*.js'
-          echo "STEP 6.2 RUNTIME FIREBASE IDENTITY DEPENDENCY: REMOVED"
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase\.(auth|firestore|functions|storage|ai)' app/src/main/java azure-backend/src --include='*.java' --include='*.js'
+          echo "STEP 6.2 FIREBASE AUTH/DATA IDENTITY DEPENDENCY: REMOVED"
 
       - name: Step 6.2 — Master protection stack lock
         shell: bash
@@ -720,8 +721,10 @@ jobs:
           grep -Fq 'Owner Wallet' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           grep -Fq 'Permanently Delete Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
           grep -Fq 'AzureApiClient.delete("/account"' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
-          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
-          echo "STEP 8 AZURE FEATURE WIRING: PASS"
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase\.(auth|firestore|functions|storage|ai)' app/src/main/java --include='*.java'
+          grep -Fq 'PushMessagingService' app/src/main/AndroidManifest.xml
+          grep -Fq 'NotificationRegistrar' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          echo "STEP 8 AZURE FEATURE WIRING + PUSH TRANSPORT: PASS"
 
       - name: Step 8 verify final signed APK and AAB
         shell: bash
@@ -756,11 +759,12 @@ jobs:
           test -d azure-backend
           test ! -d functions
           test ! -e firebase.json
-          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
-          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase\.(auth|firestore|functions|storage|ai)' app/src/main/java --include='*.java'
+          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|google-services' app/build.gradle build.gradle settings.gradle
+          grep -Fq "implementation 'com.google.firebase:firebase-messaging'" app/build.gradle
           grep -Fq 'verifyAzureExternalIdToken' azure-backend/src/auth.js
           grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
-          echo "AZURE-ONLY RUNTIME: PASS"
+          echo "AZURE AUTH/DATA + FCM TRANSPORT-ONLY RUNTIME: PASS"
 
       - name: Verify Step 7 owner wallet and account deletion paths
         shell: bash
