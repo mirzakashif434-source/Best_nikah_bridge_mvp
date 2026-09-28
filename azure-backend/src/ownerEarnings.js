@@ -8,7 +8,7 @@ const clean=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 function moneyMinor(v){const n=Number(v);if(!Number.isFinite(n)||n<=0||n>1000000000)throw Object.assign(new Error("INVALID_AMOUNT"),{statusCode:400});return Math.round(n*100);}
 function currency(v){const c=clean(v,10).toUpperCase();if(!["SAR","USD","PKR","USDT"].includes(c))throw Object.assign(new Error("UNSUPPORTED_CURRENCY"),{statusCode:400});return c;}
 function validDestination(c,v){const d=clean(v,300);if(d.length<6)return false;if(c==="USDT"&&!(/^(T[1-9A-HJ-NP-Za-km-z]{33}|0x[a-fA-F0-9]{40})$/.test(d)))return false;return true;}
-async function admin(user){const r=await query("SELECT id,role,status FROM users WHERE (azure_subject=$1 OR firebase_uid=$1) AND status='active' LIMIT 1",[user.azure_subject||user.uid]);if(!r.rows[0]||!["admin","moderator"].includes(r.rows[0].role))throw Object.assign(new Error("ADMIN_REQUIRED"),{statusCode:403});return r.rows[0];}
+async function admin(user){const r=await query("SELECT id,role,status FROM users WHERE (azure_subject=$1 OR azure_subject=$1) AND status='active' LIMIT 1",[user.azure_subject||user.uid]);if(!r.rows[0]||!["admin","moderator"].includes(r.rows[0].role))throw Object.assign(new Error("ADMIN_REQUIRED"),{statusCode:403});return r.rows[0];}
 
 app.http("ownerEarningsDashboardAzure",{methods:["GET"],authLevel:"anonymous",route:"owner/earnings",handler:requireAuth(async(request,context,user)=>{
  try{await admin(user);const [s,rows,plans,settlements,providerPayouts]=await Promise.all([
