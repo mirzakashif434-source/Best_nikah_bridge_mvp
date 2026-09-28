@@ -6,6 +6,7 @@ const { accessForAuth } = require("./premiumAccess");
 const { getProfilePhotosContainer } = require("./storage");
 const { analyzeImage, shouldReject } = require("./contentSafety");
 const { requireAdultProfile } = require("./ageGate");
+const { createNotification } = require("./notifications");
 
 const ALLOWED=new Set(["image/jpeg","image/png","image/webp"]);
 const MAX=4*1024*1024;
