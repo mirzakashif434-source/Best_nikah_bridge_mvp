@@ -99,6 +99,38 @@ final class NotificationRegistrar {
         }
     }
 
+    static void unregisterBeforeLogout(Context context, Runnable done) {
+        if (context == null) { if (done != null) done.run(); return; }
+        String token = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                .getString("token", "");
+        if (token == null || token.trim().isEmpty() || !AzureAuthManager.hasAccount(context)) {
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                    .edit().putLong("last_sync", 0L).apply();
+            if (done != null) done.run();
+            return;
+        }
+        try {
+            JSONObject body = new JSONObject();
+            body.put("token", token);
+            AzureApiClient.delete("/notifications/devices/current", body.toString(), new AzureApiClient.Callback() {
+                private void finish() {
+                    context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                            .edit().putLong("last_sync", 0L).apply();
+                    if (done != null) done.run();
+                }
+                @Override public void ok(int code, String response) { finish(); }
+                @Override public void err(String message) {
+                    Log.w("BestNikahBridge", "Push unregister: " + message);
+                    finish();
+                }
+            });
+        } catch (Exception e) {
+            context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
+                    .edit().putLong("last_sync", 0L).apply();
+            if (done != null) done.run();
+        }
+    }
+
     private static boolean ensureFirebase(Context context) {
         try {
             FirebaseApp.getInstance();
