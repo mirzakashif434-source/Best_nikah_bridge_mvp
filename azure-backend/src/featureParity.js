@@ -6,7 +6,7 @@ const { entitlementForUser } = require("./premiumAccess");
 
 async function me(user){
   const key=user.azure_subject||user.uid;
-  const r=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR firebase_uid=$1 LIMIT 1",[key]);
+  const r=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR azure_subject=$1 LIMIT 1",[key]);
   if(!r.rows[0]) throw Object.assign(new Error("USER_NOT_FOUND"),{statusCode:404});
   if(r.rows[0].status!=="active") throw Object.assign(new Error("USER_NOT_ACTIVE"),{statusCode:403});
   return r.rows[0];
@@ -15,7 +15,7 @@ function h(fn){return requireAuth(async(req,ctx,user)=>{try{return await fn(req,
 app.http("sendLikeAzure",{methods:["POST"],authLevel:"anonymous",route:"likes",handler:h(async(req,ctx,user)=>{
  const u=await me(user),b=await req.json(),to=String(b?.toUid||"");
  if(!to||to===String(u.id))return {status:400,jsonBody:{ok:false,error:"INVALID_LIKE_TARGET"}};
- const t=await query("SELECT id FROM users WHERE (id::text=$1 OR azure_subject=$1 OR firebase_uid=$1) AND status='active' LIMIT 1",[to]);
+ const t=await query("SELECT id FROM users WHERE (id::text=$1 OR azure_subject=$1 OR azure_subject=$1) AND status='active' LIMIT 1",[to]);
  if(!t.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};
 
  const client=await getPool().connect();
@@ -131,7 +131,7 @@ app.http("livingCompatibilityAzure",{methods:["POST"],authLevel:"anonymous",rout
  await query("INSERT INTO living_compatibility(user_id,country,city,marriage_timeline,family_involvement,children_expectation,career_plan,living_plan) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(user_id) DO UPDATE SET country=EXCLUDED.country,city=EXCLUDED.city,marriage_timeline=EXCLUDED.marriage_timeline,family_involvement=EXCLUDED.family_involvement,children_expectation=EXCLUDED.children_expectation,career_plan=EXCLUDED.career_plan,living_plan=EXCLUDED.living_plan,updated_at=now()",[u.id,v("country"),v("city"),v("marriageTimeline"),v("familyInvolvement"),v("childrenExpectation"),v("careerPlan"),v("livingPlan")]);return {status:200,jsonBody:{ok:true,saved:true}};
 })});
 app.http("livingChangeAzure",{methods:["POST"],authLevel:"anonymous",route:"compatibility/living/share",handler:h(async(req,ctx,user)=>{
- const u=await me(user),b=await req.json(),r=await query("INSERT INTO living_change_alerts(from_user_id,to_user_id,field,value) SELECT $1,id,$3,$4 FROM users WHERE id::text=$2 OR azure_subject=$2 OR firebase_uid=$2 RETURNING id",[u.id,String(b.toUid||""),String(b.field||"").slice(0,80),String(b.value||"").slice(0,500)]);if(!r.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};return {status:201,jsonBody:{ok:true,shared:true,alertId:r.rows[0].id}};
+ const u=await me(user),b=await req.json(),r=await query("INSERT INTO living_change_alerts(from_user_id,to_user_id,field,value) SELECT $1,id,$3,$4 FROM users WHERE id::text=$2 OR azure_subject=$2 OR azure_subject=$2 RETURNING id",[u.id,String(b.toUid||""),String(b.field||"").slice(0,80),String(b.value||"").slice(0,500)]);if(!r.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};return {status:201,jsonBody:{ok:true,shared:true,alertId:r.rows[0].id}};
 })});
 app.http("healthCheckAzure",{methods:["POST"],authLevel:"anonymous",route:"connections/{connectionId}/health-check",handler:h(async(req,ctx,user)=>{
  const u=await me(user),b=await req.json(),id=String(req.params.connectionId||"");await query("INSERT INTO connection_health_checks(connection_id,user_id,communication,family_progress,unresolved_differences,timeline_aligned) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(connection_id,user_id) DO UPDATE SET communication=EXCLUDED.communication,family_progress=EXCLUDED.family_progress,unresolved_differences=EXCLUDED.unresolved_differences,timeline_aligned=EXCLUDED.timeline_aligned,updated_at=now()",[id,u.id,String(b.communication||"").slice(0,500),String(b.familyProgress||"").slice(0,500),String(b.unresolvedDifferences||"").slice(0,500),String(b.timelineAligned||"").slice(0,500)]);return {status:200,jsonBody:{ok:true,saved:true}};
