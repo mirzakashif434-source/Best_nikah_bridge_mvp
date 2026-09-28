@@ -834,3 +834,23 @@ CREATE INDEX IF NOT EXISTS idx_profile_views_viewed_last
   ON profile_views(viewed_user_id,last_viewed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_profile_views_viewer_last
   ON profile_views(viewer_user_id,last_viewed_at DESC);
+
+
+-- Step 6 / Azure identity canonicalization:
+-- Backfill Azure subjects from legacy synthetic firebase_uid values without deleting data.
+-- This makes azure_subject the canonical runtime identity while preserving the old column until verification passes.
+UPDATE users
+   SET azure_subject = substring(firebase_uid from 7),
+       updated_at = now()
+ WHERE azure_subject IS NULL
+   AND firebase_uid LIKE 'azure:%'
+   AND substring(firebase_uid from 7) <> ''
+   AND NOT EXISTS (
+     SELECT 1
+       FROM users existing
+      WHERE existing.azure_subject = substring(users.firebase_uid from 7)
+        AND existing.id <> users.id
+   );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject
+  ON users (azure_subject) WHERE azure_subject IS NOT NULL;
