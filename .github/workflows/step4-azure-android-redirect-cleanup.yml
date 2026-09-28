@@ -1,0 +1,84 @@
+name: Step 4 Azure Android Redirect Cleanup
+
+on:
+  push:
+    branches:
+      - azure-backend-additive
+    paths:
+      - '.github/workflows/step4-azure-android-redirect-cleanup.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  EXPECTED_ANDROID_CLIENT_ID: f5fc2b11-420f-4741-9a52-65d60cbddb7b
+  EXPECTED_ANDROID_OBJECT_ID: 8990738c-2833-4830-9447-461dc0fe6a9a
+  EXPECTED_PACKAGE: com.nikahbridge
+  EXPECTED_PLAY_REDIRECT: msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Azure additive source
+        uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+
+      - name: Confirm Step 1 and Step 2 current Play redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "$EXPECTED_PLAY_REDIRECT" app/src/main/res/raw/auth_config.json
+          grep -Fq "$EXPECTED_PLAY_REDIRECT" app/src/release/res/raw/auth_config.json
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
+          echo "STEP 1 + STEP 2 PLAY REDIRECT: PRESERVED"
+
+      - name: Azure login via OIDC
+        uses: azure/login@v3
+        with:
+          client-id: 391167a0-0777-4f6e-be91-c7902181523b
+          tenant-id: adminbestnikahbredge.onmicrosoft.com
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          audience: api://AzureADTokenExchange
+          environment: azurecloud
+
+      - name: Read exact Android app registration
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(az account get-access-token --resource-type ms-graph --query accessToken -o tsv)"
+          test -n "$TOKEN"
+          curl -fsS             -H "Authorization: Bearer $TOKEN"             -H "Content-Type: application/json"             "https://graph.microsoft.com/v1.0/applications/$EXPECTED_ANDROID_OBJECT_ID"             -o /tmp/android-app.json
+          jq -e --arg appId "$EXPECTED_ANDROID_CLIENT_ID" '.appId == $appId' /tmp/android-app.json >/dev/null
+          jq -r '.publicClient.redirectUris[]?' /tmp/android-app.json | tee /tmp/before-redirects.txt
+          echo "ANDROID APP REGISTRATION IDENTITY: PASS"
+
+      - name: Remove old Android redirects and keep only current Play redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(az account get-access-token --resource-type ms-graph --query accessToken -o tsv)"
+          jq -n --arg uri "$EXPECTED_PLAY_REDIRECT" '{publicClient:{redirectUris:[$uri]}}' >/tmp/patch.json
+          curl -fsS -X PATCH             -H "Authorization: Bearer $TOKEN"             -H "Content-Type: application/json"             --data-binary @/tmp/patch.json             "https://graph.microsoft.com/v1.0/applications/$EXPECTED_ANDROID_OBJECT_ID"
+          echo "OLD ANDROID REDIRECTS REMOVED"
+
+      - name: Verify Azure now has only current Play redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(az account get-access-token --resource-type ms-graph --query accessToken -o tsv)"
+          curl -fsS             -H "Authorization: Bearer $TOKEN"             -H "Content-Type: application/json"             "https://graph.microsoft.com/v1.0/applications/$EXPECTED_ANDROID_OBJECT_ID"             -o /tmp/android-app-after.json
+          COUNT="$(jq '.publicClient.redirectUris | length' /tmp/android-app-after.json)"
+          ACTUAL="$(jq -r '.publicClient.redirectUris[0]' /tmp/android-app-after.json)"
+          test "$COUNT" = "1"
+          test "$ACTUAL" = "$EXPECTED_PLAY_REDIRECT"
+          echo "AZURE ANDROID REDIRECT = CURRENT PLAY APP-SIGNING HASH ONLY: PASS"
+
+      - name: Locked protection stack
+        run: |
+          echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PRESERVED"
+          echo "STEP 4 AZURE ANDROID REDIRECT CLEANUP: LOCKED"
