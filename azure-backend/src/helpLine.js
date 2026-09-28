@@ -16,7 +16,7 @@ async function ensureUser(user) {
   const email = clean(user.email,320).toLowerCase();
   if (!user.uid || !email) { const e=new Error("AUTH_IDENTITY_REQUIRED"); e.statusCode=401; throw e; }
   const r=await query(
-    "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",
+    "INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(azure_subject) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",
     [user.uid,email,Boolean(user.email_verified)]
   );
   if(r.rows[0].status!=="active"){const e=new Error("USER_NOT_ACTIVE");e.statusCode=403;throw e;}
@@ -86,7 +86,7 @@ app.http("helpLineAdminList",{
   handler:requireAuth(async(request,context,user)=>{
     try{
       await requireAdmin(user);
-      const r=await query("SELECT t.id,u.firebase_uid AS uid,t.question,t.ai_answer,t.ai_answered,t.human_required,t.status,t.created_at,t.human_reply_target_at,t.human_reply,t.human_replied_at,t.replied_by FROM help_line_tickets t JOIN users u ON u.id=t.user_id ORDER BY t.created_at DESC LIMIT 200");
+      const r=await query("SELECT t.id,u.azure_subject AS uid,t.question,t.ai_answer,t.ai_answered,t.human_required,t.status,t.created_at,t.human_reply_target_at,t.human_reply,t.human_replied_at,t.replied_by FROM help_line_tickets t JOIN users u ON u.id=t.user_id ORDER BY t.created_at DESC LIMIT 200");
       return {status:200,jsonBody:{ok:true,tickets:r.rows}};
     }catch(e){context.error("HELP_ADMIN_LIST_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"HELP_ADMIN_LIST_FAILED"}};}
   })
