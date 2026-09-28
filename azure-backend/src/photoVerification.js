@@ -13,7 +13,7 @@ const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 
 async function ensureUser(user){
   const key=(user.azure_subject||user.uid||"").trim();
-  const r=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR firebase_uid=$1 LIMIT 1",[key]);
+  const r=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR azure_subject=$1 LIMIT 1",[key]);
   if(!r.rows[0]){const e=new Error("USER_NOT_FOUND");e.statusCode=404;throw e;}
   if(r.rows[0].status!=="active"){const e=new Error("ACCOUNT_NOT_ACTIVE");e.statusCode=403;throw e;}
   return r.rows[0];
