@@ -2,6 +2,11 @@ plugins {
     id 'com.android.application'
 }
 
+def pushValue = { String name ->
+    def value = System.getenv(name) ?: ""
+    return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+}
+
 android {
     namespace 'com.nikahbridge'
     compileSdk 36
@@ -12,6 +17,10 @@ android {
         targetSdk 36
         versionCode 32
         versionName '2.5'
+        buildConfigField 'String', 'FCM_APP_ID', pushValue('FCM_APP_ID')
+        buildConfigField 'String', 'FCM_API_KEY', pushValue('FCM_API_KEY')
+        buildConfigField 'String', 'FCM_PROJECT_ID', pushValue('FCM_PROJECT_ID')
+        buildConfigField 'String', 'FCM_SENDER_ID', pushValue('FCM_SENDER_ID')
     }
 
     signingConfigs {
@@ -24,6 +33,10 @@ android {
                 keyPassword System.getenv("KEY_PASSWORD")
             }
         }
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {
@@ -43,6 +56,9 @@ dependencies {
     implementation 'com.google.android.ump:user-messaging-platform:4.0.0'
     implementation 'com.android.billingclient:billing:9.1.0'
     implementation 'com.google.guava:guava:31.0.1-android'
+    // Push transport only. Authentication, data, functions and storage remain Azure-only.
+    implementation platform('com.google.firebase:firebase-bom:34.19.0')
+    implementation 'com.google.firebase:firebase-messaging'
     // Microsoft Entra External ID is the production authentication authority.
     implementation 'com.microsoft.identity.client:msal:8.4.2'
 }
