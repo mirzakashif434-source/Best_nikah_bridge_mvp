@@ -16,7 +16,7 @@ env:
   EXPECTED_ANDROID_CLIENT_ID: f5fc2b11-420f-4741-9a52-65d60cbddb7b
   EXPECTED_ANDROID_OBJECT_ID: 8990738c-2833-4830-9447-461dc0fe6a9a
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_PLAY_REDIRECT: msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D
+  EXPECTED_PLAY_REDIRECT: msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIr0AGmd4iV%2Bk%3D
 
 jobs:
   cleanup:
@@ -33,8 +33,8 @@ jobs:
           set -euo pipefail
           grep -Fq "$EXPECTED_PLAY_REDIRECT" app/src/main/res/raw/auth_config.json
           grep -Fq "$EXPECTED_PLAY_REDIRECT" app/src/release/res/raw/auth_config.json
-          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
-          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIr0AGmd4iV+k="' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIr0AGmd4iV+k="' app/src/release/AndroidManifest.xml
           echo "STEP 1 + STEP 2 PLAY REDIRECT: PRESERVED"
 
       - name: Azure login via OIDC
