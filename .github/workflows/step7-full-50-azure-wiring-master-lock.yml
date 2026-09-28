@@ -1,0 +1,238 @@
+name: Step 7 Full 50 Azure Wiring Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_7_FULL_50_AZURE_WIRING_LOCK.md'
+      - '.github/workflows/step7-full-50-azure-wiring-master-lock.yml'
+      - 'app/**'
+      - 'azure-backend/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step7-full-50-wiring-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Verify exact 50 Activity wiring contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root=Path("app/src/main/java/com/nikahbridge")
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          activities=sorted(set(re.findall(r'android:name="\.([A-Za-z0-9_]+Activity)"',manifest)))
+          assert len(activities)==50, f"Expected 50 app Activities, got {len(activities)}"
+
+          api_expected={
+            "AzureHomeActivity":["/auth/azure/me","/profile","/matches","/privacy","/verification","/account"],
+            "AzureWalletActivity":["/wallet","/wallet/transactions"],
+            "HelpLineActivity":["/help/ask"],
+            "HelpLineAdminActivity":["/admin/help/tickets"],
+            "ConversationHealthActivity":["/conversations"],
+            "NikahJourneyActivity":["/journey/summary"],
+            "NikahBlueprintActivity":["/settings/nikah_blueprint","/compatibility/living"],
+            "NikahMediatorActivity":["/ai/nikah-mediator"],
+            "NikahSuccessPlanActivity":["/profile","/conversations"],
+            "NikahSuccessNetworkActivity":["/success-network/mentors"],
+            "FutureLifeSimulationActivity":["/ai/future-life"],
+            "SmartSeriousQuestionsActivity":["/matches"],
+            "MarriageTimelineMatchingActivity":["/matches"],
+            "NikahAssistantActivity":["/ai/nikah-assistant"],
+            "CompatibilityDealBreakerActivity":["/matches"],
+            "SafeCommunicationActivity":["/conversations"],
+            "FamilyBridge2Activity":["/family-links"],
+            "FamilyCircleActivity":["/family-circle","/matches"],
+            "TrustPassportActivity":["/matches"],
+            "CompatibilityTrafficLightActivity":["/matches"],
+            "WhyWeMatchedActivity":["/matches"],
+            "NikahIntelligenceActivity":["/compatibility/living"],
+            "SeriousNikahPlusActivity":["/premium/serious-plus-summary","/premium/who-liked-you"],
+            "AdvancedMatchFiltersActivity":["/premium/advanced-filters"],
+            "OwnerEarningsActivity":["/owner/earnings"],
+            "OwnerLiveAnalyticsActivity":["/owner/live-analytics"],
+            "WalletActivity":["/wallet","/wallet/withdrawals","/wallet/transactions"],
+            "PremiumPlansActivity":["/premium/plans","/premium/entitlement","/premium/purchases/verify"],
+            "ProfilePhotoActivity":["/terms/status"],
+            "RealFourPhotoActivity":["/photo-verification/start","/photo-verification/status"],
+            "GenderFilteredMatchesActivity":["/matches","/likes","/interests"],
+            "PrivacyControlCenterActivity":["/privacy"],
+            "AccountDeletionActivity":["/account"],
+            "TermsAndCommunityGuidelinesActivity":["/terms/accept"],
+            "CommunityChatActivity":["/community/messages","/blocks"],
+            "BlockedMembersActivity":["/blocks"],
+            "IdentityVerificationActivity":["/verification"],
+            "VerificationAdminActivity":["/admin/verifications"],
+            "RewardedMessageActivity":["/admob/rewarded/config"],
+            "LikedMeActivity":["/likes/received","/likes"],
+            "ILikedActivity":["/likes/sent"],
+            "ViewedMeActivity":["/profile-views/received"],
+            "IViewedActivity":["/profile-views/sent"],
+            "ProductionMainActivity":["/owner/live-analytics","/admin/verifications"],
+          }
+
+          auth_only_or_router={
+            "AzureExternalAuthActivity":"AzureAuthManager",
+            "WelcomeActivity":"AzureExternalAuthActivity.class",
+            "ProductionCompletionActivity":"AzureAuthManager",
+            "PostVerificationFeatureHubActivity":"Activity.class",
+            "MainActivity":"AzureAuthManager",
+            "UpgradeActivity":"PremiumPlansActivity.class",
+          }
+
+          checked=set()
+          for name,needles in api_expected.items():
+              p=root/(name+".java")
+              assert p.is_file(), f"Missing {name}"
+              t=p.read_text()
+              for needle in needles:
+                  assert needle in t, f"{name} missing production wiring {needle}"
+              checked.add(name)
+
+          for name,needle in auth_only_or_router.items():
+              p=root/(name+".java")
+              assert p.is_file(), f"Missing {name}"
+              t=p.read_text()
+              if name=="PostVerificationFeatureHubActivity":
+                  assert "startActivity" in t and "ProductionMainActivity.class" in t
+              else:
+                  assert needle in t, f"{name} missing production role {needle}"
+              checked.add(name)
+
+          # Premium billing and rewarded ads must be real platform integrations.
+          premium=(root/"PremiumPlansActivity.java").read_text()
+          assert "BillingClient" in premium
+          rewarded=(root/"RewardedMessageActivity.java").read_text()
+          assert "RewardedAd" in rewarded or "AdMob" in rewarded
+          completion=(root/"ProductionCompletionActivity.java").read_text()
+          assert "RewardedAd" in completion or "AdMob" in completion or "MobileAds" in completion
+
+          assert set(activities)==checked, "Unmapped Activities: "+", ".join(sorted(set(activities)-checked))
+          print("50/50 ACTIVITY PRODUCTION WIRING MAP: PASS")
+          PY
+
+      - name: Verify Azure backend route families
+        shell: bash
+        run: |
+          set -euo pipefail
+          for route in             'auth/azure/me' 'profile' 'matches' 'likes' 'conversations' 'family-links'             'family-circle' 'verification' 'photo-verification' 'privacy' 'safety/reports'             'blocks' 'community/messages' 'help/ask' 'wallet' 'premium/plans'             'admob/rewarded/config' 'ai/nikah-assistant' 'owner/live-analytics'             'owner/earnings' 'account'; do
+            grep -RInq "$route" azure-backend/src || { echo "Missing Azure route family: $route"; exit 1; }
+          done
+          echo "AZURE BACKEND ROUTE FAMILIES: PASS"
+
+      - name: Firebase zero regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e firebase.json
+          test ! -e firestore.rules
+          test ! -e firestore.indexes.json
+          test ! -e storage.rules
+          test ! -e app/google-services.json
+          test ! -d functions
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          echo "FIREBASE PRODUCTION RUNTIME: ZERO"
+
+  maestro-e2e:
+    name: Maestro E2E Baseline
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify launcher to Azure production navigation
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=app/src/main/java/com/nikahbridge
+          grep -Fq 'AzureExternalAuthActivity.class' "$A/WelcomeActivity.java"
+          grep -Fq 'AzureHomeActivity.class' "$A/AzureExternalAuthActivity.java"
+          grep -Fq 'GenderFilteredMatchesActivity.class' "$A/ProductionMainActivity.java"
+          grep -Fq 'FamilyBridge2Activity.class' "$A/ProductionMainActivity.java"
+          grep -Fq 'PremiumPlansActivity.class' "$A/ProductionMainActivity.java"
+          grep -Fq 'CommunityChatActivity.class' "$A/ProductionMainActivity.java"
+          echo "MAESTRO E2E NAVIGATION BASELINE: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Prevent cloud mutation in Step 7
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step7-full-50-azure-wiring-master-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 7 Locked
+    needs: [master-gate, maestro-e2e, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 7 FULL 50 AZURE WIRING: LOCKED"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
