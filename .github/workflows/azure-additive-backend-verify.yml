@@ -494,6 +494,63 @@ jobs:
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.3 LOCKED"
 
+      - name: Step 6.4 — existing and new Azure user profile contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          AUTH=azure-backend/src/auth.js
+          EXT=azure-backend/src/azureExternalAuth.js
+          PROFILE=azure-backend/src/profile.js
+
+          # No Firebase runtime identity or Firebase Admin fallback may remain.
+          ! grep -RInF 'firebase_uid' azure-backend/src --include='*.js'
+          ! grep -RInE 'getFirebaseAdmin|firebase-admin|FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|auth_provider[[:space:]]*===?[[:space:]]*["'\'' ]firebase' azure-backend/src azure-backend/package.json --include='*.js' --include='package.json'
+          ! grep -RInF 'azure_subject,azure_subject' azure-backend/src --include='*.js'
+
+          # Azure External ID is canonical for both existing-email linking and new-user creation.
+          grep -Fq 'WHERE azure_subject=$1 LIMIT 1' "$EXT"
+          grep -Fq 'WHERE lower(email)=lower($1) LIMIT 1' "$EXT"
+          grep -Fq 'UPDATE users SET azure_subject=$1' "$EXT"
+          grep -Fq 'INSERT INTO users (azure_subject,email,email_verified_at)' "$EXT"
+          grep -Fq 'auth_provider: "azure_external_id"' "$AUTH"
+          grep -Fq 'azure_user_id: azureUser.id' "$AUTH"
+
+          # Profile reads/writes must resolve through the Azure-backed internal user id.
+          grep -Fq 'WHERE azure_subject=$1' "$PROFILE"
+          grep -Fq 'INSERT INTO profiles(user_id,display_name,date_of_birth,gender' "$PROFILE"
+          grep -Fq 'ON CONFLICT(user_id) DO UPDATE SET' "$PROFILE"
+
+          # Account deletion must be Azure-only and must keep Play deletion support real.
+          grep -Fq 'SELECT id,status FROM users WHERE azure_subject=$1 LIMIT 1' azure-backend/src/account.js
+          grep -Fq 'SELECT id FROM users WHERE azure_subject=$1 LIMIT 1' azure-backend/src/accountDeletionWeb.js
+
+          echo "STEP 6.4 AZURE EXISTING + NEW USER PROFILE CONTRACT: PASS"
+
+      - name: Step 6.4 — live Azure auth configuration health
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL="https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net/api/auth/azure/health"
+          HTTP_CODE="$(curl -sS -o /tmp/azure-auth-health.json -w "%{http_code}" "$URL" || true)"
+          cat /tmp/azure-auth-health.json || true
+          test "$HTTP_CODE" = "200"
+          grep -q '"ok":true' /tmp/azure-auth-health.json
+          grep -q '"issuerConfigured":true' /tmp/azure-auth-health.json
+          grep -q '"audienceConfigured":true' /tmp/azure-auth-health.json
+          grep -q '"jwksConfigured":true' /tmp/azure-auth-health.json
+          echo "STEP 6.4 LIVE AZURE AUTH HEALTH: PASS"
+
+      - name: Step 6.4 — Master protection stack lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/scripts/runtime_maestro_master_gate.sh
+          test -f .maestro/ci-welcome.yaml
+          test -f .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.4 LOCKED"
+
       - name: Golden relationship history 4-screen lock
         run: |
           set -euo pipefail
