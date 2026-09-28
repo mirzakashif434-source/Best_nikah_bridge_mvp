@@ -89,17 +89,9 @@ app.http("familyLinkCreate",{
       );
       try{
         if(email){
-          const waliUser=await query("SELECT id FROM users WHERE lower(email)=lower(
-      const r=await query(
-        "INSERT INTO family_links(user_id,wali_email,wali_phone_e164,wali_name,status) VALUES($1,$2,$3,$4,'pending') RETURNING id,wali_name,wali_email,wali_phone_e164,status,created_at",
-        [me.id,email||null,phone||null,name]
-      );) AND status='active' LIMIT 1",[email]);
+          const waliUser=await query("SELECT id FROM users WHERE lower(email)=lower($1) AND status='active' LIMIT 1",[email]);
           if(waliUser.rows[0]){
-            const ownerProfile=await query("SELECT display_name FROM profiles WHERE user_id=
-      const r=await query(
-        "INSERT INTO family_links(user_id,wali_email,wali_phone_e164,wali_name,status) VALUES($1,$2,$3,$4,'pending') RETURNING id,wali_name,wali_email,wali_phone_e164,status,created_at",
-        [me.id,email||null,phone||null,name]
-      ); LIMIT 1",[me.id]);
+            const ownerProfile=await query("SELECT display_name FROM profiles WHERE user_id=$1 LIMIT 1",[me.id]);
             const ownerName=String(ownerProfile.rows[0]?.display_name||"A member").trim();
             await createNotification(
               waliUser.rows[0].id,
