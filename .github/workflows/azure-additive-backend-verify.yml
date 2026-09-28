@@ -15,6 +15,7 @@ on:
       - '.github/workflows/azure-additive-backend-verify.yml'
       - '.github/workflows/azure-backend-deploy.yml'
       - '.github/workflows/step8-azure-final-full-app-gate.yml'
+      - '.github/workflows/final-auth-signing-playstore-match.yml'
       - '.github/scripts/**'
       - '.maestro/final-release-42-screen-master.yaml'
       - '.github/workflows/final-release-master-gate.yml'
