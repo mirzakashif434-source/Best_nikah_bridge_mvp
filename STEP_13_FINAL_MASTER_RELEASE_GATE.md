@@ -13,7 +13,7 @@ It combines all prior protections:
 - Microsoft Entra auth, issuer/audience/JWKS/token validation
 - Play upload SHA and Play App Signing SHA separation
 - MSAL redirect hash lock
-- versionCode 33 Play Console compatibility
+- versionCode 34 Play Console compatibility
 - Google Play Billing + Azure purchase verification
 - AdMob + UMP + rewarded SSV
 - notifications
