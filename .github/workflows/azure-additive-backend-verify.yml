@@ -1204,3 +1204,5 @@ jobs:
           echo "Signed-in 38-screen legacy flow preserved; signed-in 42-screen Final Release Master flow is locked without any auth/demo bypass."
           echo "Golden Release manifest + provenance attestations + immutable commit identity verified; remote Golden tag is created when GitHub App policy permits."
           echo "Only the signed-in real-session Maestro run on a device and Play Console submission remain external."
+
+# Azure-only notification final verification trigger
