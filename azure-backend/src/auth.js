@@ -5,7 +5,7 @@ async function verifyAnyIdToken(request) {
   const azureUser = await ensureAzureUser(claims);
   return {
     ...claims,
-    uid: azureUser.firebase_uid || `azure:${claims.sub}`,
+    uid: azureUser.azure_subject || `azure:${claims.sub}`,
     email: azureUser.email,
     email_verified: Boolean(claims.email_verified) || Boolean(azureUser.email_verified_at),
     auth_provider: "azure_external_id",
