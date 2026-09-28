@@ -2,6 +2,7 @@ const { app } = require("@azure/functions");
 const { getPool, query } = require("./db");
 const { requireAuth } = require("./auth");
 const { entitlementForUser } = require("./premiumAccess");
+const { createNotification } = require("./notifications");
 
 const text=(v,max)=>typeof v==="string"?v.trim().slice(0,max):"";
 
@@ -63,6 +64,17 @@ app.http("interestCreate",{
          RETURNING id,status,created_at`,
         [me.id,receiver.rows[0].id]
       );
+      try{
+        const profile=await query("SELECT display_name FROM profiles WHERE user_id=$1 LIMIT 1",[me.id]);
+        const name=String(profile.rows[0]?.display_name||"Someone").trim();
+        await createNotification(
+          receiver.rows[0].id,
+          "like",
+          "Someone likes you",
+          name+" likes you.",
+          {actorUserId:myIdentity,interestId:r.rows[0].id}
+        );
+      }catch(pushError){context.warn("LIKE_NOTIFICATION_FAILED",pushError);}
       return {status:200,jsonBody:{ok:true,interest:r.rows[0]}};
     }catch(e){context.error("INTEREST_CREATE_FAILED",e);return {status:500,jsonBody:{ok:false,error:"INTEREST_CREATE_FAILED"}};}
   })
@@ -147,6 +159,19 @@ app.http("interestRespond",{
         mutual=Boolean(conversationId);
       }
       await client.query("COMMIT");
+      if(mutual){
+        try{
+          const profile=await query("SELECT display_name FROM profiles WHERE user_id=$1 LIMIT 1",[me.id]);
+          const name=String(profile.rows[0]?.display_name||"Your match").trim();
+          await createNotification(
+            i.sender_user_id,
+            "mutual",
+            "It's a mutual connection",
+            "You and "+name+" can now message each other.",
+            {actorUserId:user.azure_subject||"",conversationId:conversationId||"",interestId:id}
+          );
+        }catch(pushError){context.warn("MUTUAL_NOTIFICATION_FAILED",pushError);}
+      }
       return {status:200,jsonBody:{ok:true,interest:updated.rows[0],mutual,conversationId}};
     }catch(e){
       await client.query("ROLLBACK").catch(()=>{});
