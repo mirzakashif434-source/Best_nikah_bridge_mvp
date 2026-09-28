@@ -15,7 +15,7 @@ async function ensureUser(user) {
   let row = null;
   if (azureSubject) {
     const existing = await query(
-      "SELECT id,status FROM users WHERE azure_subject=$1 OR firebase_uid=$2 LIMIT 1",
+      "SELECT id,status FROM users WHERE azure_subject=$1 OR azure_subject=$2 LIMIT 1",
       [azureSubject, user.uid]
     );
     if (existing.rows[0]) {
@@ -26,14 +26,14 @@ async function ensureUser(user) {
       row = existing.rows[0];
     } else {
       const created = await query(
-        "INSERT INTO users(firebase_uid,azure_subject,email,email_verified_at) VALUES($1,$2,$3,CASE WHEN $4 THEN now() ELSE NULL END) RETURNING id,status",
-        [user.uid,azureSubject,email,Boolean(user.email_verified)]
+        "INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) RETURNING id,status",
+        [azureSubject,email,Boolean(user.email_verified)]
       );
       row = created.rows[0];
     }
   } else {
     const r = await query(
-      "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",
+      "INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(azure_subject) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",
       [user.uid, email, Boolean(user.email_verified)]
     );
     row = r.rows[0];
@@ -50,7 +50,7 @@ async function resolveUserId(identifier) {
   const value = text(identifier, 128);
   if (!value) return null;
   const r = await query(
-    "SELECT id FROM users WHERE firebase_uid=$1 OR azure_subject=$1 OR id::text=$1 LIMIT 1",
+    "SELECT id FROM users WHERE azure_subject=$1 OR azure_subject=$1 OR id::text=$1 LIMIT 1",
     [value]
   );
   return r.rows[0]?.id || null;
