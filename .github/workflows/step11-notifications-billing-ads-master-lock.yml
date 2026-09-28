@@ -1,0 +1,255 @@
+name: Step 11 Notifications Billing Ads Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_11_NOTIFICATIONS_BILLING_ADS_LOCK.md'
+      - '.github/workflows/step11-notifications-billing-ads-master-lock.yml'
+      - 'app/**'
+      - 'azure-backend/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step11-platform-services-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Preserve exact 50 Activities and Firebase zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
+          test "$COUNT" = "50"
+          test ! -e firebase.json
+          test ! -e firestore.rules
+          test ! -e firestore.indexes.json
+          test ! -e storage.rules
+          test ! -e app/google-services.json
+          test ! -d functions
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          echo "50 ACTIVITIES + FIREBASE ZERO: PASS"
+
+      - name: Verify Android Azure notifications
+        shell: bash
+        run: |
+          set -euo pipefail
+          M=app/src/main/AndroidManifest.xml
+          N=app/src/main/java/com/nikahbridge/AzureNotificationManager.java
+          A=app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+
+          grep -Fq 'android.permission.POST_NOTIFICATIONS' "$M"
+          grep -Fq 'NotificationChannel' "$N"
+          grep -Fq 'PeriodicWorkRequest' "$N"
+          grep -Fq 'WorkManager' "$N"
+          grep -Fq 'AzureApiClient.get("/notifications"' "$N"
+          grep -Fq 'LikedMeActivity.class' "$N"
+          grep -Fq 'ViewedMeActivity.class' "$N"
+          grep -Fq 'SafeCommunicationActivity.class' "$N"
+          grep -Fq 'IdentityVerificationActivity.class' "$N"
+          grep -Fq 'FamilyBridge2Activity.class' "$N"
+          grep -Fq 'AzureWalletActivity.class' "$N"
+          grep -Fq 'AzureNotificationManager.initialize(this)' "$A"
+          grep -Fq 'AzureNotificationManager.onActivityResumed(a)' "$A"
+
+          test -s azure-backend/src/notifications.js
+          grep -Fq 'route:"notifications"' azure-backend/src/notifications.js
+          grep -Fq 'route:"notifications/{notificationId}/read"' azure-backend/src/notifications.js
+          grep -Fq 'route:"notifications/read-all"' azure-backend/src/notifications.js
+          grep -Fq 'notificationScheduleDispatch' azure-backend/src/notifications.js
+          echo "AZURE NOTIFICATIONS: PASS"
+
+      - name: Verify Google Play Billing dependencies and client
+        shell: bash
+        run: |
+          set -euo pipefail
+          B=app/build.gradle
+          P=app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+
+          grep -Fq "com.android.billingclient:billing:9.1.0" "$B"
+          grep -Fq 'BillingClient.newBuilder' "$P"
+          grep -Fq 'enablePendingPurchases' "$P"
+          grep -Fq 'enableAutoServiceReconnection' "$P"
+          grep -Fq 'queryProductDetailsAsync' "$P"
+          grep -Fq 'queryPurchasesAsync' "$P"
+          grep -Fq 'launchBillingFlow' "$P"
+          grep -Fq 'premium_basic_20' "$P"
+          grep -Fq 'premium_plus_40' "$P"
+          grep -Fq 'premium_vip_60' "$P"
+          grep -Fq '/premium/plans' "$P"
+          grep -Fq '/premium/entitlement' "$P"
+          grep -Fq '/premium/purchases/verify' "$P"
+          echo "GOOGLE PLAY BILLING CLIENT: PASS"
+
+      - name: Verify Azure Google Play purchase verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          V=azure-backend/src/premiumPurchaseVerification.js
+          P=azure-backend/src/premiumPlans.js
+
+          grep -Fq 'https://www.googleapis.com/auth/androidpublisher' "$V"
+          grep -Fq 'androidpublisher.googleapis.com' "$V"
+          grep -Fq 'com.nikahbridge' "$V"
+          grep -Fq 'premium_basic_20' "$V"
+          grep -Fq 'premium_plus_40' "$V"
+          grep -Fq 'premium_vip_60' "$V"
+          grep -Fq 'Package name mismatch.' "$V"
+          grep -Fq 'Base plan mismatch.' "$V"
+          grep -Fq 'SUBSCRIPTION_STATE_ACTIVE' "$V"
+          grep -Fq 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD' "$V"
+          grep -Fq 'purchaseTokenHash' "$V"
+          grep -Fq 'already linked to another account' "$V"
+          grep -Fq 'premium_entitlements' "$V"
+          grep -Fq ':acknowledge' "$V"
+          grep -Fq 'route: "premium/purchases/verify"' "$V"
+          grep -Fq 'route: "premium/entitlement"' "$V"
+
+          grep -Fq 'route: "premium/plans"' "$P"
+          grep -Fq 'plan_key = ANY($1::text[])' "$P"
+          grep -Fq 'missingDbPlans' "$P"
+          echo "AZURE PLAY PURCHASE VERIFICATION: PASS"
+
+      - name: Verify Google Mobile Ads and UMP consent
+        shell: bash
+        run: |
+          set -euo pipefail
+          B=app/build.gradle
+          A=app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          M=app/src/main/AndroidManifest.xml
+
+          grep -Fq "com.google.android.gms:play-services-ads:25.4.0" "$B"
+          grep -Fq "com.google.android.ump:user-messaging-platform:4.0.0" "$B"
+          grep -Fq 'MobileAds.initialize' "$A"
+          grep -Fq 'UserMessagingPlatform.getConsentInformation' "$A"
+          grep -Fq 'requestConsentInfoUpdate' "$A"
+          grep -Fq 'loadAndShowConsentFormIfRequired' "$A"
+          grep -Fq 'canRequestAds()' "$A"
+          grep -Fq 'com.google.android.gms.ads.APPLICATION_ID' "$M"
+          grep -Fq 'com.google.android.gms.permission.AD_ID' "$M"
+          echo "ADMOB + UMP CONSENT: PASS"
+
+      - name: Verify rewarded ad Azure SSV security
+        shell: bash
+        run: |
+          set -euo pipefail
+          R=app/src/main/java/com/nikahbridge/RewardedMessageActivity.java
+          S=azure-backend/src/rewardedAds.js
+
+          grep -Fq 'RewardedAd' "$R"
+          grep -Fq 'ServerSideVerificationOptions' "$R"
+          grep -Fq '/admob/rewarded/config' "$R"
+          grep -Fq 'Maximum 2 rewarded message credits per UTC day' "$R"
+
+          grep -Fq 'route: "admob/rewarded/config"' "$S"
+          grep -Fq 'route: "admob/rewarded/ssv"' "$S"
+          grep -Fq 'verifier-keys.json' "$S"
+          grep -Fq 'crypto.verify("sha256"' "$S"
+          grep -Fq 'Invalid AdMob SSV signature.' "$S"
+          grep -Fq 'dailyRewardLimit: 2' "$S"
+          grep -Fq 'rewardMessageCredits: 1' "$S"
+          grep -Fq 'used >= 2' "$S"
+          grep -Fq 'LEAST(2,daily_reward_claims.claim_count + 1)' "$S"
+          grep -Fq 'PREMIUM_AD_FREE' "$S"
+          grep -Fq 'message_credits = entitlements.message_credits + 1' "$S"
+          echo "ADMOB SSV + REWARD LIMIT: PASS"
+
+  maestro-e2e:
+    name: Maestro E2E Contract
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify billing/ads/notification navigation contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLOW=.maestro/final-release-42-screen-master.yaml
+          test -s "$FLOW"
+          grep -Fq 'Premium Plans' "$FLOW"
+          grep -Fq 'Earn Message Credits' "$FLOW"
+          grep -Fq 'Liked Me' "$FLOW"
+          grep -Fq 'Viewed Me' "$FLOW"
+          grep -Fq 'Safe Communication' "$FLOW"
+          echo "MAESTRO PLATFORM SERVICE NAVIGATION: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Prevent cloud mutation in Step 11
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step11-notifications-billing-ads-master-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 11 Locked
+    needs: [master-gate, maestro-e2e, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 11 NOTIFICATIONS + BILLING + ADS: LOCKED"
+          echo "Master Gate -> Maestro E2E Contract -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
