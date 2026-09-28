@@ -114,6 +114,26 @@ app.http("notificationDeviceRegister",{
   })
 });
 
+app.http("notificationDeviceUnregister",{
+  methods:["DELETE"],authLevel:"anonymous",route:"notifications/devices/current",
+  handler:requireAuth(async(request,context,authUser)=>{
+    try{
+      const user=await currentUser(authUser);
+      const b=await request.json().catch(()=>({}));
+      const token=text(b.token,4096);
+      if(!token)return {status:400,jsonBody:{ok:false,error:"DEVICE_TOKEN_REQUIRED"}};
+      await query(
+        "UPDATE notification_devices SET active=false,updated_at=now() WHERE user_id=$1 AND device_token=$2",
+        [user.id,token]
+      );
+      return {status:200,jsonBody:{ok:true,unregistered:true}};
+    }catch(e){
+      context.error("NOTIFICATION_DEVICE_UNREGISTER_FAILED",e);
+      return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"NOTIFICATION_DEVICE_UNREGISTER_FAILED"}};
+    }
+  })
+});
+
 app.http("notificationList",{
   methods:["GET"],authLevel:"anonymous",route:"notifications",
   handler:requireAuth(async(request,context,authUser)=>{
