@@ -49,7 +49,20 @@ app.http("sendLikeAzure",{methods:["POST"],authLevel:"anonymous",route:"likes",h
      );
      await client.query("ROLLBACK");
      const next=oldest.rows[0]?new Date(new Date(oldest.rows[0].created_at).getTime()+24*60*60*1000).toISOString():null;
-     return {status:429,jsonBody:{ok:false,error:"ROLLING_24H_LIKE_LIMIT_REACHED",limit:20,used:count,remaining:0,nextAvailableAt:next}};
+     if(next){
+      try{
+        await scheduleNotification(
+          u.id,
+          "like_reset",
+          "Your likes are available again",
+          "Your rolling 24-hour like limit has refreshed. You can like another profile now.",
+          {nextAvailableAt:next},
+          next,
+          "like-reset:"+u.id+":"+next
+        );
+      }catch(notificationError){ctx.warn("LIKE_RESET_NOTIFICATION_SCHEDULE_FAILED",notificationError);}
+    }
+    return {status:429,jsonBody:{ok:false,error:"ROLLING_24H_LIKE_LIMIT_REACHED",limit:20,used:count,remaining:0,nextAvailableAt:next}};
    }
 
    const day=new Date().toISOString().slice(0,10);
@@ -59,7 +72,20 @@ app.http("sendLikeAzure",{methods:["POST"],authLevel:"anonymous",route:"likes",h
    );
    await client.query("INSERT INTO like_events(user_id,target_user_id,created_at) VALUES($1,$2,now())",[u.id,t.rows[0].id]);
    await client.query("COMMIT");
-   return {status:200,jsonBody:{ok:true,sent:true,alreadyLiked:false,limit:20,used:count+1,remaining:19-count}};
+    try{
+      const profile=await query("SELECT display_name FROM profiles WHERE user_id=
+   await client.query("INSERT INTO like_events(user_id,target_user_id,created_at) VALUES($1,$2,now())",[u.id,t.rows[0].id]);
+   await client.query("COMMIT"); LIMIT 1",[u.id]);
+      const actorName=String(profile.rows[0]?.display_name||"Someone").trim();
+      await createNotification(
+        t.rows[0].id,
+        "like",
+        "Someone likes you",
+        actorName+" likes you.",
+        {actorUserId:user.azure_subject||""}
+      );
+    }catch(notificationError){ctx.warn("LIKE_NOTIFICATION_FAILED",notificationError);}
+    return {status:200,jsonBody:{ok:true,sent:true,alreadyLiked:false,limit:20,used:count+1,remaining:19-count}};
  }catch(e){
    await client.query("ROLLBACK").catch(()=>{});
    throw e;
