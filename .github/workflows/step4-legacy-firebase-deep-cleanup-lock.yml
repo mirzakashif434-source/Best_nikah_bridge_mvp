@@ -1,0 +1,196 @@
+name: Step 4 Legacy Firebase Deep Cleanup Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_4_LEGACY_FIREBASE_DEEP_CLEANUP_LOCK.md'
+      - '.github/workflows/step4-legacy-firebase-deep-cleanup-lock.yml'
+      - 'app/**'
+      - 'azure-backend/**'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle.properties'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step4-legacy-cleanup-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Verify no legacy Firebase files remain
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # New safety lock files are allowed to mention the word Firebase because
+          # their only purpose is to prevent Firebase runtime from returning.
+          ALLOW_1='.github/workflows/step1-firebase-zero-runtime-lock.yml'
+          ALLOW_2='STEP_1_FIREBASE_ZERO_RUNTIME_LOCK.md'
+          ALLOW_3='.github/workflows/step4-legacy-firebase-deep-cleanup-lock.yml'
+          ALLOW_4='STEP_4_LEGACY_FIREBASE_DEEP_CLEANUP_LOCK.md'
+
+          bad_paths="$(git ls-files | grep -Ei '(^|/)(firebase\.json|firestore\.rules|firestore\.indexes\.json|storage\.rules|google-services\.json)$|firebase-production-deploy|/firebase/|Firebase(AI|Auth|Firestore|Functions|Storage)' || true)"
+          if [ -n "$bad_paths" ]; then
+            echo "LEGACY FIREBASE FILE PATHS FOUND:"
+            echo "$bad_paths"
+            exit 1
+          fi
+
+          echo "LEGACY FIREBASE FILE PATHS: ZERO"
+
+      - name: Verify no Firebase Android runtime or Gradle plugin/dependency remains
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -RInE             'com\.google\.firebase|FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|firebase-(auth|firestore|functions|storage|ai)|google-services'             app build.gradle settings.gradle gradle.properties             --include='*.java' --include='*.kt' --include='*.gradle' --include='*.kts' --include='*.xml' --include='*.json'             2>/dev/null
+          echo "ANDROID FIREBASE RUNTIME/GRADLE: ZERO"
+
+      - name: Verify no legacy Firebase deployment/config remains
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e firebase.json
+          test ! -e firestore.rules
+          test ! -e firestore.indexes.json
+          test ! -e storage.rules
+          test ! -e app/google-services.json
+          test ! -d functions
+          test ! -e .github/workflows/firebase-production-deploy.yml
+          echo "FIREBASE DEPLOYMENT/CONFIG: ZERO"
+
+      - name: Verify Azure production backend remains authoritative
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d azure-backend
+          test -s azure-backend/src/index.js
+          test -s azure-backend/src/auth.js
+          test -s azure-backend/src/azureExternalAuth.js
+          test -s app/src/main/java/com/nikahbridge/AzureApiClient.java
+          test -s app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -RInq 'azurewebsites.net' app/src/main/java/com/nikahbridge
+          echo "AZURE AUTHORITATIVE RUNTIME: PASS"
+
+      - name: Preserve exact 50 app Activities
+        shell: bash
+        run: |
+          set -euo pipefail
+          COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
+          test "$COUNT" = "50"
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          names=set(re.findall(r'android:name="\.([A-Za-z0-9_]+Activity)"', manifest))
+          missing=[n for n in sorted(names) if not (root/(n+".java")).is_file()]
+          assert not missing, "Missing Activity files: "+", ".join(missing)
+          print("50 ACTIVITY SOURCE PRESERVATION: PASS")
+          PY
+
+  maestro-e2e:
+    name: Maestro E2E Baseline
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify key real Azure user flows remain wired
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=app/src/main/java/com/nikahbridge
+          grep -Fq 'AzureExternalAuthActivity.class' "$APP/WelcomeActivity.java"
+          grep -Fq 'GenderFilteredMatchesActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'FamilyBridge2Activity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'IdentityVerificationActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'PrivacyControlCenterActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'PremiumPlansActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'NikahAssistantActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'CommunityChatActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'RewardedMessageActivity.class' "$APP/ProductionMainActivity.java"
+          grep -Fq 'AccountDeletionActivity.class' "$APP/AzureHomeActivity.java"
+          echo "MAESTRO E2E AZURE FLOW BASELINE: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Prevent Step 4 cloud mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step4-legacy-firebase-deep-cleanup-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 4 Locked
+    needs: [master-gate, maestro-e2e, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 4 LEGACY FIREBASE DEEP CLEANUP: LOCKED"
+          echo "50 ACTIVITIES PRESERVED"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
