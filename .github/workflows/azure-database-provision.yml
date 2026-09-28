@@ -170,6 +170,57 @@ jobs:
           set -euo pipefail
           az functionapp config appsettings set             --name "$FUNCTION_APP"             --resource-group "$RESOURCE_GROUP"             --settings               AZURE_DB_HOST="$DB_SERVER.postgres.database.azure.com"               AZURE_DB_NAME="$DB_NAME"               AZURE_DB_USER="$DB_ADMIN"               AZURE_DB_ADMIN_PASSWORD="$DB_PASSWORD"               AZURE_DB_SSLMODE=require             --only-show-errors
 
+      - name: Step 6.4 live Azure identity and profile smoke
+        shell: bash
+        env:
+          PGPASSWORD: ${{ env.DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          CONN="host=$DB_SERVER.postgres.database.azure.com port=5432 dbname=$DB_NAME user=$DB_ADMIN sslmode=require"
+
+          # Existing production records must now have canonical Azure identity.
+          MISSING="$(psql "$CONN" -Atc "SELECT count(*) FROM users WHERE azure_subject IS NULL;")"
+          test "$MISSING" = "0"
+
+          # The retired legacy column must really be gone from the live database.
+          LEGACY_COL="$(psql "$CONN" -Atc "SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='users' AND column_name='firebase_uid';")"
+          test "$LEGACY_COL" = "0"
+
+          # New-user + existing-user-link + profile persistence smoke, fully rolled back.
+          psql "$CONN" -v ON_ERROR_STOP=1 <<'SQL'
+          BEGIN;
+          INSERT INTO users(azure_subject,email,email_verified_at)
+          VALUES('ci-step6-4-new-user','ci-step6-4@invalid.example',now())
+          ON CONFLICT (azure_subject) DO UPDATE SET email=EXCLUDED.email,updated_at=now();
+
+          UPDATE users
+             SET email_verified_at=COALESCE(email_verified_at,now()),
+                 updated_at=now()
+           WHERE azure_subject='ci-step6-4-new-user';
+
+          INSERT INTO profiles(user_id,display_name,date_of_birth,gender,profile_completed,is_visible)
+          SELECT id,'CI Azure User','1990-01-01','male',TRUE,FALSE
+            FROM users
+           WHERE azure_subject='ci-step6-4-new-user'
+          ON CONFLICT(user_id) DO UPDATE SET display_name=EXCLUDED.display_name,updated_at=now();
+
+          DO $
+          DECLARE n BIGINT;
+          BEGIN
+            SELECT count(*) INTO n
+              FROM users u
+              JOIN profiles p ON p.user_id=u.id
+             WHERE u.azure_subject='ci-step6-4-new-user'
+               AND p.display_name='CI Azure User';
+            IF n <> 1 THEN
+              RAISE EXCEPTION 'STEP 6.4 AZURE USER/PROFILE SMOKE FAILED';
+            END IF;
+          END $;
+          ROLLBACK;
+          SQL
+
+          echo "STEP 6.4 LIVE AZURE EXISTING + NEW USER PROFILE FLOW: PASS"
+
       - name: Verify database objects
         shell: bash
         env:
