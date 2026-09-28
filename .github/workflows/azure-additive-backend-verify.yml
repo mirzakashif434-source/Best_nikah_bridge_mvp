@@ -335,6 +335,85 @@ jobs:
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "GOLDEN+ STACK: APP + SELF-HEALING + AUTO-ROLLBACK + FORTRESS BUDGET"
 
+      - name: Step 5 — verify Azure API registration separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'applicationId '\''com.nikahbridge'\''' app/build.gradle
+          grep -Fq 'f5fc2b11-420f-4741-9a52-65d60cbddb7b' app/src/main/res/raw/auth_config.json
+          grep -Fq 'api://4733ae40-3b89-4994-b99b-3890bf87e876/access_as_user' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'api://4733ae40-3b89-4994-b99b-3890bf87e876/access_as_user' app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
+          echo "STEP 5 SOURCE CONTRACT: PLAY/ANDROID CLIENT + API SCOPE PRESERVED"
+
+      - name: Step 5 — Azure login via Customers tenant OIDC
+        uses: azure/login@v3
+        with:
+          client-id: 256ca508-50c5-4877-bc12-f20993fb97c4
+          tenant-id: c4ac0560-df59-48d4-af1b-bb0ed127ce6d
+          audience: api://AzureADTokenExchange
+          environment: azurecloud
+          allow-no-subscriptions: true
+
+      - name: Step 5 — clean API Android redirect only and verify scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          API_CLIENT_ID='4733ae40-3b89-4994-b99b-3890bf87e876'
+          ANDROID_CLIENT_ID='f5fc2b11-420f-4741-9a52-65d60cbddb7b'
+          PACKAGE='com.nikahbridge'
+          TOKEN="$(az account get-access-token --resource-type ms-graph --query accessToken -o tsv)"
+          test -n "$TOKEN"
+
+          FILTER="$(python3 - <<'PY'
+          import urllib.parse
+          print(urllib.parse.quote("appId eq '4733ae40-3b89-4994-b99b-3890bf87e876'"))
+          PY
+          )"
+
+          curl -fsS -H "Authorization: Bearer $TOKEN"             "https://graph.microsoft.com/v1.0/applications?%24filter=$FILTER"             -o /tmp/step5-api-app-search.json
+
+          test "$(jq '.value | length' /tmp/step5-api-app-search.json)" = "1"
+          jq '.value[0]' /tmp/step5-api-app-search.json >/tmp/step5-api-app.json
+
+          jq -e --arg appId "$API_CLIENT_ID" '.appId == $appId' /tmp/step5-api-app.json >/dev/null
+          jq -e --arg uri "api://$API_CLIENT_ID" '.identifierUris | index($uri) != null' /tmp/step5-api-app.json >/dev/null
+          jq -e '.api.oauth2PermissionScopes | any(.value == "access_as_user" and .isEnabled == true)' /tmp/step5-api-app.json >/dev/null
+          jq -e --arg client "$ANDROID_CLIENT_ID" '.api.preAuthorizedApplications | any(.appId == $client)' /tmp/step5-api-app.json >/dev/null
+
+          OBJECT_ID="$(jq -r '.id' /tmp/step5-api-app.json)"
+          jq --arg prefix "msauth://$PACKAGE/" '
+            {
+              publicClient: {redirectUris: ((.publicClient.redirectUris // []) | map(select(startswith($prefix) | not)))},
+              web: {redirectUris: ((.web.redirectUris // []) | map(select(startswith($prefix) | not)))},
+              spa: {redirectUris: ((.spa.redirectUris // []) | map(select(startswith($prefix) | not)))}
+            }
+          ' /tmp/step5-api-app.json >/tmp/step5-api-clean-patch.json
+
+          curl -fsS -X PATCH             -H "Authorization: Bearer $TOKEN"             -H "Content-Type: application/json"             --data-binary @/tmp/step5-api-clean-patch.json             "https://graph.microsoft.com/v1.0/applications/$OBJECT_ID"
+
+          curl -fsS -H "Authorization: Bearer $TOKEN"             "https://graph.microsoft.com/v1.0/applications/$OBJECT_ID"             -o /tmp/step5-api-app-after.json
+
+          jq -e --arg prefix "msauth://$PACKAGE/" '
+            [(.publicClient.redirectUris // []),(.web.redirectUris // []),(.spa.redirectUris // [])]
+            | flatten
+            | all(startswith($prefix) | not)
+          ' /tmp/step5-api-app-after.json >/dev/null
+          jq -e --arg uri "api://$API_CLIENT_ID" '.identifierUris | index($uri) != null' /tmp/step5-api-app-after.json >/dev/null
+          jq -e '.api.oauth2PermissionScopes | any(.value == "access_as_user" and .isEnabled == true)' /tmp/step5-api-app-after.json >/dev/null
+          jq -e --arg client "$ANDROID_CLIENT_ID" '.api.preAuthorizedApplications | any(.appId == $client)' /tmp/step5-api-app-after.json >/dev/null
+
+          echo "STEP 5 AZURE API REGISTRATION: PLAY-SAFE SEPARATION PASS"
+
+      - name: Step 5 — Master protection stack lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/workflows/final-release-master-gate.yml
+          test -f .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 5 LOCKED"
+
       - name: Golden relationship history 4-screen lock
         run: |
           set -euo pipefail
