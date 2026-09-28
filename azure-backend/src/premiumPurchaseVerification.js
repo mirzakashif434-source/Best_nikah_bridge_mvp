@@ -91,7 +91,7 @@ function extractLineItem(purchase, productId) {
 }
 
 async function currentUser(authUser) {
-  const identityColumn = authUser.auth_provider === "azure_external_id" ? "azure_subject" : "firebase_uid";
+  const identityColumn = authUser.auth_provider === "azure_external_id" ? "azure_subject" : "azure_subject";
   const identityValue = authUser.auth_provider === "azure_external_id" ? authUser.azure_subject : authUser.uid;
   const result = await query(
     `SELECT id, status FROM users WHERE ${identityColumn} = $1 LIMIT 1`,
