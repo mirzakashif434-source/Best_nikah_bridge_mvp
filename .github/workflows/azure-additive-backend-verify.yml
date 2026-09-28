@@ -468,6 +468,33 @@ jobs:
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.2 LOCKED"
 
+      - name: Step 6.3 — legacy Firebase identity column retired safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCHEMA=azure-backend/database/schema.sql
+          ! grep -Fq 'firebase_uid TEXT UNIQUE' "$SCHEMA"
+          ! grep -Fq 'ALTER TABLE users ADD COLUMN IF NOT EXISTS firebase_uid' "$SCHEMA"
+          ! grep -Fq 'CREATE INDEX IF NOT EXISTS idx_users_firebase_uid' "$SCHEMA"
+          grep -Fq -- '-- Step 6.3 / final Azure identity cutover.' "$SCHEMA"
+          grep -Fq "column_name='firebase_uid'" "$SCHEMA"
+          grep -Fq 'legacy_unmapped' "$SCHEMA"
+          grep -Fq 'firebase_uid was NOT dropped' "$SCHEMA"
+          grep -Fq 'ALTER TABLE users DROP COLUMN firebase_uid' "$SCHEMA"
+          grep -Fq 'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject' "$SCHEMA"
+          echo "STEP 6.3 LEGACY FIREBASE IDENTITY COLUMN: SAFE RETIREMENT CONTRACT PASS"
+
+      - name: Step 6.3 — Master protection stack lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/scripts/runtime_maestro_master_gate.sh
+          test -f .maestro/ci-welcome.yaml
+          test -f .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.3 LOCKED"
+
       - name: Golden relationship history 4-screen lock
         run: |
           set -euo pipefail
