@@ -125,7 +125,8 @@ jobs:
           grep -Fq 'NikahAssistantActivity.class' "$APP/ProductionMainActivity.java"
           grep -Fq 'CommunityChatActivity.class' "$APP/ProductionMainActivity.java"
           grep -Fq 'RewardedMessageActivity.class' "$APP/ProductionMainActivity.java"
-          grep -Fq 'AccountDeletionActivity.class' "$APP/AzureHomeActivity.java"
+          grep -Fq 'android:name=".AccountDeletionActivity"' app/src/main/AndroidManifest.xml
+          grep -Fq 'AzureApiClient.delete("/account"' "$APP/AccountDeletionActivity.java"
           echo "MAESTRO E2E AZURE FLOW BASELINE: PASS"
 
   fortress-budget:
