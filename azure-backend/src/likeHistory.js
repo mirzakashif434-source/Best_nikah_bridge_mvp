@@ -44,7 +44,7 @@ app.http("likesReceivedAzure", {
         `SELECT
             l.id AS like_id,
             l.created_at,
-            COALESCE(u.azure_subject,u.firebase_uid,u.id::text) AS user_id,
+            COALESCE(u.azure_subject,u.id::text) AS user_id,
             COALESCE(p.display_name,'Member') AS display_name,
             EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,
             p.gender,
@@ -118,7 +118,7 @@ app.http("likesSentAzure", {
         `SELECT
             l.id AS like_id,
             l.created_at,
-            COALESCE(u.azure_subject,u.firebase_uid,u.id::text) AS user_id,
+            COALESCE(u.azure_subject,u.id::text) AS user_id,
             COALESCE(p.display_name,'Member') AS display_name,
             EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age,
             p.gender,
@@ -178,7 +178,7 @@ app.http("likeCancelAzure", {
       const targetKey=String(request.params?.targetUserId||context.triggerMetadata?.targetUserId||"").trim();
       if(!targetKey) return {status:400,jsonBody:{ok:false,error:"LIKE_TARGET_REQUIRED"}};
       const target=await query(
-        "SELECT id FROM users WHERE id::text=$1 OR azure_subject=$1 OR firebase_uid=$1 LIMIT 1",
+        "SELECT id FROM users WHERE id::text=$1 OR azure_subject=$1 OR azure_subject=$1 LIMIT 1",
         [targetKey]
       );
       if(!target.rows[0]) return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};
@@ -208,7 +208,7 @@ app.http("likeReceivedIgnoreAzure", {
       const sourceKey=String(request.params?.sourceUserId||context.triggerMetadata?.sourceUserId||"").trim();
       if(!sourceKey) return {status:400,jsonBody:{ok:false,error:"LIKE_SOURCE_REQUIRED"}};
       const source=await query(
-        "SELECT id FROM users WHERE id::text=$1 OR azure_subject=$1 OR firebase_uid=$1 LIMIT 1",
+        "SELECT id FROM users WHERE id::text=$1 OR azure_subject=$1 OR azure_subject=$1 LIMIT 1",
         [sourceKey]
       );
       if(!source.rows[0]) return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};
