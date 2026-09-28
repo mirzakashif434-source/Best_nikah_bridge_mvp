@@ -1,6 +1,15 @@
 name: Final Auth Signing Play Store Match
 
 on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'app/build.gradle'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/src/release/AndroidManifest.xml'
+      - 'app/src/main/res/raw/auth_config.json'
+      - 'app/src/release/res/raw/auth_config.json'
+      - '.github/workflows/final-auth-signing-playstore-match.yml'
   workflow_dispatch:
 
 permissions:
