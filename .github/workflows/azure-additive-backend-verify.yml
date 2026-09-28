@@ -982,29 +982,37 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :app:compileDebugJavaWithJavac :app:lintDebug --stacktrace
 
-      - name: Prepare real release signing and Azure redirect URI
+      - name: Prepare real release signing and verify Play signing redirect
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
+          EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
         run: |
           set -euo pipefail
           test -n "$KEYSTORE_BASE64"
           test -n "$KEYSTORE_PASSWORD"
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
-          HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
-          python3 - "$HASH" <<'PY'
-          import json, pathlib, re, sys
-          h=sys.argv[1]
-          p=pathlib.Path("app/src/main/res/raw/auth_config.json")
-          d=json.loads(p.read_text())
-          d["redirect_uri"]="msauth://com.nikahbridge/"+h.replace("=", "%3D")
-          p.write_text(json.dumps(d, indent=2)+"\n")
-          p=pathlib.Path("app/src/main/AndroidManifest.xml")
-          s=p.read_text()
-          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(")', rf'\g<1>{h}\g<2>', s)
-          p.write_text(s)
-          PY
+
+          # The upload key signs the AAB uploaded to Play Console.
+          # It is NOT the MSAL redirect certificate for the Play-installed app.
+          ACTUAL_UPLOAD_SHA1="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          test "$ACTUAL_UPLOAD_SHA1" = "$EXPECTED_PLAY_UPLOAD_SHA1"
+
+          # Microsoft redirect must be based on the Play App Signing certificate.
+          PLAY_REDIRECT_HASH="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
+          PLAY_REDIRECT_HASH_URL="$(printf '%s' "$PLAY_REDIRECT_HASH" | sed 's/=/%3D/g')"
+          test "$PLAY_REDIRECT_HASH" = "haUulU8x36wsEGKo1k7aLZtIW0g="
+
+          grep -Fq "\"redirect_uri\": \"msauth://com.nikahbridge/$PLAY_REDIRECT_HASH_URL\"" app/src/main/res/raw/auth_config.json
+          grep -Fq "android:scheme=\"msauth\" android:host=\"com.nikahbridge\" android:path=\"/$PLAY_REDIRECT_HASH\"" app/src/main/AndroidManifest.xml
+          grep -Fq "\"redirect_uri\": \"msauth://com.nikahbridge/$PLAY_REDIRECT_HASH_URL\"" app/src/release/res/raw/auth_config.json
+          grep -Fq "android:host=\"com.nikahbridge\"" app/src/release/AndroidManifest.xml
+          grep -Fq "android:path=\"/$PLAY_REDIRECT_HASH\"" app/src/release/AndroidManifest.xml
+
+          echo "UPLOAD CERT: VERIFIED SEPARATELY"
+          echo "PLAY APP-SIGNING MSAL REDIRECT: VERIFIED"
 
       - name: Build final signed Azure APK and AAB
         env:
