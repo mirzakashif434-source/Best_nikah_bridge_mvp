@@ -10,18 +10,18 @@ async function ensureUser(user){
   const azureSubject=typeof user.azure_subject==="string"&&user.azure_subject.trim()?user.azure_subject.trim():null;
   let row=null;
   if(azureSubject){
-    const existing=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR firebase_uid=$2 LIMIT 1",[azureSubject,user.uid||azureSubject]);
+    const existing=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR azure_subject=$2 LIMIT 1",[azureSubject,user.uid||azureSubject]);
     if(existing.rows[0]){
       await query("UPDATE users SET azure_subject=COALESCE(azure_subject,$1),email=$2,email_verified_at=COALESCE(email_verified_at,CASE WHEN $3 THEN now() ELSE NULL END),updated_at=now() WHERE id=$4",[azureSubject,email,Boolean(user.email_verified),existing.rows[0].id]);
       row=existing.rows[0];
     }else{
-      const created=await query("INSERT INTO users(firebase_uid,azure_subject,email,email_verified_at) VALUES($1,$2,$3,CASE WHEN $4 THEN now() ELSE NULL END) RETURNING id,status",[user.uid||azureSubject,azureSubject,email,Boolean(user.email_verified)]);
+      const created=await query("INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) RETURNING id,status",[azureSubject,email,Boolean(user.email_verified)]);
       row=created.rows[0];
     }
   }else{
     if(!user.uid){const e=new Error("AUTH_IDENTITY_REQUIRED");e.statusCode=401;throw e;}
     const r=await query(
-      "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",
+      "INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(azure_subject) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",
       [user.uid,email,Boolean(user.email_verified)]
     );
     row=r.rows[0];
@@ -33,7 +33,7 @@ async function ensureUser(user){
 async function resolveUser(identifier){
   const value=text(identifier,128);
   if(!value)return null;
-  const r=await query("SELECT id,COALESCE(azure_subject,firebase_uid,id::text) AS user_id,azure_subject,firebase_uid FROM users WHERE azure_subject=$1 OR firebase_uid=$1 OR id::text=$1 LIMIT 1",[value]);
+  const r=await query("SELECT id,COALESCE(azure_subject,azure_subject,id::text) AS user_id,azure_subject,azure_subject FROM users WHERE azure_subject=$1 OR azure_subject=$1 OR id::text=$1 LIMIT 1",[value]);
   return r.rows[0]||null;
 }
 
@@ -61,7 +61,7 @@ app.http("blockUserList",{
     try{
       const me=await ensureUser(user);
       const r=await query(
-        "SELECT b.id,COALESCE(u.azure_subject,u.firebase_uid,u.id::text) AS user_id,b.blocked_user_id,p.display_name,b.created_at FROM blocked_users b JOIN users u ON u.id=b.blocked_user_id LEFT JOIN profiles p ON p.user_id=u.id WHERE b.blocker_user_id=$1 ORDER BY b.created_at DESC LIMIT 500",
+        "SELECT b.id,COALESCE(u.azure_subject,u.id::text) AS user_id,b.blocked_user_id,p.display_name,b.created_at FROM blocked_users b JOIN users u ON u.id=b.blocked_user_id LEFT JOIN profiles p ON p.user_id=u.id WHERE b.blocker_user_id=$1 ORDER BY b.created_at DESC LIMIT 500",
         [me.id]
       );
       return {status:200,jsonBody:{ok:true,blocks:r.rows}};
