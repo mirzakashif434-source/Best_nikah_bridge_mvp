@@ -89,6 +89,10 @@ jobs:
           grep -Fq 'jwtVerify(token,jwks,{audience:cfg.audience})' azure-backend/src/azureExternalAuth.js
           grep -Fq 'issuerAllowed(payload.iss, allowedIssuers)' azure-backend/src/azureExternalAuth.js
           grep -Fq '/discovery/v2.0/keys' azure-backend/src/azureExternalAuth.js
+          ! grep -RInF '85A52E954F31DFAC2C1062A8D64EDA2D9B485B48' app .github/workflows --exclude='*.md'
+          ! grep -RInF 'haUulU8x36wsEGKo1k7aLZtIW0g' app .github/workflows --exclude='*.md'
+          ! grep -RInE 'versionCode[[:space:]]+33' app/build.gradle .github/workflows
+          echo "OLD PLAY SIGNING SHA/HASH/V33 REGRESSION: ZERO"
           echo "AUTH + SHA + MSAL + JWKS: PASS"
 
       - name: Verify Billing Ads Notifications and compliance contracts
