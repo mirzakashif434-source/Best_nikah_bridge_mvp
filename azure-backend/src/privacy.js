@@ -10,10 +10,10 @@ async function ensureUser(user){
   const azureSubject=typeof user.azure_subject==="string"&&user.azure_subject.trim()?user.azure_subject.trim():null;
   let r;
   if(azureSubject){
-    r=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR firebase_uid=$2 LIMIT 1",[azureSubject,user.uid]);
-    if(!r.rows[0]) r=await query("INSERT INTO users(firebase_uid,azure_subject,email,email_verified_at) VALUES($1,$2,$3,CASE WHEN $4 THEN now() ELSE NULL END) RETURNING id,status",[user.uid,azureSubject,email,Boolean(user.email_verified)]);
+    r=await query("SELECT id,status FROM users WHERE azure_subject=$1 OR azure_subject=$2 LIMIT 1",[azureSubject,user.uid]);
+    if(!r.rows[0]) r=await query("INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) RETURNING id,status",[azureSubject,email,Boolean(user.email_verified)]);
   }else{
-    r=await query("INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",[user.uid,email,Boolean(user.email_verified)]);
+    r=await query("INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(azure_subject) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status",[user.uid,email,Boolean(user.email_verified)]);
   }
   if(r.rows[0].status!=="active"){const e=new Error("USER_NOT_ACTIVE");e.statusCode=403;throw e;}
   return r.rows[0];
