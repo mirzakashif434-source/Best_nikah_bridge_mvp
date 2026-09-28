@@ -63,6 +63,7 @@ require("./ownerAnalytics");
 require("./featureParity");
 require("./likeHistory");
 require("./profileViews");
+require("./notifications");
 
 require("./settings");
 
