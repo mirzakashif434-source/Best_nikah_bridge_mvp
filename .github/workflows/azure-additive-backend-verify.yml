@@ -33,10 +33,6 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  FCM_APP_ID: ${{ vars.FCM_APP_ID }}
-  FCM_API_KEY: ${{ vars.FCM_API_KEY }}
-  FCM_PROJECT_ID: ${{ vars.FCM_PROJECT_ID }}
-  FCM_SENDER_ID: ${{ vars.FCM_SENDER_ID }}
 
 jobs:
   verify:
@@ -45,7 +41,7 @@ jobs:
       - name: Checkout exact cutover source
         uses: actions/checkout@v5
 
-      - name: Verify Azure auth/data runtime with FCM transport only
+      - name: Verify Azure-only runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -55,10 +51,9 @@ jobs:
           test ! -e firestore.rules
           test ! -e storage.rules
           test ! -e .github/workflows/firebase-production-deploy.yml
-          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase\.(auth|firestore|functions|storage|ai)' app/src/main/java --include='*.java'
-          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|google-services' app/build.gradle build.gradle settings.gradle
-          grep -Fq "implementation 'com.google.firebase:firebase-messaging'" app/build.gradle
-          echo "AZURE AUTH/DATA RUNTIME + FCM TRANSPORT-ONLY: PASS"
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
+          ! grep -InE 'firebase-|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
+          echo "AZURE-ONLY RUNTIME: PASS"
 
       - name: Set up Node 22
         uses: actions/setup-node@v5
@@ -458,8 +453,8 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -RInF 'firebase_uid' azure-backend/src app/src/main/java --include='*.js' --include='*.java'
-          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase\.(auth|firestore|functions|storage|ai)' app/src/main/java azure-backend/src --include='*.java' --include='*.js'
-          echo "STEP 6.2 FIREBASE AUTH/DATA IDENTITY DEPENDENCY: REMOVED"
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main/java azure-backend/src --include='*.java' --include='*.js'
+          echo "STEP 6.2 FIREBASE RUNTIME IDENTITY DEPENDENCY: REMOVED"
 
       - name: Step 6.2 — Master protection stack lock
         shell: bash
@@ -556,26 +551,32 @@ jobs:
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.4 LOCKED"
 
-      - name: Azure real notification contract
+      - name: Azure real notification contract — 8 events
         shell: bash
         run: |
           set -euo pipefail
           test -f azure-backend/src/notifications.js
-          grep -Fq 'route:"notifications/devices"' azure-backend/src/notifications.js
+          test -f app/src/main/java/com/nikahbridge/AzureNotificationManager.java
+          test -f app/src/main/java/com/nikahbridge/AzureNotificationWorker.java
           grep -Fq 'route:"notifications"' azure-backend/src/notifications.js
-          grep -Fq 'ServiceBusNotification-Format' azure-backend/src/notifications.js
-          grep -Fq '"fcmV1"' azure-backend/src/notifications.js
-          grep -Fq 'CREATE TABLE IF NOT EXISTS notification_devices' azure-backend/database/schema.sql
+          grep -Fq 'app.timer("notificationScheduleDispatch"' azure-backend/src/notifications.js
           grep -Fq 'CREATE TABLE IF NOT EXISTS notifications' azure-backend/database/schema.sql
-          grep -Fq 'createNotification' azure-backend/src/interests.js
-          grep -Fq 'createNotification' azure-backend/src/profileViews.js
-          grep -Fq 'createNotification' azure-backend/src/chat.js
+          grep -Fq 'CREATE TABLE IF NOT EXISTS notification_schedules' azure-backend/database/schema.sql
           grep -Fq 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
-          grep -Fq '.PushMessagingService' app/src/main/AndroidManifest.xml
-          grep -Fq "implementation 'com.google.firebase:firebase-messaging'" app/build.gradle
-          grep -Fq 'NotificationRegistrar.initialize(this)' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
-          grep -Fq 'unregisterBeforeLogout' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          echo "AZURE NOTIFICATIONS: LIKE + VIEW + MESSAGE + MUTUAL + DEVICE PRIVACY PASS"
+          grep -Fq 'AzureNotificationManager.initialize(this)' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'androidx.work:work-runtime' app/build.gradle
+          ! grep -RInE 'com\.google\.firebase|firebase-messaging|FCM_' app/src/main app/build.gradle azure-backend/src --include='*.java' --include='*.js' --include='*.gradle'
+
+          grep -Fq '"like"' azure-backend/src/featureParity.js
+          grep -Fq '"profile_view"' azure-backend/src/profileViews.js
+          grep -Fq '"message"' azure-backend/src/chat.js
+          grep -Fq '"mutual"' azure-backend/src/interests.js
+          grep -Fq '"like_reset"' azure-backend/src/featureParity.js
+          grep -Fq '"verification"' azure-backend/src/verification.js
+          grep -Fq '"family_wali"' azure-backend/src/family.js
+          grep -Fq '"wallet"' azure-backend/src/wallet.js
+          grep -Fq '"payout"' azure-backend/src/ownerEarnings.js
+          echo "AZURE NOTIFICATIONS 8/8: LIKE + VIEW + MESSAGE + MUTUAL + LIKE RESET + VERIFICATION + FAMILY/WALI + WALLET/PAYOUT PASS"
 
       - name: Azure notification protection stack lock
         shell: bash
@@ -757,10 +758,9 @@ jobs:
           grep -Fq 'Owner Wallet' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           grep -Fq 'Permanently Delete Account' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
           grep -Fq 'AzureApiClient.delete("/account"' app/src/main/java/com/nikahbridge/AccountDeletionActivity.java
-          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase\.(auth|firestore|functions|storage|ai)' app/src/main/java --include='*.java'
-          grep -Fq 'PushMessagingService' app/src/main/AndroidManifest.xml
-          grep -Fq 'NotificationRegistrar' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
-          echo "STEP 8 AZURE FEATURE WIRING + PUSH TRANSPORT: PASS"
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
+          grep -Fq 'AzureNotificationManager' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          echo "STEP 8 AZURE FEATURE WIRING + NOTIFICATIONS: PASS"
 
       - name: Step 8 verify final signed APK and AAB
         shell: bash
@@ -795,12 +795,11 @@ jobs:
           test -d azure-backend
           test ! -d functions
           test ! -e firebase.json
-          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase\.(auth|firestore|functions|storage|ai)' app/src/main/java --include='*.java'
-          ! grep -InE 'firebase-(auth|firestore|functions|storage|ai)|google-services' app/build.gradle build.gradle settings.gradle
-          grep -Fq "implementation 'com.google.firebase:firebase-messaging'" app/build.gradle
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
+          ! grep -InE 'firebase-|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
           grep -Fq 'verifyAzureExternalIdToken' azure-backend/src/auth.js
           grep -Fq 'ensureAzureUser' azure-backend/src/auth.js
-          echo "AZURE AUTH/DATA + FCM TRANSPORT-ONLY RUNTIME: PASS"
+          echo "AZURE-ONLY RUNTIME: PASS"
 
       - name: Verify Step 7 owner wallet and account deletion paths
         shell: bash
