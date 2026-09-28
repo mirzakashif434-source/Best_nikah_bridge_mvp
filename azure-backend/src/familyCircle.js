@@ -12,13 +12,13 @@ async function ensureUser(user){
   const email=text(user.email,320).toLowerCase();
   if(!email) throw Object.assign(new Error("AUTH_IDENTITY_REQUIRED"),{statusCode:401});
   if(user.auth_provider==="azure_external_id" && user.azure_subject){
-    const r=await query("SELECT id,status,email,azure_subject,firebase_uid FROM users WHERE azure_subject=$1 LIMIT 1",[String(user.azure_subject)]);
+    const r=await query("SELECT id,status,email,azure_subject FROM users WHERE azure_subject=$1 LIMIT 1",[String(user.azure_subject)]);
     if(!r.rows[0]) throw Object.assign(new Error("AZURE_USER_NOT_FOUND"),{statusCode:404});
     return r.rows[0];
   }
   if(!user.uid) throw Object.assign(new Error("AUTH_IDENTITY_REQUIRED"),{statusCode:401});
   const r=await query(
-    "INSERT INTO users(firebase_uid,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(firebase_uid) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status,email,azure_subject,firebase_uid",
+    "INSERT INTO users(azure_subject,email,email_verified_at) VALUES($1,$2,CASE WHEN $3 THEN now() ELSE NULL END) ON CONFLICT(azure_subject) DO UPDATE SET email=EXCLUDED.email,email_verified_at=COALESCE(EXCLUDED.email_verified_at,users.email_verified_at),updated_at=now() RETURNING id,status,email,azure_subject,azure_subject",
     [user.uid,email,Boolean(user.email_verified)]
   );
   return r.rows[0];
@@ -75,7 +75,7 @@ app.http("familyCircleGet",{
       const members=await query(
         `SELECT m.id,m.role,m.can_suggest_matches,m.can_view_progress,m.joined_at,
                 COALESCE(p.display_name,u.email,'Family member') AS display_name,
-                COALESCE(u.azure_subject,u.firebase_uid) AS user_identity
+                u.azure_subject AS user_identity
          FROM family_circle_members m
          JOIN users u ON u.id=m.user_id
          LEFT JOIN profiles p ON p.user_id=u.id
@@ -281,7 +281,7 @@ app.http("familyCircleSuggestionsList",{
       const r=await query(
         `SELECT s.id,s.status,s.note,s.created_at,s.responded_at,
                 COALESCE(sp.display_name,'Member') AS suggested_name,
-                COALESCE(su.azure_subject,su.firebase_uid) AS suggested_identity,
+                su.azure_subject AS suggested_identity,
                 COALESCE(bp.display_name,'Family member') AS suggested_by_name
          FROM family_match_suggestions s
          JOIN users su ON su.id=s.suggested_user_id
@@ -311,7 +311,7 @@ app.http("familyCircleSuggestionCreate",{
       const note=text(b?.note,500);
       if(!target) return {status:400,jsonBody:{ok:false,error:"SUGGESTED_USER_REQUIRED"}};
       const t=await query(
-        "SELECT id,status FROM users WHERE (azure_subject=$1 OR firebase_uid=$1) LIMIT 1",
+        "SELECT id,status FROM users WHERE (azure_subject=$1 OR azure_subject=$1) LIMIT 1",
         [target]
       );
       if(!t.rows[0]||t.rows[0].status!=="active") return {status:404,jsonBody:{ok:false,error:"SUGGESTED_USER_NOT_FOUND"}};
