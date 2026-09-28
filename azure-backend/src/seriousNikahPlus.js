@@ -66,7 +66,7 @@ app.http("whoLikedYou",{
       if(!capabilities.whoLikedYou) return {status:402,jsonBody:{ok:false,error:"PREMIUM_BASIC_REQUIRED",locked:true,incomingInterestCount}};
       const r=await query(
         `SELECT i.id AS interest_id,i.created_at,
-                COALESCE(u.azure_subject,u.firebase_uid) AS user_id,
+                u.azure_subject AS user_id,
                 COALESCE(p.display_name,'Member') AS display_name,
                 p.gender,p.country,p.city,
                 EXTRACT(YEAR FROM age(CURRENT_DATE,p.date_of_birth))::int AS age
