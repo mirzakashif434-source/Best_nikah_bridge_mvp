@@ -5,7 +5,7 @@ const { requireAuth } = require("./auth");
 async function requireOwnerAdmin(user){
   const key=(user.azure_subject||user.uid||"").trim();
   const r=await query(
-    "SELECT id,role,status FROM users WHERE (azure_subject=$1 OR firebase_uid=$1) AND status='active' LIMIT 1",
+    "SELECT id,role,status FROM users WHERE (azure_subject=$1 OR azure_subject=$1) AND status='active' LIMIT 1",
     [key]
   );
   const me=r.rows[0];
@@ -70,7 +70,7 @@ app.http("ownerLiveAnalyticsAzure",{
         query(`SELECT count(*) FILTER (WHERE status='open')::int AS open_reports FROM safety_reports`),
         query(`SELECT count(*) FILTER (WHERE status='pending')::int AS pending_photo_reviews FROM photo_verification_sets`),
         query(`SELECT
-          u.id,COALESCE(u.azure_subject,u.firebase_uid) AS identity,
+          u.id,u.azure_subject AS identity,
           u.email,u.created_at,
           p.display_name,p.gender,COALESCE(p.photo_verified,false) AS photo_verified,
           up.last_seen_at,
