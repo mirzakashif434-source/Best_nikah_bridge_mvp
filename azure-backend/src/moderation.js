@@ -3,7 +3,7 @@ const { query } = require("./db");
 const { requireAuth } = require("./auth");
 
 async function requireAdmin(user) {
-  const r = await query("SELECT id,role,status FROM users WHERE firebase_uid=$1 LIMIT 1",[user.uid]);
+  const r = await query("SELECT id,role,status FROM users WHERE azure_subject=$1 LIMIT 1",[user.uid]);
   if (!r.rows[0] || r.rows[0].status !== "active") {
     const e=new Error("USER_NOT_ACTIVE"); e.statusCode=403; throw e;
   }
