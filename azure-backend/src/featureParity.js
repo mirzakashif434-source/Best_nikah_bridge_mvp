@@ -72,11 +72,9 @@ app.http("sendLikeAzure",{methods:["POST"],authLevel:"anonymous",route:"likes",h
    );
    await client.query("INSERT INTO like_events(user_id,target_user_id,created_at) VALUES($1,$2,now())",[u.id,t.rows[0].id]);
    await client.query("COMMIT");
-    try{
-      const profile=await query("SELECT display_name FROM profiles WHERE user_id=
-   await client.query("INSERT INTO like_events(user_id,target_user_id,created_at) VALUES($1,$2,now())",[u.id,t.rows[0].id]);
-   await client.query("COMMIT"); LIMIT 1",[u.id]);
-      const actorName=String(profile.rows[0]?.display_name||"Someone").trim();
+   try{
+     const profile=await query("SELECT display_name FROM profiles WHERE user_id=$1 LIMIT 1",[u.id]);
+     const actorName=String(profile.rows[0]?.display_name||"Someone").trim();
       await createNotification(
         t.rows[0].id,
         "like",
