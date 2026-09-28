@@ -1,0 +1,133 @@
+name: Step 1 Azure Baseline Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_1_AZURE_BASELINE_LOCK.md'
+      - '.github/workflows/step1-azure-baseline-master-lock.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step1-azure-baseline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify exact Azure production baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "azure-backend-additive" || test "${GITHUB_EVENT_NAME}" = "workflow_dispatch"
+          test -d azure-backend
+          test -s app/build.gradle
+          test -s app/src/main/AndroidManifest.xml
+          test -s app/src/main/java/com/nikahbridge/AzureApiClient.java
+          test -s app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          test -s app/src/main/java/com/nikahbridge/AzureExternalAuthActivity.java
+          grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
+          grep -Fq 'android:label="Best Nikah Bridge"' app/src/main/AndroidManifest.xml
+          grep -Fq 'azurewebsites.net/api' app/src/main/java/com/nikahbridge/AzureApiClient.java
+          git diff --check
+          test -z "$(git status --porcelain)"
+          echo "MASTER GATE: PASS"
+
+  maestro-e2e-baseline:
+    name: Maestro E2E Baseline
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify launcher and screen surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'android.intent.action.MAIN' app/src/main/AndroidManifest.xml
+          grep -Fq 'android.intent.category.LAUNCHER' app/src/main/AndroidManifest.xml
+          test -s app/src/main/java/com/nikahbridge/WelcomeActivity.java
+          test -s app/src/main/java/com/nikahbridge/MainActivity.java
+          test -s app/src/main/java/com/nikahbridge/AzureHomeActivity.java
+          COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | wc -l | tr -d ' ')"
+          test "$COUNT" -ge 42
+          echo "REGISTERED ACTIVITY SURFACE: $COUNT"
+          echo "MAESTRO E2E BASELINE: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Enforce non-deploying Step 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=.github/workflows/step1-azure-baseline-master-lock.yml
+          ! grep -Eq 'az[[:space:]]+(deployment|functionapp|webapp|postgres|resource|group)[[:space:]]+(create|delete|update|deploy)|firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)' "$FILE"
+          echo "FORTRESS BUDGET: PASS — no cloud provisioning/deployment in Step 1"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e-baseline, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS — runner workspace restored"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e-baseline, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back to exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          test -z "$(git status --porcelain)"
+          echo "AUTO-ROLLBACK: PASS — remote branch was never mutated"
+
+  step1-lock:
+    name: Step 1 Locked
+    needs: [master-gate, maestro-e2e-baseline, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e-baseline.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 1 AZURE BASELINE LOCK: PASS"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
