@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { getPool, query } = require("./db");
 const { requireAuth } = require("./auth");
+const { createNotification } = require("./notifications");
 const { entitlementForUser, capabilitiesFor } = require("./premiumAccess");
 
 const text = (value, max) => typeof value === "string" ? value.trim().slice(0, max) : "";
