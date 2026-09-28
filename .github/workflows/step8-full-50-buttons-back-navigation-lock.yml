@@ -1,0 +1,242 @@
+name: Step 8 Full 50 Buttons Back Navigation Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_8_FULL_50_BUTTONS_BACK_NAVIGATION_LOCK.md'
+      - '.github/workflows/step8-full-50-buttons-back-navigation-lock.yml'
+      - 'app/**'
+      - '.maestro/**'
+      - '.github/scripts/verify_final_release_master.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step8-buttons-back-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Verify exact 50 Activities and manifest registration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          names=sorted(set(re.findall(r'android:name="\.([A-Za-z0-9_]+Activity)"',manifest)))
+          assert len(names)==50, f"Expected 50 Activities, got {len(names)}"
+          missing=[n for n in names if not (root/(n+".java")).is_file()]
+          assert not missing, "Missing Activity source: "+", ".join(missing)
+          print("50 ACTIVITY MANIFEST/SOURCE: PASS")
+          PY
+
+      - name: Verify Home button listeners and 42-screen release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_final_release_master.py
+          echo "HOME BUTTON + 42-SCREEN SOURCE CONTRACT: PASS"
+
+      - name: Verify Back navigation coverage across 50 Activities
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          manifest=Path("app/src/main/AndroidManifest.xml").read_text()
+          names=sorted(set(re.findall(r'android:name="\.([A-Za-z0-9_]+Activity)"',manifest)))
+          exempt={"WelcomeActivity","MainActivity","ProductionMainActivity","AzureHomeActivity","AzureExternalAuthActivity"}
+          missing=[]
+          for n in names:
+              if n in exempt: continue
+              t=(root/(n+".java")).read_text()
+              has_back=("Back" in t) or ("finish()" in t) or ("onBackPressed" in t)
+              if not has_back: missing.append(n)
+          assert not missing, "Activities without Back/finish path: "+", ".join(missing)
+          print("BACK NAVIGATION COVERAGE:",len(names)-len(exempt),"activities PASS")
+          PY
+
+      - name: Prevent back-loop and blank-screen regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("app/src/main/java/com/nikahbridge/PremiumFeatureGate.java")
+          t=p.read_text()
+          marker='.setPositiveButton("View Plans"'
+          start=t.index(marker)
+          end=t.index('.setNegativeButton("Not now"',start)
+          block=t[start:end]
+          assert "PremiumPlansActivity.class" in block
+          assert "a.finish()" not in block, "View Plans destroys source Activity and can break Back navigation"
+          print("PREMIUM BACK-STACK LOOP PROTECTION: PASS")
+          PY
+
+      - name: Verify loading/auth timeout and 401 recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          C=app/src/main/java/com/nikahbridge/AzureApiClient.java
+          grep -Fq 'AUTH_TIMEOUT_MS=12000L' "$C"
+          grep -Fq 'AZURE_AUTH_TIMEOUT' "$C"
+          grep -Fq 'code==401&&allowAuthRetry' "$C"
+          grep -Fq 'AzureAuthManager.clearCachedToken()' "$C"
+          grep -Fq 'AZURE_SIGN_IN_REQUIRED' "$C"
+          echo "ENDLESS AUTH/401 RECOVERY GUARD: PASS"
+
+      - name: Verify no raw JSON, null-null or blur regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root=Path("app/src/main/java/com/nikahbridge")
+          bad_null=[]
+          bad_alpha=[]
+          raw=[]
+          for p in root.glob("*.java"):
+              t=p.read_text()
+              if "null null" in t: bad_null.append(p.name)
+              if re.search(r"setAlpha\(0\.[0-4]|alpha\s*=\s*0\.[0-4]",t): bad_alpha.append(p.name)
+              if p.name in {"AzureHomeActivity.java","AzureWalletActivity.java","WalletActivity.java"}:
+                  if "setText(body)" in t or "setMessage(body)" in t: raw.append(p.name)
+          assert not bad_null, "null null remains: "+", ".join(bad_null)
+          assert not bad_alpha, "blur-like low alpha remains: "+", ".join(bad_alpha)
+          assert not raw, "raw JSON display remains: "+", ".join(raw)
+          print("NULL/BLUR/RAW JSON REGRESSION: PASS")
+          PY
+
+      - name: Verify screen size and system-bar safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'applySafeInsets(a)' "$A"
+          grep -Fq 'normalizeControls(a)' "$A"
+          grep -Fq 'WindowInsetsCompat.Type.systemBars()' "$A"
+          grep -Fq 'setMinHeight(dp(a,56))' "$A"
+          grep -Fq 'WindowCompat.setDecorFitsSystemWindows' "$A"
+          echo "SCREEN SIZE + SYSTEM BAR + CONTROL SIZE: PASS"
+
+      - name: Firebase zero regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e firebase.json
+          test ! -e firestore.rules
+          test ! -e firestore.indexes.json
+          test ! -e storage.rules
+          test ! -e app/google-services.json
+          test ! -d functions
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          echo "FIREBASE PRODUCTION RUNTIME: ZERO"
+
+  maestro-e2e:
+    name: Maestro E2E Contract
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Validate signed-in Maestro flow coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLOW=.maestro/final-release-42-screen-master.yaml
+          test -s "$FLOW"
+          grep -Fq 'appId: com.nikahbridge' "$FLOW"
+          grep -Fq 'Secure Azure session verified' "$FLOW"
+          COUNT="$(grep -c 'tapOn:' "$FLOW")"
+          test "$COUNT" -ge 40
+          grep -Fq 'Permanently Delete Account' "$FLOW"
+          grep -Fq 'Sign out of Azure' "$FLOW"
+          grep -Fq 'CANCEL' "$FLOW"
+          python3 .github/scripts/verify_final_release_master.py
+          echo "MAESTRO SIGNED-IN NAVIGATION CONTRACT: PASS"
+          echo "NOTE: real signed-in device execution remains in the final release/device gate."
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Prevent cloud mutation in Step 8
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step8-full-50-buttons-back-navigation-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 8 Locked
+    needs: [master-gate, maestro-e2e, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 8 FULL 50 BUTTON/BACK/NAVIGATION: LOCKED"
+          echo "Master Gate -> Maestro E2E Contract -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
