@@ -118,22 +118,6 @@ jobs:
           test "$MAX_INSTANCES" = "20"
           echo "FORTRESS BUDGET FLEX SCALE: PASS"
 
-      - name: Configure Azure Notification Hub push settings when supplied
-        shell: bash
-        env:
-          PUSH_NAMESPACE: ${{ vars.AZURE_NOTIFICATION_HUB_NAMESPACE }}
-          PUSH_HUB: ${{ vars.AZURE_NOTIFICATION_HUB_NAME }}
-          PUSH_KEY_NAME: ${{ vars.AZURE_NOTIFICATION_HUB_SAS_KEY_NAME }}
-          PUSH_KEY: ${{ secrets.AZURE_NOTIFICATION_HUB_SAS_KEY }}
-        run: |
-          set -euo pipefail
-          if [ -z "$PUSH_NAMESPACE" ] || [ -z "$PUSH_HUB" ] || [ -z "$PUSH_KEY_NAME" ] || [ -z "$PUSH_KEY" ]; then
-            echo "Azure Notification Hub credentials not supplied; preserving existing Function App push settings."
-            exit 0
-          fi
-          az functionapp config appsettings set             --name "$AZURE_FUNCTIONAPP_NAME"             --resource-group "BestNikahBredge-Production"             --settings               AZURE_NOTIFICATION_HUB_NAMESPACE="$PUSH_NAMESPACE"               AZURE_NOTIFICATION_HUB_NAME="$PUSH_HUB"               AZURE_NOTIFICATION_HUB_SAS_KEY_NAME="$PUSH_KEY_NAME"               AZURE_NOTIFICATION_HUB_SAS_KEY="$PUSH_KEY"             --only-show-errors
-          echo "AZURE NOTIFICATION HUB FUNCTION SETTINGS: APPLIED"
-
       - name: Configure Azure Blob Storage for the existing Function App
         shell: bash
         run: |
