@@ -212,18 +212,11 @@ jobs:
            WHERE azure_subject='ci-step6-4-new-user'
           ON CONFLICT(user_id) DO UPDATE SET display_name=EXCLUDED.display_name,updated_at=now();
 
-          DO $
-          DECLARE n BIGINT;
-          BEGIN
-            SELECT count(*) INTO n
-              FROM users u
-              JOIN profiles p ON p.user_id=u.id
-             WHERE u.azure_subject='ci-step6-4-new-user'
-               AND p.display_name='CI Azure User';
-            IF n <> 1 THEN
-              RAISE EXCEPTION 'STEP 6.4 AZURE USER/PROFILE SMOKE FAILED';
-            END IF;
-          END $;
+          SELECT CASE WHEN count(*)=1 THEN 1 ELSE 1/0 END AS smoke_ok
+            FROM users u
+            JOIN profiles p ON p.user_id=u.id
+           WHERE u.azure_subject='ci-step6-4-new-user'
+             AND p.display_name='CI Azure User';
           ROLLBACK;
           SQL
 
