@@ -5,9 +5,9 @@ async function userFromAuth(authUser){
   const uid=typeof authUser?.uid==="string"?authUser.uid.trim():"";
   let r;
   if(azureSubject){
-    r=await query("SELECT id,status,email,azure_subject,firebase_uid FROM users WHERE azure_subject=$1 OR firebase_uid=$2 LIMIT 1",[azureSubject,uid||azureSubject]);
+    r=await query("SELECT id,status,email,azure_subject FROM users WHERE azure_subject=$1 OR azure_subject=$2 LIMIT 1",[azureSubject,uid||azureSubject]);
   }else if(uid){
-    r=await query("SELECT id,status,email,azure_subject,firebase_uid FROM users WHERE firebase_uid=$1 LIMIT 1",[uid]);
+    r=await query("SELECT id,status,email,azure_subject FROM users WHERE azure_subject=$1 LIMIT 1",[uid]);
   }else{
     const e=new Error("AUTH_IDENTITY_REQUIRED");e.statusCode=401;throw e;
   }
