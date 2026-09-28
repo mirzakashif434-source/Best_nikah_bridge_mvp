@@ -417,6 +417,38 @@ jobs:
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 5 LOCKED"
 
+      - name: Step 6.1 — Azure subject canonical identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          AUTH=azure-backend/src/azureExternalAuth.js
+          SCHEMA=azure-backend/database/schema.sql
+
+          grep -Fq 'SELECT id,email,status,role,azure_subject FROM users WHERE azure_subject=$1 LIMIT 1' "$AUTH"
+          grep -Fq 'SELECT id,email,status,role,azure_subject FROM users WHERE lower(email)=lower($1) LIMIT 1' "$AUTH"
+          grep -Fq 'INSERT INTO users (azure_subject,email,email_verified_at)' "$AUTH"
+          ! grep -Fq 'firebase_uid=COALESCE' "$AUTH"
+          ! grep -Fq 'INSERT INTO users (azure_subject,firebase_uid' "$AUTH"
+          ! grep -Fq 'RETURNING id,email,status,role,azure_subject,firebase_uid' "$AUTH"
+
+          grep -Fq -- '-- Step 6 / Azure identity canonicalization:' "$SCHEMA"
+          grep -Fq "firebase_uid LIKE 'azure:%'" "$SCHEMA"
+          grep -Fq 'SET azure_subject = substring(firebase_uid from 7)' "$SCHEMA"
+          grep -Fq 'CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject' "$SCHEMA"
+
+          echo "STEP 6.1 AZURE SUBJECT CANONICAL IDENTITY: PASS"
+
+      - name: Step 6.1 — Master protection stack lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/scripts/runtime_maestro_master_gate.sh
+          test -f .maestro/ci-welcome.yaml
+          test -f .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.1 LOCKED"
+
       - name: Golden relationship history 4-screen lock
         run: |
           set -euo pipefail
