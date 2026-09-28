@@ -1205,4 +1205,4 @@ jobs:
           echo "Golden Release manifest + provenance attestations + immutable commit identity verified; remote Golden tag is created when GitHub App policy permits."
           echo "Only the signed-in real-session Maestro run on a device and Play Console submission remain external."
 
-# Azure-only notification final verification trigger
+# Azure-only notification final verification trigger v2
