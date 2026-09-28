@@ -3,6 +3,7 @@ const { app } = require("@azure/functions");
 const { query, getPool } = require("./db");
 const { requireAuth } = require("./auth");
 const { entitlementForUser } = require("./premiumAccess");
+const { createNotification, scheduleNotification } = require("./notifications");
 
 async function me(user){
   const key=user.azure_subject||user.uid;
