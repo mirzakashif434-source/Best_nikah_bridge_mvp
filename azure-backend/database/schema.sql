@@ -4,7 +4,6 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  firebase_uid TEXT UNIQUE,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT,
   phone_e164 TEXT UNIQUE,
@@ -118,7 +117,6 @@ CREATE TABLE IF NOT EXISTS safety_reports (
   resolved_at TIMESTAMPTZ
 );
 
-ALTER TABLE users ADD COLUMN IF NOT EXISTS firebase_uid TEXT UNIQUE;
 ALTER TABLE partner_preferences ADD COLUMN IF NOT EXISTS preferred_gender TEXT;
 ALTER TABLE partner_preferences DROP CONSTRAINT IF EXISTS partner_preferences_preferred_gender_check;
 ALTER TABLE partner_preferences ADD CONSTRAINT partner_preferences_preferred_gender_check CHECK (preferred_gender IN ('male','female','any'));
@@ -157,13 +155,13 @@ ALTER TABLE photos ADD COLUMN IF NOT EXISTS moderated_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_photos_moderation_status ON photos (moderation_status, created_at);
 
 
--- Step 18 / Firebase migration #1: additive Azure External ID identity mapping.
--- Existing Firebase identities remain intact until a tested production cutover.
+-- Azure External ID identity mapping.
+-- azure_subject is the canonical production identity.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_subject TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject ON users (azure_subject) WHERE azure_subject IS NOT NULL;
 
 
--- Firebase migration #1A: production Rewarded Ad / message-credit backend.
+-- Production Rewarded Ad / message-credit backend.
 CREATE TABLE IF NOT EXISTS entitlements (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   message_credits INTEGER NOT NULL DEFAULT 0 CHECK (message_credits >= 0),
@@ -283,8 +281,7 @@ UPDATE premium_plans
    AND active = TRUE;
 
 
--- Firebase migration #3: additive Azure wallet ledger.
--- No existing tables or data are removed or replaced.
+-- Azure wallet ledger.
 CREATE TABLE IF NOT EXISTS wallet_accounts (
   user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   balance NUMERIC(18,2) NOT NULL DEFAULT 0 CHECK (balance >= 0),
@@ -329,12 +326,12 @@ CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_status
 -- Wallet verification checkpoint: additive only; no existing objects are removed or replaced.
 
 
--- Firebase migration: real Azure terms acceptance state.
+-- Azure terms acceptance state.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_version TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
 
--- Step 2: real Azure Global Community Chat migration (additive; Firebase retained for rollback).
+-- Real Azure Global Community Chat.
 CREATE TABLE IF NOT EXISTS community_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   author_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -372,7 +369,7 @@ CREATE TABLE IF NOT EXISTS community_rate_limits (
 );
 
 
--- Step 7 / Firebase migration #1: Azure Help Line tickets.
+-- Azure Help Line tickets.
 CREATE TABLE IF NOT EXISTS help_line_tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -476,8 +473,7 @@ ALTER TABLE owner_settlements
   CHECK (currency IN ('SAR','USD','PKR','USDT'));
 
 
--- Step 4: Firestore -> Azure PostgreSQL parity layer (additive only).
--- These tables mirror remaining production Firestore collections before cutover.
+-- Azure PostgreSQL production parity layer.
 CREATE TABLE IF NOT EXISTS user_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -625,11 +621,10 @@ CREATE INDEX IF NOT EXISTS idx_firestore_migration_audit_status
   ON firestore_migration_audit(migration_status,updated_at DESC);
 
 -- Azure identity/data consistency constraints.
-CREATE INDEX IF NOT EXISTS idx_users_firebase_uid ON users(firebase_uid);
 CREATE INDEX IF NOT EXISTS idx_users_azure_subject ON users(azure_subject);
 
 
--- Step 9: Firebase Function parity tables for remaining application flows.
+-- Azure application-flow parity tables.
 CREATE TABLE IF NOT EXISTS likes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   from_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -836,21 +831,54 @@ CREATE INDEX IF NOT EXISTS idx_profile_views_viewer_last
   ON profile_views(viewer_user_id,last_viewed_at DESC);
 
 
--- Step 6 / Azure identity canonicalization:
--- Backfill Azure subjects from legacy synthetic firebase_uid values without deleting data.
--- This makes azure_subject the canonical runtime identity while preserving the old column until verification passes.
-UPDATE users
-   SET azure_subject = substring(firebase_uid from 7),
-       updated_at = now()
- WHERE azure_subject IS NULL
-   AND firebase_uid LIKE 'azure:%'
-   AND substring(firebase_uid from 7) <> ''
-   AND NOT EXISTS (
-     SELECT 1
-       FROM users existing
-      WHERE existing.azure_subject = substring(users.firebase_uid from 7)
-        AND existing.id <> users.id
-   );
+
+
+-- Step 6.3 / final Azure identity cutover.
+-- Fresh databases never create firebase_uid. Existing databases are migrated and the
+-- obsolete column is dropped only when every legacy identity can be preserved safely.
+DO $$
+DECLARE
+  legacy_unmapped BIGINT;
+BEGIN
+  IF EXISTS (
+    SELECT 1
+      FROM information_schema.columns
+     WHERE table_schema='public'
+       AND table_name='users'
+       AND column_name='firebase_uid'
+  ) THEN
+    EXECUTE $sql$
+      UPDATE users
+         SET azure_subject = substring(firebase_uid from 7),
+             updated_at = now()
+       WHERE azure_subject IS NULL
+         AND firebase_uid LIKE 'azure:%'
+         AND substring(firebase_uid from 7) <> ''
+         AND NOT EXISTS (
+           SELECT 1
+             FROM users existing
+            WHERE existing.azure_subject = substring(users.firebase_uid from 7)
+              AND existing.id <> users.id
+         )
+    $sql$;
+
+    EXECUTE $sql$
+      SELECT count(*)
+        FROM users
+       WHERE firebase_uid IS NOT NULL
+         AND azure_subject IS NULL
+    $sql$ INTO legacy_unmapped;
+
+    IF legacy_unmapped <> 0 THEN
+      RAISE EXCEPTION
+        'STEP 6.3 BLOCKED: % legacy user(s) still lack azure_subject; firebase_uid was NOT dropped',
+        legacy_unmapped;
+    END IF;
+
+    DROP INDEX IF EXISTS idx_users_firebase_uid;
+    ALTER TABLE users DROP COLUMN firebase_uid;
+  END IF;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_azure_subject
   ON users (azure_subject) WHERE azure_subject IS NOT NULL;
