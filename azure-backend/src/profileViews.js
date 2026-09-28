@@ -2,6 +2,7 @@ const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
 const { accessForAuth } = require("./premiumAccess");
+const { createNotification } = require("./notifications");
 
 async function resolveActiveVisibleTarget(targetKey){
   const target=await query(
@@ -53,6 +54,18 @@ app.http("profileViewRecordAzure",{
          RETURNING id,last_viewed_at,view_count`,
         [user.id,target.id]
       );
+
+      try{
+        const profile=await query("SELECT display_name FROM profiles WHERE user_id=$1 LIMIT 1",[user.id]);
+        const name=String(profile.rows[0]?.display_name||"Someone").trim();
+        await createNotification(
+          target.id,
+          "profile_view",
+          "Someone viewed your profile",
+          name+" viewed your profile.",
+          {actorUserId:authUser.azure_subject||"",profileViewId:saved.rows[0].id}
+        );
+      }catch(pushError){context.warn("PROFILE_VIEW_NOTIFICATION_FAILED",pushError);}
 
       return {status:200,jsonBody:{ok:true,recorded:true,view:saved.rows[0]}};
     }catch(e){
