@@ -33,6 +33,10 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  FCM_APP_ID: ${{ vars.FCM_APP_ID }}
+  FCM_API_KEY: ${{ vars.FCM_API_KEY }}
+  FCM_PROJECT_ID: ${{ vars.FCM_PROJECT_ID }}
+  FCM_SENDER_ID: ${{ vars.FCM_SENDER_ID }}
 
 jobs:
   verify:
@@ -551,6 +555,38 @@ jobs:
           grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.4 LOCKED"
+
+      - name: Azure real notification contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f azure-backend/src/notifications.js
+          grep -Fq 'route:"notifications/devices"' azure-backend/src/notifications.js
+          grep -Fq 'route:"notifications"' azure-backend/src/notifications.js
+          grep -Fq 'ServiceBusNotification-Format' azure-backend/src/notifications.js
+          grep -Fq '"fcmV1"' azure-backend/src/notifications.js
+          grep -Fq 'CREATE TABLE IF NOT EXISTS notification_devices' azure-backend/database/schema.sql
+          grep -Fq 'CREATE TABLE IF NOT EXISTS notifications' azure-backend/database/schema.sql
+          grep -Fq 'createNotification' azure-backend/src/interests.js
+          grep -Fq 'createNotification' azure-backend/src/profileViews.js
+          grep -Fq 'createNotification' azure-backend/src/chat.js
+          grep -Fq 'android.permission.POST_NOTIFICATIONS' app/src/main/AndroidManifest.xml
+          grep -Fq '.PushMessagingService' app/src/main/AndroidManifest.xml
+          grep -Fq "implementation 'com.google.firebase:firebase-messaging'" app/build.gradle
+          grep -Fq 'NotificationRegistrar.initialize(this)' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
+          grep -Fq 'unregisterBeforeLogout' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          echo "AZURE NOTIFICATIONS: LIKE + VIEW + MESSAGE + MUTUAL + DEVICE PRIVACY PASS"
+
+      - name: Azure notification protection stack lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/scripts/runtime_maestro_master_gate.sh
+          test -f .maestro/ci-welcome.yaml
+          test -f .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: AZURE NOTIFICATIONS LOCKED"
 
       - name: Golden relationship history 4-screen lock
         run: |
