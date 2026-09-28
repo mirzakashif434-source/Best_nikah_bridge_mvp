@@ -408,8 +408,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -f .github/workflows/final-release-master-gate.yml
+          test -f .github/scripts/runtime_maestro_master_gate.sh
           test -f .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'final-release-42-screen-master.yaml' .github/scripts/runtime_maestro_master_gate.sh
           grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 5 LOCKED"
