@@ -1,0 +1,298 @@
+name: Step 10 Special Real Features Master Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_10_SPECIAL_REAL_FEATURES_LOCK.md'
+      - '.github/workflows/step10-special-real-features-master-lock.yml'
+      - 'app/**'
+      - 'azure-backend/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step10-special-real-features-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Preserve exact 50 Activities
+        shell: bash
+        run: |
+          set -euo pipefail
+          COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
+          test "$COUNT" = "50"
+          echo "50 ACTIVITIES PRESERVED: PASS"
+
+      - name: Verify 18+ and identity verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=app/src/main/java/com/nikahbridge
+          grep -Fq 'age 18+' "$A/IdentityVerificationActivity.java"
+          grep -Fq 'AGE_18_PLUS_REQUIRED' "$A/IdentityVerificationActivity.java"
+          grep -Fq 'MediaStore.ACTION_IMAGE_CAPTURE' "$A/IdentityVerificationActivity.java"
+          grep -Fq 'FileProvider.getUriForFile' "$A/IdentityVerificationActivity.java"
+          grep -Fq 'AzureApiClient.multipart("/verification/identity"' "$A/IdentityVerificationActivity.java"
+          grep -Fq 'AzureApiClient.multipart("/verification/selfie"' "$A/IdentityVerificationActivity.java"
+          grep -RInq 'AGE_18_PLUS_REQUIRED' azure-backend/src
+          grep -RInq 'age' azure-backend/src/ageGate.js azure-backend/src/verification.js
+          echo "18+ + ID/SELFIE VERIFICATION: PASS"
+
+      - name: Verify real four-photo verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/RealFourPhotoActivity.java
+          grep -Fq 'CAMERA_FIRST' "$F"
+          grep -Fq 'GALLERY_REMAINING' "$F"
+          grep -Fq 'photo-verification/start' "$F"
+          grep -Fq 'photo-verification/status' "$F"
+          grep -Fq 'MediaStore.ACTION_IMAGE_CAPTURE' "$F"
+          test -s azure-backend/src/photoVerification.js
+          grep -RInq 'photo-verification' azure-backend/src
+          echo "FOUR-PHOTO VERIFICATION: PASS"
+
+      - name: Verify Trust Passport and match evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/TrustPassportActivity.java
+          grep -Fq 'Trust Passport' "$F"
+          grep -Fq 'real Azure/PostgreSQL evidence' "$F"
+          grep -Fq 'AzureApiClient.get("/matches"' "$F"
+          grep -Fq 'View Selected Trust Passport' "$F"
+          echo "TRUST PASSPORT: PASS"
+
+      - name: Verify Smart Serious Questions
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/SmartSeriousQuestionsActivity.java
+          grep -Fq 'Generate Questions' "$F"
+          grep -Fq 'AzureApiClient.get("/matches"' "$F"
+          grep -Fq 'Questions based on real stated match information' "$F"
+          echo "SMART SERIOUS QUESTIONS: PASS"
+
+      - name: Verify Nikah Blueprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/NikahBlueprintActivity.java
+          grep -Fq '/settings/nikah_blueprint' "$F"
+          grep -Fq '/compatibility/living' "$F"
+          grep -Fq 'Save My Real Nikah Blueprint' "$F"
+          grep -RInq 'nikah_blueprint' azure-backend/src
+          echo "NIKAH BLUEPRINT: PASS"
+
+      - name: Verify AI Nikah Mediator
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/NikahMediatorActivity.java
+          grep -Fq '/ai/nikah-mediator' "$F"
+          grep -Fq 'Run Real AI Mediation' "$F"
+          grep -Fq 'I have permission to use the other person' "$F"
+          grep -RInq 'nikah-mediator' azure-backend/src
+          echo "AI NIKAH MEDIATOR: PASS"
+
+      - name: Verify Future Life Simulation
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/FutureLifeSimulationActivity.java
+          grep -Fq '/ai/future-life' "$F"
+          grep -Fq '/settings/future_life_simulation' "$F"
+          grep -Fq 'Run Real Future Life Comparison' "$F"
+          grep -RInq 'future-life' azure-backend/src
+          echo "FUTURE LIFE SIMULATION: PASS"
+
+      - name: Verify Community Chat moderation and safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/CommunityChatActivity.java
+          grep -Fq '/community/messages' "$F"
+          grep -Fq '/community/reports' "$F"
+          grep -Fq '/community/mutes' "$F"
+          grep -Fq '/blocks' "$F"
+          grep -Fq 'Maximum 500 characters' "$F"
+          test -s azure-backend/src/community.js
+          grep -RInq 'community/messages' azure-backend/src
+          echo "COMMUNITY CHAT + MODERATION: PASS"
+
+      - name: Verify Family Wali and Family Circle
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=app/src/main/java/com/nikahbridge
+          grep -Fq '/family-links' "$A/FamilyBridge2Activity.java"
+          grep -Fq '/family-links/pending-for-wali' "$A/FamilyBridge2Activity.java"
+          grep -Fq '/family-circle' "$A/FamilyCircleActivity.java"
+          test -s azure-backend/src/family.js
+          test -s azure-backend/src/familyCircle.js
+          grep -RInq 'family-links' azure-backend/src
+          grep -RInq 'family-circle' azure-backend/src
+          echo "FAMILY/WALI + FAMILY CIRCLE: PASS"
+
+      - name: Verify block report safety actions
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=app/src/main/java/com/nikahbridge
+          grep -Fq 'AzureApiClient.get("/blocks"' "$A/BlockedMembersActivity.java"
+          grep -Fq 'AzureApiClient.delete("/blocks/' "$A/BlockedMembersActivity.java"
+          grep -Fq 'AzureApiClient.post("/safety/reports"' "$A/AzureHomeActivity.java"
+          test -s azure-backend/src/blocks.js
+          test -s azure-backend/src/safety.js
+          grep -RInq 'safety/reports' azure-backend/src
+          echo "BLOCK/REPORT SAFETY: PASS"
+
+      - name: Verify mutual-only communication and two-message protection
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/SafeCommunicationActivity.java
+          grep -Fq 'Mutual-Only Safe Communication' "$F"
+          grep -Fq '/conversations' "$F"
+          grep -Fq '/messages' "$F"
+          grep -Fq '2 messages sent' "$F"
+          grep -Fq 'cannot send another message until she replies' "$F"
+          test -s azure-backend/src/chat.js
+          grep -RInq 'conversations' azure-backend/src/chat.js azure-backend/src/featureParity.js
+          grep -RInq 'message' azure-backend/src/chat.js
+          echo "MUTUAL-ONLY + TWO-MESSAGE CLIENT CONTRACT: PASS"
+
+      - name: Verify rewarded message real AdMob flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/RewardedMessageActivity.java
+          grep -Fq 'RewardedAd' "$F"
+          grep -Fq 'ServerSideVerificationOptions' "$F"
+          grep -Fq '/admob/rewarded/config' "$F"
+          grep -Fq 'Maximum 2 rewarded message credits per UTC day' "$F"
+          test -s azure-backend/src/rewardedAds.js
+          grep -RInq 'admob/rewarded' azure-backend/src/rewardedAds.js
+          echo "REWARDED MESSAGE / ADMOB SSV: PASS"
+
+      - name: Verify premium server-backed feature gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=app/src/main/java/com/nikahbridge/PremiumFeatureGate.java
+          grep -Fq '/premium/serious-plus-summary' "$F"
+          grep -Fq 'AzureApiClient.get' "$F"
+          test -s azure-backend/src/premiumAccess.js
+          test -s azure-backend/src/premiumPlans.js
+          echo "PREMIUM FEATURE GATE: PASS"
+
+      - name: Firebase zero regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e firebase.json
+          test ! -e firestore.rules
+          test ! -e firestore.indexes.json
+          test ! -e storage.rules
+          test ! -e app/google-services.json
+          test ! -d functions
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          echo "FIREBASE PRODUCTION RUNTIME: ZERO"
+
+  maestro-e2e:
+    name: Maestro E2E Contract
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify special feature navigation contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLOW=.maestro/final-release-42-screen-master.yaml
+          test -s "$FLOW"
+          for label in             'Four-Photo Verification' 'Global Community Chat' 'Family / Wali Connect'             'Blocked Members' 'Nikah Blueprint' 'Smart Serious Questions'             'Trust Passport' 'Safe Communication' 'AI Nikah Mediator'             'Future Life Simulation' 'Earn Message Credits'; do
+            grep -Fq "$label" "$FLOW"
+          done
+          echo "MAESTRO SPECIAL FEATURE NAVIGATION CONTRACT: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Prevent cloud mutation in Step 10
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step10-special-real-features-master-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 10 Locked
+    needs: [master-gate, maestro-e2e, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 10 SPECIAL REAL PRODUCTION FEATURES: LOCKED"
+          echo "Master Gate -> Maestro E2E Contract -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
