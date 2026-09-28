@@ -449,6 +449,25 @@ jobs:
           grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.1 LOCKED"
 
+      - name: Step 6.2 — no Firebase UID runtime dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -RInF 'firebase_uid' azure-backend/src app/src/main/java --include='*.js' --include='*.java'
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main/java azure-backend/src --include='*.java' --include='*.js'
+          echo "STEP 6.2 RUNTIME FIREBASE IDENTITY DEPENDENCY: REMOVED"
+
+      - name: Step 6.2 — Master protection stack lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f .github/scripts/runtime_maestro_master_gate.sh
+          test -f .maestro/ci-welcome.yaml
+          test -f .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'Self-Healing + Auto-Rollback architecture lock' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Fortress Budget Regression — locked production contract' .github/workflows/azure-backend-deploy.yml
+          echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: STEP 6.2 LOCKED"
+
       - name: Golden relationship history 4-screen lock
         run: |
           set -euo pipefail
