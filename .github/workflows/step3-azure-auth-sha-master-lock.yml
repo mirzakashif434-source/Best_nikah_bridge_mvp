@@ -86,7 +86,7 @@ jobs:
         run: |
           set -euo pipefail
           B64="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
-          URL_B64="$(printf '%s' "$B64" | sed 's/=/%3D/g')"
+          URL_B64="$(printf '%s' "$B64" | sed -e 's/+/%2B/g' -e 's#/#%2F#g' -e 's/=/%3D/g')"
           test "$B64" = "WS+zloPDaXssn/RIr0AGmd4iV+k="
           grep -Fq "\"redirect_uri\": \"msauth://$EXPECTED_PACKAGE/$URL_B64\"" app/src/main/res/raw/auth_config.json
           grep -Fq "android:scheme=\"msauth\" android:host=\"$EXPECTED_PACKAGE\" android:path=\"/$B64\"" app/src/main/AndroidManifest.xml
