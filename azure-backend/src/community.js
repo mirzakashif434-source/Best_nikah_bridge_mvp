@@ -18,7 +18,7 @@ async function ensureUser(user){
     return r.rows[0];
   }
   if(!user.uid) throw Object.assign(new Error("AUTH_IDENTITY_REQUIRED"),{statusCode:401});
-  const r=await query("SELECT id,status,email,terms_accepted,profile_completed FROM users WHERE firebase_uid=$1 LIMIT 1",[user.uid]);
+  const r=await query("SELECT id,status,email,terms_accepted,profile_completed FROM users WHERE azure_subject=$1 LIMIT 1",[user.uid]);
   if(!r.rows[0]) throw Object.assign(new Error("USER_NOT_FOUND"),{statusCode:404});
   if(r.rows[0].status!=="active") throw Object.assign(new Error("USER_NOT_ACTIVE"),{statusCode:403});
   if(!r.rows[0].terms_accepted || !r.rows[0].profile_completed) throw Object.assign(new Error("ACTIVE_NIKAH_PROFILE_REQUIRED"),{statusCode:403});
@@ -53,11 +53,11 @@ app.http("communityMutesList",{methods:["GET"],authLevel:"anonymous",route:"comm
 })});
 
 app.http("communityMute",{methods:["POST"],authLevel:"anonymous",route:"community/mutes",handler:requireAuth(async(request,context,user)=>{
- try{const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;const b=await request.json();const target=String(b.userId||"");if(!target||target===String(me.id))return {status:400,jsonBody:{ok:false,error:"INVALID_MEMBER"}};const r=await query("SELECT id FROM users WHERE id=$1 OR firebase_uid=$1 OR azure_subject=$1 LIMIT 1",[target]);if(!r.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};await query("INSERT INTO community_mutes(user_id,muted_user_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[me.id,r.rows[0].id]);return {status:201,jsonBody:{ok:true,muted:true}};}catch(e){context.error("COMMUNITY_MUTE_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"COMMUNITY_MUTE_FAILED"}};}
+ try{const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;const b=await request.json();const target=String(b.userId||"");if(!target||target===String(me.id))return {status:400,jsonBody:{ok:false,error:"INVALID_MEMBER"}};const r=await query("SELECT id FROM users WHERE id=$1 OR azure_subject=$1 OR azure_subject=$1 LIMIT 1",[target]);if(!r.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};await query("INSERT INTO community_mutes(user_id,muted_user_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[me.id,r.rows[0].id]);return {status:201,jsonBody:{ok:true,muted:true}};}catch(e){context.error("COMMUNITY_MUTE_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"COMMUNITY_MUTE_FAILED"}};}
 })});
 
 app.http("communityUnmute",{methods:["DELETE"],authLevel:"anonymous",route:"community/mutes/{userId}",handler:requireAuth(async(request,context,user)=>{
- try{const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;const target=String(request.params?.userId||"");const r=await query("SELECT id FROM users WHERE id=$1 OR firebase_uid=$1 OR azure_subject=$1 LIMIT 1",[target]);if(!r.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};await query("DELETE FROM community_mutes WHERE user_id=$1 AND muted_user_id=$2",[me.id,r.rows[0].id]);return {status:200,jsonBody:{ok:true,muted:false}};}catch(e){context.error("COMMUNITY_UNMUTE_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"COMMUNITY_UNMUTE_FAILED"}};}
+ try{const access=await accessForAuth(user);if(!access.capabilities.paid40Features)return {status:402,jsonBody:{ok:false,error:"PREMIUM_PLUS_REQUIRED",locked:true}};const me=access.user;const target=String(request.params?.userId||"");const r=await query("SELECT id FROM users WHERE id=$1 OR azure_subject=$1 OR azure_subject=$1 LIMIT 1",[target]);if(!r.rows[0])return {status:404,jsonBody:{ok:false,error:"USER_NOT_FOUND"}};await query("DELETE FROM community_mutes WHERE user_id=$1 AND muted_user_id=$2",[me.id,r.rows[0].id]);return {status:200,jsonBody:{ok:true,muted:false}};}catch(e){context.error("COMMUNITY_UNMUTE_FAILED",e);return {status:e.statusCode||500,jsonBody:{ok:false,error:e.statusCode?e.message:"COMMUNITY_UNMUTE_FAILED"}};}
 })});
 
 app.http("communityReport",{methods:["POST"],authLevel:"anonymous",route:"community/reports",handler:requireAuth(async(request,context,user)=>{
