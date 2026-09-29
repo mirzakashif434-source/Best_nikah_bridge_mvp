@@ -89,8 +89,8 @@ jobs:
           grep -Fq 'jwtVerify(token,jwks,{audience:cfg.audience})' azure-backend/src/azureExternalAuth.js
           grep -Fq 'issuerAllowed(payload.iss, allowedIssuers)' azure-backend/src/azureExternalAuth.js
           grep -Fq '/discovery/v2.0/keys' azure-backend/src/azureExternalAuth.js
-          ! grep -RInF '592FB39683C3697B2C9FF448AF400699DE2257E9' app .github/workflows --exclude='*.md'
-          ! grep -RInF 'WS+zloPDaXssn/RIr0AGmd4iV+k' app .github/workflows --exclude='*.md'
+          ! grep -RInF '592FB39683C3697B2C9FF448AF400699DE2257E9' app .github/workflows --exclude='*.md' --exclude='step13-final-master-release-gate.yml'
+          ! grep -RInF 'WS+zloPDaXssn/RIr0AGmd4iV+k' app .github/workflows --exclude='*.md' --exclude='step13-final-master-release-gate.yml'
           ! grep -RInE 'versionCode[[:space:]]+33' app/build.gradle .github/workflows
           echo "OLD PLAY SIGNING SHA/HASH/V33 REGRESSION: ZERO"
           echo "AUTH + SHA + MSAL + JWKS: PASS"
