@@ -634,6 +634,10 @@ jobs:
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
+          grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/main/res/raw/auth_config.json
+          grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/release/res/raw/auth_config.json
+          grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/apkTest/res/raw/auth_config.json
+          echo "MSAL OTP CALLBACK WEBVIEW LOCK: PASS"
           echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION 35 + PLAY APP-SIGNING MSAL LOCK: PASS"
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PRESERVED"
 
