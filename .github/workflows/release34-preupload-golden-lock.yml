@@ -1,11 +1,11 @@
-name: Release 34 Pre-Upload Golden Lock
+name: Release 35 Pre-Upload Golden Lock
 
 on:
   push:
     branches: [azure-backend-additive]
     paths:
       - 'RELEASE_34_PREUPLOAD_GOLDEN_LOCK.md'
-      - '.github/workflows/release34-preupload-golden-lock.yml'
+      - '.github/workflows/release35-preupload-golden-lock.yml'
       - 'app/build.gradle'
       - 'app/src/main/AndroidManifest.xml'
       - 'app/src/release/AndroidManifest.xml'
@@ -18,10 +18,10 @@ permissions:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '34'
-  EXPECTED_PLAY_SHA1: 592FB39683C3697B2C9FF448AF400699DE2257E9
-  EXPECTED_MSAL_HASH: WS+zloPDaXssn/RIr0AGmd4iV+k=
-  EXPECTED_MSAL_REDIRECT: msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIr0AGmd4iV%2Bk%3D
+  EXPECTED_VERSION_CODE: '35'
+  EXPECTED_PLAY_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+  EXPECTED_MSAL_HASH: haUulU8x36wsEGKo1k7aLZtIW0g=
+  EXPECTED_MSAL_REDIRECT: msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D
 
 jobs:
   golden-lock:
@@ -43,7 +43,7 @@ jobs:
           grep -Fq 'targetSdk 36' app/build.gradle
           COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
           test "$COUNT" = "50"
-          echo "PACKAGE + V34 + 50 ACTIVITIES: PASS"
+          echo "PACKAGE + V35 + 50 ACTIVITIES: PASS"
 
       - name: Freeze Play signing to MSAL redirect
         shell: bash
