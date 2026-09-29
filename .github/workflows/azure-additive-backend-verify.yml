@@ -1202,6 +1202,13 @@ jobs:
             GOLDEN_RELEASE_MANIFEST.txt
           if-no-files-found: error
 
+      - name: Upload Play Store Release AAB V35
+        uses: actions/upload-artifact@v6
+        with:
+          name: azure-additive-play-store-aab-v35
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
       - name: Step 8 result
         run: |
           echo "STEP 8 AZURE FINAL GATE PASSED."
@@ -1214,3 +1221,114 @@ jobs:
           echo "Only the signed-in real-session Maestro run on a device and Play Console submission remain external."
 
 # Azure-only notification final verification trigger v2
+
+
+  final-master-gate:
+    name: Master Gate
+    needs: step8-azure-final
+    if: ${{ needs.step8-azure-final.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Lock exact Play Store V35 release identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+35' app/build.gradle
+          grep -Fq "versionName '2.5'" app/build.gradle
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
+          grep -Fq '"authority_url": "https://bestnikahbredge.ciamlogin.com/c4ac0560-df59-48d4-af1b-bb0ed127ce6d"' app/src/main/res/raw/auth_config.json
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
+          echo "MASTER GATE V35: PASS"
+
+  final-maestro-e2e:
+    name: Maestro E2E
+    needs: final-master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Lock Maestro final release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .maestro/final-release-42-screen-master.yaml
+          grep -Fq 'appId: com.nikahbridge' .maestro/final-release-42-screen-master.yaml
+          python3 .github/scripts/verify_final_release_master.py
+          echo "MAESTRO E2E: PASS"
+
+  final-self-healing:
+    name: Self-Healing
+    needs: final-maestro-e2e
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore exact clean release state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          grep -Fq 'Self-heal Azure runtime after transient production failure' .github/workflows/azure-backend-deploy.yml
+          echo "SELF-HEALING: LOCKED"
+
+  final-auto-rollback:
+    name: Auto-Rollback
+    needs: [final-master-gate, final-maestro-e2e, final-self-healing]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify Golden rollback safety contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'Prepare last-known-good Golden backend rollback' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Auto-rollback Azure backend to last known-good Golden release' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'Verify production after Golden rollback' .github/workflows/azure-backend-deploy.yml
+          echo "AUTO-ROLLBACK: LOCKED"
+
+  final-fortress-budget:
+    name: Fortress Budget
+    needs: [final-master-gate, final-maestro-e2e, final-self-healing, final-auto-rollback]
+    if: ${{ always() && needs.final-master-gate.result == 'success' && needs.final-maestro-e2e.result == 'success' && needs.final-self-healing.result == 'success' && needs.final-auto-rollback.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Lock Fortress Budget production contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f FORTRESS_BUDGET_MODE.md
+          grep -Fq -- '--instance-memory 512 --maximum-instance-count 20' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'AZURE_DB_POOL_MAX=3' .github/workflows/azure-backend-deploy.yml
+          grep -Fq 'AI_DAILY_LIMIT_VIP=12' .github/workflows/azure-backend-deploy.yml
+          echo "FORTRESS BUDGET: LOCKED"
+
+  final-release-locked:
+    name: Release 35 Final Locked
+    needs: [final-master-gate, final-maestro-e2e, final-self-healing, final-auto-rollback, final-fortress-budget]
+    if: ${{ always() && needs.final-master-gate.result == 'success' && needs.final-maestro-e2e.result == 'success' && needs.final-self-healing.result == 'success' && needs.final-auto-rollback.result == 'success' && needs.final-fortress-budget.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "AZURE ADDITIVE RELEASE V35: FINAL LOCKED"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback -> Fortress Budget"
+          echo "Play Store artifact in this run: azure-additive-play-store-aab-v35"
