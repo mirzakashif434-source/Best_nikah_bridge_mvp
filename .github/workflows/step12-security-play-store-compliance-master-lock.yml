@@ -37,7 +37,7 @@ jobs:
           grep -Fq 'compileSdk 36' "$B"
           grep -Fq 'targetSdk 36' "$B"
           grep -Fq 'minSdk 24' "$B"
-          grep -Fq 'versionCode 34' "$B"
+          grep -Fq 'versionCode 35' "$B"
           grep -Fq 'signingConfig signingConfigs.release' "$B"
           ! grep -Fq 'storePassword "' "$B"
           ! grep -Fq "storePassword '" "$B"
@@ -79,8 +79,8 @@ jobs:
           set -euo pipefail
           F=.github/workflows/final-auth-signing-playstore-match.yml
           grep -Fq 'EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048' "$F"
-          grep -Fq 'EXPECTED_PLAY_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448AF400699DE2257E9' "$F"
-          grep -Fq 'WS+zloPDaXssn/RIr0AGmd4iV+k=' "$F"
+          grep -Fq 'EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48' "$F"
+          grep -Fq 'haUulU8x36wsEGKo1k7aLZtIW0g=' "$F"
           grep -Fq 'PLAY APP-SIGNING CERT <-> MAIN + RELEASE MSAL REDIRECT: PASS' "$F"
           echo "PLAY SIGNING + MSAL REDIRECT: PASS"
 
