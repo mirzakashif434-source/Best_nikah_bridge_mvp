@@ -649,7 +649,7 @@ jobs:
       - name: Compile Android production source
         run: ./gradlew :app:compileDebugJavaWithJavac --stacktrace
 
-      - name: Prepare production signing and Azure redirect URI
+      - name: Prepare production signing and verify both Android signing identities
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -660,21 +660,16 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/best-nikah-bridge-release.jks"
           test -s "$RUNNER_TEMP/best-nikah-bridge-release.jks"
           keytool -list -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
-          HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
-          python3 - "$HASH" <<'PY'
-          import json, pathlib, re, sys
-          h=sys.argv[1]
-          p=pathlib.Path("app/src/main/res/raw/auth_config.json")
-          d=json.loads(p.read_text())
-          d["redirect_uri"]="msauth://com.nikahbridge/"+h.replace("=", "%3D")
-          p.write_text(json.dumps(d, indent=2)+"\n")
-          p=pathlib.Path("app/src/main/AndroidManifest.xml")
-          s=p.read_text()
-          s=re.sub(r'(android:scheme="msauth" android:host="com\.nikahbridge" android:path="/)[^"]+(")', rf'\g<1>{h}\g<2>', s)
-          p.write_text(s)
-          PY
+          UPLOAD_HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/best-nikah-bridge-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
+          test "$UPLOAD_HASH" = "QQlyMPjboduCSVjIUdgoTGW6UEg="
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/QQlyMPjboduCSVjIUdgoTGW6UEg%3D"' app/src/apkTest/res/raw/auth_config.json
+          grep -Fq 'android:path="/QQlyMPjboduCSVjIUdgoTGW6UEg="' app/src/apkTest/AndroidManifest.xml
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
+          echo "DIRECT APK UPLOAD-KEY MSAL: PASS"
+          echo "PLAY STORE APP-SIGNING MSAL: PASS"
 
-      - name: Build signed release APK and Play Store AAB
+      - name: Build direct-test APK and Play Store AAB
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/best-nikah-bridge-release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -682,15 +677,16 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
         run: |
           set -euo pipefail
-          ./gradlew clean assembleRelease bundleRelease --stacktrace
+          ./gradlew clean :app:assembleRelease :app:assembleApkTest :app:bundleRelease --stacktrace
           test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/apk/apkTest/app-apkTest.apk
           test -s app/build/outputs/bundle/release/app-release.aab
 
-      - name: Upload signed release APK
+      - name: Upload signed direct-test APK
         uses: actions/upload-artifact@v6
         with:
           name: best-nikah-bridge-azure-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          path: app/build/outputs/apk/apkTest/app-apkTest.apk
           if-no-files-found: error
 
       - name: Upload Play Store AAB
