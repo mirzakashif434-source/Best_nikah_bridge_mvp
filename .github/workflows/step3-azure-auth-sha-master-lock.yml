@@ -29,7 +29,7 @@ env:
   EXPECTED_API_AUDIENCE: 4733ae40-3b89-4994-b99b-3890bf87e876
   EXPECTED_TENANT_ID: c4ac0560-df59-48d4-af1b-bb0ed127ce6d
   EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
-  EXPECTED_PLAY_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448AF400699DE2257E9
+  EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
 
 jobs:
   master-gate:
@@ -87,7 +87,7 @@ jobs:
           set -euo pipefail
           B64="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
           URL_B64="$(printf '%s' "$B64" | sed -e 's/+/%2B/g' -e 's#/#%2F#g' -e 's/=/%3D/g')"
-          test "$B64" = "WS+zloPDaXssn/RIr0AGmd4iV+k="
+          test "$B64" = "haUulU8x36wsEGKo1k7aLZtIW0g="
           grep -Fq "\"redirect_uri\": \"msauth://$EXPECTED_PACKAGE/$URL_B64\"" app/src/main/res/raw/auth_config.json
           grep -Fq "android:scheme=\"msauth\" android:host=\"$EXPECTED_PACKAGE\" android:path=\"/$B64\"" app/src/main/AndroidManifest.xml
           grep -Fq "\"redirect_uri\": \"msauth://$EXPECTED_PACKAGE/$URL_B64\"" app/src/release/res/raw/auth_config.json
@@ -103,7 +103,7 @@ jobs:
           ! grep -Fq 'd["redirect_uri"]="msauth://com.nikahbridge/"+h.replace' "$F"
           ! grep -Fq 're.sub(r' "$F"
           grep -Fq 'EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048' "$F"
-          grep -Fq 'EXPECTED_PLAY_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448AF400699DE2257E9' "$F"
+          grep -Fq 'EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48' "$F"
           grep -Fq 'PLAY APP-SIGNING MSAL REDIRECT: VERIFIED' "$F"
           echo "UPLOAD/PLAY SIGNING SEPARATION: LOCKED"
 
