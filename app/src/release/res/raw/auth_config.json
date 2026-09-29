@@ -1,6 +1,6 @@
 {
   "client_id": "f5fc2b11-420f-4741-9a52-65d60cbddb7b",
-  "authorization_user_agent": "DEFAULT",
+  "authorization_user_agent": "WEBVIEW",
   "account_mode": "MULTIPLE",
   "redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D",
   "broker_redirect_uri_registered": true,
