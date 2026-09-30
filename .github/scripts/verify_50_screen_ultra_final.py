@@ -54,7 +54,6 @@ for name in EXPECTED:
         issues.append(f"{name}: blur/low-alpha pattern <= 0.4")
     if "Button" in t and "setOnClickListener(" not in t and "setPositiveButton(" not in t:
         issues.append(f"{name}: Button exists without any click-listener binding")
-    # Guard against obvious clipped controls. Global app normalizer also enforces min-height/wrap.
     if re.search(r'new (?:LinearLayout|FrameLayout)\.LayoutParams\([^,]+,\s*dp\((?:[1-3]?\d)\)\)',t):
         issues.append(f"{name}: suspicious fixed control height under 40dp")
 
@@ -85,7 +84,8 @@ for cfg in ["app/src/main/res/raw/auth_config.json","app/src/release/res/raw/aut
 
 if issues:
     print("50-SCREEN ULTRA FINAL STATIC GATE: FAIL")
-    for x in issues: print(" -",x)
+    for x in issues:
+        print(" -",x)
     sys.exit(1)
 
 def scan_artifact(path: Path):
@@ -96,20 +96,11 @@ def scan_artifact(path: Path):
         for n in z.namelist():
             data=z.read(n)
             archive+=data
-            if re.search(r'(^|/)classes\d*\.dex
-
-for arg in sys.argv[1:]:
-    scan_artifact(Path(arg))
-
-print("50-SCREEN ULTRA FINAL STATIC GATE: PASS")
-print("Exact 50-screen registry + manifest + scroll/back + button-binding + blur/null/stale/Firebase + MSAL current-signer checks: PASS")
-,n):
+            if re.search(r'(^|/)classes\d*\.dex$',n):
                 dex+=data
     assert dex, f"No compiled DEX found in {path}"
     for bad in [b"null null",b"FirebaseAuth",b"FirebaseFirestore",b"FirebaseFunctions",b"FirebaseStorage"]:
         assert bad not in archive, f"{path.name}: forbidden compiled content {bad!r}"
-    # Azure endpoint is compiled into code/Dex. MSAL redirect lives in Android/raw resources,
-    # so validate it against the whole unpacked APK/AAB payload rather than Dex only.
     assert b"azurewebsites.net" in dex, f"{path.name}: Azure endpoint missing from compiled Dex"
     assert b"haUulU8x36wsEGKo1k7aLZtIW0g=" in archive, f"{path.name}: current Play MSAL redirect resource missing"
     print(f"COMPILED FORENSIC PASS: {path.name}")
