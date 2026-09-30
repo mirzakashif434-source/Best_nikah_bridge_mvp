@@ -354,6 +354,50 @@ jobs:
           environment: azurecloud
           allow-no-subscriptions: true
 
+      - name: Step 5 — preserve all valid Android client redirects
+        shell: bash
+        run: |
+          set -euo pipefail
+          ANDROID_CLIENT_ID='f5fc2b11-420f-4741-9a52-65d60cbddb7b'
+          TOKEN="$(az account get-access-token --resource-type ms-graph --query accessToken -o tsv)"
+          test -n "$TOKEN"
+
+          FILTER="$(python3 - <<'PY'
+          import urllib.parse
+          print(urllib.parse.quote("appId eq 'f5fc2b11-420f-4741-9a52-65d60cbddb7b'"))
+          PY
+          )"
+
+          curl -fsS -H "Authorization: Bearer $TOKEN"             "https://graph.microsoft.com/v1.0/applications?%24filter=$FILTER"             -o /tmp/android-client-search.json
+          test "$(jq '.value | length' /tmp/android-client-search.json)" = "1"
+          jq '.value[0]' /tmp/android-client-search.json >/tmp/android-client.json
+          OBJECT_ID="$(jq -r '.id' /tmp/android-client.json)"
+
+          DIRECT='msauth://com.nikahbridge/QQlyMPjboduCSVjIUdgoTGW6UEg%3D'
+          CLASSIC='msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D'
+          CURRENT='msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D'
+
+          jq --arg a "$DIRECT" --arg b "$CLASSIC" --arg c "$CURRENT" '
+            {
+              publicClient: {
+                redirectUris: (((.publicClient.redirectUris // []) + [$a,$b,$c]) | unique)
+              }
+            }
+          ' /tmp/android-client.json >/tmp/android-client-patch.json
+
+          curl -fsS -X PATCH             -H "Authorization: Bearer $TOKEN"             -H "Content-Type: application/json"             --data-binary @/tmp/android-client-patch.json             "https://graph.microsoft.com/v1.0/applications/$OBJECT_ID"
+
+          curl -fsS -H "Authorization: Bearer $TOKEN"             "https://graph.microsoft.com/v1.0/applications/$OBJECT_ID"             -o /tmp/android-client-after.json
+
+          jq -e --arg a "$DIRECT" --arg b "$CLASSIC" --arg c "$CURRENT" '
+            (.publicClient.redirectUris // []) as $u
+            | ($u | index($a) != null)
+              and ($u | index($b) != null)
+              and ($u | index($c) != null)
+          ' /tmp/android-client-after.json >/dev/null
+
+          echo "ANDROID CLIENT REDIRECTS: DIRECT + CLASSIC PLAY + CURRENT PLAY PRESERVED"
+
       - name: Step 5 — clean API Android redirect only and verify scope
         shell: bash
         run: |
@@ -634,6 +678,11 @@ jobs:
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq '"WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'R.raw.auth_config_play_current' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/release/AndroidManifest.xml
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/main/res/raw/auth_config.json
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/release/res/raw/auth_config.json
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/apkTest/res/raw/auth_config.json
