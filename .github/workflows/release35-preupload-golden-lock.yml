@@ -1,4 +1,4 @@
-name: Release 35 Azure Additive Final Lock
+name: Release 36 Azure Additive Final Lock
 
 on:
   push:
@@ -16,13 +16,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: release35-final-lock-${{ github.ref }}
+  group: release36-final-lock-${{ github.ref }}
   cancel-in-progress: false
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '35'
-  EXPECTED_VERSION_NAME: '2.5'
+  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_NAME: '2.25'
   EXPECTED_PLAY_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
   EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
   EXPECTED_MSAL_HASH: haUulU8x36wsEGKo1k7aLZtIW0g=
@@ -39,7 +39,7 @@ jobs:
           ref: azure-backend-additive
           fetch-depth: 1
 
-      - name: Lock V35 package SDK and Azure-only runtime
+      - name: Lock V36 package SDK and Azure-only runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -52,7 +52,7 @@ jobs:
           test ! -e firebase.json
           test ! -e app/google-services.json
           ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
-          echo "MASTER V35 + AZURE-ONLY: PASS"
+          echo "MASTER V36 + AZURE-ONLY: PASS"
 
       - name: Lock Play Console Azure Portal and GitHub auth
         shell: bash
@@ -114,7 +114,7 @@ jobs:
           echo "FORTRESS BUDGET: PASS"
 
   build-sign-verify:
-    name: Build Signed AAB V35
+    name: Build Signed AAB V36
     needs: [master-gate, maestro-e2e, fortress-budget]
     runs-on: ubuntu-24.04
     steps:
@@ -141,7 +141,7 @@ jobs:
           test "$ACTUAL" = "$EXPECTED_UPLOAD_SHA1"
           echo "UPLOAD KEY SHA1: PASS"
 
-      - name: Build and verify exact V35 AAB
+      - name: Build and verify exact V36 AAB
         env:
           KEYSTORE_FILE: ${{ runner.temp }}/release.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -155,11 +155,11 @@ jobs:
           test -s app/build/outputs/bundle/release/app-release.aab
           jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
           grep -Eq "versionCode[[:space:]]+$EXPECTED_VERSION_CODE" app/build.gradle
-          echo "SIGNED PLAY STORE AAB V35: PASS"
+          echo "SIGNED PLAY STORE AAB V36: PASS"
 
       - uses: actions/upload-artifact@v6
         with:
-          name: azure-additive-play-store-aab-v35
+          name: azure-additive-play-store-aab-v36
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
@@ -203,12 +203,12 @@ jobs:
           echo "AUTO-ROLLBACK SAFETY: PASS"
 
   locked:
-    name: Release 35 Final Locked
+    name: Release 36 Final Locked
     needs: [master-gate, maestro-e2e, fortress-budget, build-sign-verify, self-healing]
     if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.build-sign-verify.result == 'success' && needs.self-healing.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "RELEASE 35 AZURE ADDITIVE: LOCKED"
+          echo "RELEASE 36 AZURE ADDITIVE: LOCKED"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
-          echo "Artifact: azure-additive-play-store-aab-v35"
+          echo "Artifact: azure-additive-play-store-aab-v36"
