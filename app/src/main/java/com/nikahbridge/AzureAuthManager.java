@@ -105,14 +105,42 @@ final class AzureAuthManager {
 
 
     static int authConfigResource(Context context) {
-        // Google Play signs the installed app with the current Play App Signing key.
-        // Do not inspect signingCertificateHistory(): that includes retired/previous keys
-        // and can make MSAL select a redirect URI that does not match the current signer.
+        // Select the MSAL redirect that matches the certificate that actually
+        // signed the installed package. Google Play can install an APK signed
+        // with a different App Signing certificate than the local/upload key.
         //
-        // Current Play App Signing SHA-1:
-        // 85:A5:2E:95:4F:31:DF:AC:2C:10:62:A8:D6:4E:DA:2D:9B:48:5B:48
-        // MSAL signature hash:
-        // haUulU8x36wsEGKo1k7aLZtIW0g=
+        // Play-installed signer currently observed by MSAL:
+        // SHA-1 59:2F:81:CE:5A:0F:0D:A5:EC:B2:7F:D1:96:BA:00:1A:67:78:89:5F:A4
+        // MSAL signature hash: WS+BzloPDaXssn/RlroAGmd4iV+k=
+        //
+        // Classic signer:
+        // SHA-1 85:A5:2E:95:4F:31:DF:AC:2C:10:62:A8:D6:4E:DA:2D:9B:48:5B:48
+        // MSAL signature hash: haUulU8x36wsEGKo1k7aLZtIW0g=
+        try {
+            PackageManager pm = context.getPackageManager();
+            android.content.pm.PackageInfo info =
+                    pm.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+            SigningInfo signingInfo = info.signingInfo;
+            if (signingInfo != null) {
+                Signature[] signers = signingInfo.hasMultipleSigners()
+                        ? signingInfo.getApkContentsSigners()
+                        : signingInfo.getApkContentsSigners();
+                if (signers != null) {
+                    for (Signature signer : signers) {
+                        byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(signer.toByteArray());
+                        String hash = Base64.encodeToString(sha1, Base64.NO_WRAP);
+                        if ("WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)) {
+                            return R.raw.auth_config_play_current;
+                        }
+                        if ("haUulU8x36wsEGKo1k7aLZtIW0g=".equals(hash)) {
+                            return R.raw.auth_config;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // Fall through to the classic config for non-Play/direct test builds.
+        }
         return R.raw.auth_config;
     }
 
