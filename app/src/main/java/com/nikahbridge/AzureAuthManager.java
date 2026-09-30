@@ -105,25 +105,14 @@ final class AzureAuthManager {
 
 
     static int authConfigResource(Context context) {
-        try {
-            PackageManager pm = context.getPackageManager();
-            Signature[] signatures;
-            if (android.os.Build.VERSION.SDK_INT >= 28) {
-                SigningInfo info = pm.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES).signingInfo;
-                signatures = info.hasMultipleSigners() ? info.getApkContentsSigners() : info.getSigningCertificateHistory();
-            } else {
-                signatures = pm.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNATURES).signatures;
-            }
-            if (signatures != null) {
-                MessageDigest md = MessageDigest.getInstance("SHA-1");
-                for (Signature s : signatures) {
-                    String hash = Base64.encodeToString(md.digest(s.toByteArray()), Base64.NO_WRAP);
-                    if ("WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)) {
-                        return R.raw.auth_config_play_current;
-                    }
-                }
-            }
-        } catch (Exception ignored) {}
+        // Google Play signs the installed app with the current Play App Signing key.
+        // Do not inspect signingCertificateHistory(): that includes retired/previous keys
+        // and can make MSAL select a redirect URI that does not match the current signer.
+        //
+        // Current Play App Signing SHA-1:
+        // 85:A5:2E:95:4F:31:DF:AC:2C:10:62:A8:D6:4E:DA:2D:9B:48:5B:48
+        // MSAL signature hash:
+        // haUulU8x36wsEGKo1k7aLZtIW0g=
         return R.raw.auth_config;
     }
 
