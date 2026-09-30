@@ -84,7 +84,7 @@ public class AzureExternalAuthActivity extends Activity {
 
         PublicClientApplication.createMultipleAccountPublicClientApplication(
                 this,
-                R.raw.auth_config,
+                AzureAuthManager.authConfigResource(this),
                 new IPublicClientApplication.IMultipleAccountApplicationCreatedListener() {
                     @Override public void onCreated(IMultipleAccountPublicClientApplication application) {
                         msal = application;
