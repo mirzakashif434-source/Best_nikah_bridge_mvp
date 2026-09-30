@@ -1,4 +1,5 @@
 name: Azure Additive Backend + Android Verification
+# Release 35 Final Locked — current Play signing redirect verified
 
 on:
   push:
