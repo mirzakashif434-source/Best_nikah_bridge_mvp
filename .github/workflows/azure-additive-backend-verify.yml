@@ -1289,11 +1289,11 @@ jobs:
           set -euo pipefail
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
           grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
-          grep -Fq "versionName '2.5'" app/build.gradle
+          grep -Fq "versionName '2.25'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
           grep -Fq '"authority_url": "https://bestnikahbredge.ciamlogin.com/c4ac0560-df59-48d4-af1b-bb0ed127ce6d"' app/src/main/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
-          echo "MASTER GATE V35: PASS"
+          echo "MASTER GATE V36: PASS"
 
   final-maestro-e2e:
     name: Maestro E2E
