@@ -664,6 +664,13 @@ jobs:
           python3 .github/scripts/verify_final_release_master.py
           echo "AZURE ADDITIVE FINAL RELEASE MASTER SOURCE CONTRACT: PASS"
 
+      - name: 50-Screen Ultra Final static gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_50_screen_ultra_final.py
+          echo "50-SCREEN ULTRA STATIC AUDIT: PASS"
+
       - name: Play Console release compatibility lock
         shell: bash
         run: |
@@ -1078,6 +1085,15 @@ jobs:
           sha256sum app/build/outputs/apk/release/app-release.apk > app-release-apk.sha256
           sha256sum app/build/outputs/bundle/release/app-release.aab > app-release-aab.sha256
 
+      - name: 50-Screen Ultra compiled APK and AAB forensic gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_50_screen_ultra_final.py \
+            app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/bundle/release/app-release.aab
+          echo "50-SCREEN ULTRA COMPILED FORENSIC: PASS"
+
       - name: Verify 38-screen Master Test contract against signed APK
         shell: bash
         run: |
@@ -1303,14 +1319,15 @@ jobs:
         with:
           ref: azure-backend-additive
           fetch-depth: 1
-      - name: Lock Maestro final release contract
+      - name: Lock Maestro + 50-Screen Ultra final release contract
         shell: bash
         run: |
           set -euo pipefail
           test -s .maestro/final-release-42-screen-master.yaml
           grep -Fq 'appId: com.nikahbridge' .maestro/final-release-42-screen-master.yaml
           python3 .github/scripts/verify_final_release_master.py
-          echo "MAESTRO E2E: PASS"
+          python3 .github/scripts/verify_50_screen_ultra_final.py
+          echo "MAESTRO + 50-SCREEN ULTRA E2E CONTRACT: PASS"
 
   final-self-healing:
     name: Self-Healing
