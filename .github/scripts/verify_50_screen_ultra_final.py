@@ -89,32 +89,35 @@ if issues:
     sys.exit(1)
 
 def scan_artifact(path: Path):
-    assert path.is_file() and path.stat().st_size>0, f"Artifact missing: {path}"
-    dex=b""
-    archive=b""
+    assert path.is_file() and path.stat().st_size > 0, f"Artifact missing: {path}"
+    dex = b""
+    archive = b""
     with zipfile.ZipFile(path) as z:
         for n in z.namelist():
-            data=z.read(n)
-            archive+=data
-            if re.search(r'(^|/)classes\\d*\\.dex
+            data = z.read(n)
+            archive += data
+            if re.search(r'(^|/)classes\d*\.dex$', n):
+                dex += data
 
-for arg in sys.argv[1:]:
-    scan_artifact(Path(arg))
-
-print("50-SCREEN ULTRA FINAL STATIC GATE: PASS")
-print("Exact 50-screen registry + manifest + scroll/back + button-binding + blur/null/stale/Firebase + MSAL current-signer checks: PASS")
-,n):
-                dex+=data
     assert dex, f"No compiled DEX found in {path}"
-    for bad in [b"null null",b"FirebaseAuth",b"FirebaseFirestore",b"FirebaseFunctions",b"FirebaseStorage"]:
+
+    for bad in [
+        b"null null",
+        b"FirebaseAuth",
+        b"FirebaseFirestore",
+        b"FirebaseFunctions",
+        b"FirebaseStorage",
+    ]:
         assert bad not in archive, f"{path.name}: forbidden compiled content {bad!r}"
-    # Code-level Azure endpoint must be present in compiled DEX.
-    assert b"azurewebsites.net" in dex, f"{path.name}: Azure endpoint missing from compiled Dex"
-    # Do not require Android resources/manifest strings to appear as plain ZIP bytes:
-    # APK/AAB resource packaging may compile them into binary tables. The exact MSAL
-    # redirect is source-locked above and the workflow performs Android-aware
-    # packaged-manifest validation after build.
+
+    # Code-level production Azure endpoint must exist in compiled DEX.
+    assert b"azurewebsites.net" in dex, f"{path.name}: Azure endpoint missing from compiled DEX"
+
+    # Android manifest/resources are binary-compiled in release artifacts.
+    # Their exact MSAL redirect/resource presence is validated by apkanalyzer/aapt2
+    # in the workflow after this generic archive scan.
     print(f"COMPILED FORENSIC PASS: {path.name}")
+
 
 for arg in sys.argv[1:]:
     scan_artifact(Path(arg))
