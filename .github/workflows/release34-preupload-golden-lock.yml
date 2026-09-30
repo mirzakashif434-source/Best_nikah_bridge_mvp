@@ -1,4 +1,4 @@
-name: Release 35 Pre-Upload Golden Lock
+name: Release 36 Pre-Upload Golden Lock
 
 on:
   push:
@@ -18,7 +18,7 @@ permissions:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '35'
+  EXPECTED_VERSION_CODE: '36'
   EXPECTED_PLAY_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
   EXPECTED_MSAL_HASH: haUulU8x36wsEGKo1k7aLZtIW0g=
   EXPECTED_MSAL_REDIRECT: msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D
@@ -38,12 +38,12 @@ jobs:
           set -euo pipefail
           grep -Fq "applicationId '$EXPECTED_PACKAGE'" app/build.gradle
           grep -Eq "versionCode[[:space:]]+$EXPECTED_VERSION_CODE" app/build.gradle
-          grep -Fq "versionName '2.5'" app/build.gradle
+          grep -Fq "versionName '2.25'" app/build.gradle
           grep -Fq 'minSdk 24' app/build.gradle
           grep -Fq 'targetSdk 36' app/build.gradle
           COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
           test "$COUNT" = "50"
-          echo "PACKAGE + V35 + 50 ACTIVITIES: PASS"
+          echo "PACKAGE + V36 + 50 ACTIVITIES: PASS"
 
       - name: Freeze Play signing to MSAL redirect
         shell: bash
@@ -55,7 +55,7 @@ jobs:
           grep -Fq "\"redirect_uri\": \"$EXPECTED_MSAL_REDIRECT\"" app/src/release/res/raw/auth_config.json
           grep -Fq "android:path=\"/$EXPECTED_MSAL_HASH\"" app/src/main/AndroidManifest.xml
           grep -Fq "android:path=\"/$EXPECTED_MSAL_HASH\"" app/src/release/AndroidManifest.xml
-          ! grep -RInF 'haUulU8x36wsEGKo1k7aLZtIW0g' app/src/main app/src/release
+          ! grep -RInF 'WS+zloPDaXssn/RIr0AGmd4iV+k' app/src/main app/src/release
           echo "PLAY SHA -> MSAL REDIRECT: PASS"
 
       - name: Freeze Azure-only runtime and security
@@ -74,5 +74,5 @@ jobs:
 
       - name: Golden checkpoint
         run: |
-          echo "RELEASE 34 PRE-UPLOAD GOLDEN LOCK: PASS"
+          echo "RELEASE 36 PRE-UPLOAD GOLDEN LOCK: PASS"
           echo "Final runtime lock still requires Google Play install + real Azure sign-in."
