@@ -1,0 +1,13 @@
+{
+  "client_id": "f5fc2b11-420f-4741-9a52-65d60cbddb7b",
+  "authorization_user_agent": "WEBVIEW",
+  "account_mode": "MULTIPLE",
+  "redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D",
+  "broker_redirect_uri_registered": true,
+  "authorities": [
+    {
+      "type": "CIAM",
+      "authority_url": "https://bestnikahbredge.ciamlogin.com/c4ac0560-df59-48d4-af1b-bb0ed127ce6d"
+    }
+  ]
+}
