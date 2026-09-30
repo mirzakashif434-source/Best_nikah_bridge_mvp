@@ -104,7 +104,7 @@ final class AzureAuthManager {
     }
 
 
-    private static int authConfigResource(Context context) {
+    static int authConfigResource(Context context) {
         try {
             PackageManager pm = context.getPackageManager();
             Signature[] signatures;
