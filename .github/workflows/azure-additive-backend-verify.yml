@@ -683,13 +683,17 @@ jobs:
           grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/main/AndroidManifest.xml
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
-          grep -Fq 'return R.raw.auth_config;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/release/AndroidManifest.xml
+          grep -Fq '"WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq '"haUulU8x36wsEGKo1k7aLZtIW0g=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           ! grep -Fq 'getSigningCertificateHistory()' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          ! grep -Fq 'R.raw.auth_config_play_current' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          echo "CURRENT PLAY SIGNER ONLY: PASS — retired signing history cannot select MSAL redirect"
+          echo "PLAY INSTALLED-SIGNER MSAL SELECTOR: PASS — WS current + classic fallback"
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/main/res/raw/auth_config.json
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/release/res/raw/auth_config.json
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/apkTest/res/raw/auth_config.json
@@ -725,9 +729,12 @@ jobs:
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/QQlyMPjboduCSVjIUdgoTGW6UEg%3D"' app/src/apkTest/res/raw/auth_config.json
           grep -Fq 'android:path="/QQlyMPjboduCSVjIUdgoTGW6UEg="' app/src/apkTest/AndroidManifest.xml
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/release/AndroidManifest.xml
+          grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           echo "DIRECT APK UPLOAD-KEY MSAL: PASS"
-          echo "PLAY STORE APP-SIGNING MSAL: PASS"
+          echo "PLAY STORE APP-SIGNING MSAL: CLASSIC + CURRENT WS SELECTOR PASS"
 
       - name: Build direct-test APK and Play Store AAB
         env:
@@ -1043,7 +1050,8 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
-          EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+          EXPECTED_PLAY_CLASSIC_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+          EXPECTED_PLAY_CURRENT_SHA1: 592F81CE5A0F0DA5ECB27FD196BA001A6778895FA4
         run: |
           set -euo pipefail
           test -n "$KEYSTORE_BASE64"
@@ -1056,19 +1064,22 @@ jobs:
           ACTUAL_UPLOAD_SHA1="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
           test "$ACTUAL_UPLOAD_SHA1" = "$EXPECTED_PLAY_UPLOAD_SHA1"
 
-          # Microsoft redirect must be based on the Play App Signing certificate.
-          PLAY_REDIRECT_HASH="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
-          PLAY_REDIRECT_HASH_URL="$(printf '%s' "$PLAY_REDIRECT_HASH" | sed -e 's/+/%2B/g' -e 's#/#%2F#g' -e 's/=/%3D/g')"
-          test "$PLAY_REDIRECT_HASH" = "haUulU8x36wsEGKo1k7aLZtIW0g="
+          # Play may install with the current signer observed at runtime (WS...)
+          # while classic signer compatibility remains valid for older signing lineage.
+          CLASSIC_HASH="$(printf '%s' "$EXPECTED_PLAY_CLASSIC_SHA1" | xxd -r -p | openssl base64 -A)"
+          CURRENT_HASH="$(printf '%s' "$EXPECTED_PLAY_CURRENT_SHA1" | xxd -r -p | openssl base64 -A)"
+          test "$CLASSIC_HASH" = "haUulU8x36wsEGKo1k7aLZtIW0g="
+          test "$CURRENT_HASH" = "WS+BzloPDaXssn/RlroAGmd4iV+k="
 
-          grep -Fq "\"redirect_uri\": \"msauth://com.nikahbridge/$PLAY_REDIRECT_HASH_URL\"" app/src/main/res/raw/auth_config.json
-          grep -Fq "android:scheme=\"msauth\" android:host=\"com.nikahbridge\" android:path=\"/$PLAY_REDIRECT_HASH\"" app/src/main/AndroidManifest.xml
-          grep -Fq "\"redirect_uri\": \"msauth://com.nikahbridge/$PLAY_REDIRECT_HASH_URL\"" app/src/release/res/raw/auth_config.json
-          grep -Fq "android:host=\"com.nikahbridge\"" app/src/release/AndroidManifest.xml
-          grep -Fq "android:path=\"/$PLAY_REDIRECT_HASH\"" app/src/release/AndroidManifest.xml
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/release/AndroidManifest.xml
+          grep -Fq '"WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
 
           echo "UPLOAD CERT: VERIFIED SEPARATELY"
-          echo "PLAY APP-SIGNING MSAL REDIRECT: VERIFIED"
+          echo "PLAY APP-SIGNING MSAL REDIRECTS + INSTALLED-SIGNER SELECTOR: VERIFIED"
 
       - name: Build final signed Azure APK and AAB
         env:
@@ -1107,6 +1118,7 @@ jobs:
           grep -Fq 'android:scheme="msauth"' /tmp/bnb-release-manifest.xml
           grep -Fq 'android:host="com.nikahbridge"' /tmp/bnb-release-manifest.xml
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' /tmp/bnb-release-manifest.xml
+          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' /tmp/bnb-release-manifest.xml
 
           AAPT2="$(command -v aapt2 || true)"
           if [ -z "$AAPT2" ] && [ -n "${ANDROID_HOME:-}" ]; then
@@ -1116,9 +1128,10 @@ jobs:
           test -x "$AAPT2"
           "$AAPT2" dump resources "$APK" > /tmp/bnb-release-resources.txt
           grep -Eq 'raw/auth_config|resource .*:raw/auth_config' /tmp/bnb-release-resources.txt
+          grep -Eq 'raw/auth_config_play_current|resource .*:raw/auth_config_play_current' /tmp/bnb-release-resources.txt
 
-          echo "MSAL PACKAGED MANIFEST: CURRENT PLAY REDIRECT VERIFIED"
-          echo "MSAL PACKAGED RESOURCE: auth_config PRESENT"
+          echo "MSAL PACKAGED MANIFEST: CLASSIC + CURRENT WS REDIRECTS VERIFIED"
+          echo "MSAL PACKAGED RESOURCES: auth_config + auth_config_play_current PRESENT"
           echo "50-SCREEN ULTRA COMPILED FORENSIC: PASS"
 
       - name: Verify 38-screen Master Test contract against signed APK
@@ -1358,9 +1371,12 @@ jobs:
           grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq '"authority_url": "https://bestnikahbredge.ciamlogin.com/c4ac0560-df59-48d4-af1b-bb0ed127ce6d"' app/src/main/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
-          echo "MASTER GATE V36: PASS"
+          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/main/AndroidManifest.xml
+          grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          echo "MASTER GATE V36: PASS — installed signer selects WS config when Play requires it"
 
   final-maestro-e2e:
     name: Maestro E2E
