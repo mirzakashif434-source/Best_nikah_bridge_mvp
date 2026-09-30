@@ -2,6 +2,9 @@ package com.nikahbridge;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.pm.Signature;
+import android.content.pm.SigningInfo;
 import android.util.Base64;
 import org.json.JSONObject;
 
@@ -17,6 +20,7 @@ import com.microsoft.identity.client.SilentAuthenticationCallback;
 import com.microsoft.identity.client.exception.MsalException;
 
 import java.lang.ref.WeakReference;
+import java.security.MessageDigest;
 import java.util.Collections;
 import java.util.List;
 
@@ -99,6 +103,30 @@ final class AzureAuthManager {
         acquireToken(context, callback);
     }
 
+
+    private static int authConfigResource(Context context) {
+        try {
+            PackageManager pm = context.getPackageManager();
+            Signature[] signatures;
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                SigningInfo info = pm.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES).signingInfo;
+                signatures = info.hasMultipleSigners() ? info.getApkContentsSigners() : info.getSigningCertificateHistory();
+            } else {
+                signatures = pm.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNATURES).signatures;
+            }
+            if (signatures != null) {
+                MessageDigest md = MessageDigest.getInstance("SHA-1");
+                for (Signature s : signatures) {
+                    String hash = Base64.encodeToString(md.digest(s.toByteArray()), Base64.NO_WRAP);
+                    if ("WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)) {
+                        return R.raw.auth_config_play_current;
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return R.raw.auth_config;
+    }
+
     static void initialize(Context context, Runnable ready, java.util.function.Consumer<String> error) {
         if (context instanceof Activity) bindActivity((Activity) context);
         appContext = context.getApplicationContext();
@@ -114,7 +142,7 @@ final class AzureAuthManager {
 
         PublicClientApplication.createMultipleAccountPublicClientApplication(
                 context,
-                R.raw.auth_config,
+                authConfigResource(context),
                 new IPublicClientApplication.IMultipleAccountApplicationCreatedListener() {
                     @Override public void onCreated(IMultipleAccountPublicClientApplication application) {
                         java.util.ArrayList<Runnable> callbacks;
