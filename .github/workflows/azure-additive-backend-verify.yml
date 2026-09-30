@@ -1089,9 +1089,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 .github/scripts/verify_50_screen_ultra_final.py \
-            app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/bundle/release/app-release.aab
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
+
+          python3 .github/scripts/verify_50_screen_ultra_final.py "$APK" "$AAB"
+
+          # Android-aware packaged verification. Manifest/resources inside a release
+          # APK are binary-compiled, so do not treat the ZIP as plain text.
+          APKANALYZER="$(command -v apkanalyzer || true)"
+          if [ -z "$APKANALYZER" ] && [ -n "${ANDROID_HOME:-}" ]; then
+            APKANALYZER="$(find "$ANDROID_HOME" -type f -name apkanalyzer 2>/dev/null | head -n 1 || true)"
+          fi
+          test -n "$APKANALYZER"
+          test -x "$APKANALYZER"
+
+          "$APKANALYZER" manifest print "$APK" > /tmp/bnb-release-manifest.xml
+          grep -Fq 'android:scheme="msauth"' /tmp/bnb-release-manifest.xml
+          grep -Fq 'android:host="com.nikahbridge"' /tmp/bnb-release-manifest.xml
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' /tmp/bnb-release-manifest.xml
+
+          AAPT2="$(command -v aapt2 || true)"
+          if [ -z "$AAPT2" ] && [ -n "${ANDROID_HOME:-}" ]; then
+            AAPT2="$(find "$ANDROID_HOME/build-tools" -type f -name aapt2 2>/dev/null | sort -V | tail -n 1 || true)"
+          fi
+          test -n "$AAPT2"
+          test -x "$AAPT2"
+          "$AAPT2" dump resources "$APK" > /tmp/bnb-release-resources.txt
+          grep -Eq 'raw/auth_config|resource .*:raw/auth_config' /tmp/bnb-release-resources.txt
+
+          echo "MSAL PACKAGED MANIFEST: CURRENT PLAY REDIRECT VERIFIED"
+          echo "MSAL PACKAGED RESOURCE: auth_config PRESENT"
           echo "50-SCREEN ULTRA COMPILED FORENSIC: PASS"
 
       - name: Verify 38-screen Master Test contract against signed APK
