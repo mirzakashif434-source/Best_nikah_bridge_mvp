@@ -90,16 +90,28 @@ if issues:
 
 def scan_artifact(path: Path):
     assert path.is_file() and path.stat().st_size>0, f"Artifact missing: {path}"
-    blob=b""
+    dex=b""
+    archive=b""
     with zipfile.ZipFile(path) as z:
         for n in z.namelist():
-            if re.search(r'(^|/)classes\d*\.dex$',n):
-                blob+=z.read(n)
-    assert blob, f"No compiled DEX found in {path}"
+            data=z.read(n)
+            archive+=data
+            if re.search(r'(^|/)classes\d*\.dex
+
+for arg in sys.argv[1:]:
+    scan_artifact(Path(arg))
+
+print("50-SCREEN ULTRA FINAL STATIC GATE: PASS")
+print("Exact 50-screen registry + manifest + scroll/back + button-binding + blur/null/stale/Firebase + MSAL current-signer checks: PASS")
+,n):
+                dex+=data
+    assert dex, f"No compiled DEX found in {path}"
     for bad in [b"null null",b"FirebaseAuth",b"FirebaseFirestore",b"FirebaseFunctions",b"FirebaseStorage"]:
-        assert bad not in blob, f"{path.name}: forbidden compiled content {bad!r}"
-    for req in [b"azurewebsites.net",b"haUulU8x36wsEGKo1k7aLZtIW0g="]:
-        assert req in blob, f"{path.name}: required compiled marker missing {req!r}"
+        assert bad not in archive, f"{path.name}: forbidden compiled content {bad!r}"
+    # Azure endpoint is compiled into code/Dex. MSAL redirect lives in Android/raw resources,
+    # so validate it against the whole unpacked APK/AAB payload rather than Dex only.
+    assert b"azurewebsites.net" in dex, f"{path.name}: Azure endpoint missing from compiled Dex"
+    assert b"haUulU8x36wsEGKo1k7aLZtIW0g=" in archive, f"{path.name}: current Play MSAL redirect resource missing"
     print(f"COMPILED FORENSIC PASS: {path.name}")
 
 for arg in sys.argv[1:]:
