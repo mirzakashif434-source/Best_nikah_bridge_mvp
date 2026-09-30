@@ -1,5 +1,5 @@
 name: Azure Additive Backend + Android Verification
-# Release 35 Final Locked — current Play signing redirect verified
+# Release 36 Final Locked — current Play signing redirect verified
 
 on:
   push:
@@ -673,7 +673,7 @@ jobs:
           grep -Fq 'import androidx.core.view.WindowCompat;' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'WindowCompat.setDecorFitsSystemWindows(a.getWindow(),false);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'applySafeInsets(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
-          grep -Eq 'versionCode[[:space:]]+35' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
@@ -688,7 +688,7 @@ jobs:
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/release/res/raw/auth_config.json
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/apkTest/res/raw/auth_config.json
           echo "MSAL OTP CALLBACK WEBVIEW LOCK: PASS"
-          echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION 35 + PLAY APP-SIGNING MSAL LOCK: PASS"
+          echo "PLAY CONSOLE AD_ID + EDGE-TO-EDGE + VERSION 36 + PLAY APP-SIGNING MSAL LOCK: PASS"
           echo "MASTER GATE → MAESTRO E2E → SELF-HEALING → AUTO-ROLLBACK → FORTRESS BUDGET: PRESERVED"
 
       - name: Set up JDK 17
@@ -1288,7 +1288,7 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+35' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
           grep -Fq "versionName '2.5'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
           grep -Fq '"authority_url": "https://bestnikahbredge.ciamlogin.com/c4ac0560-df59-48d4-af1b-bb0ed127ce6d"' app/src/main/res/raw/auth_config.json
@@ -1373,7 +1373,7 @@ jobs:
           echo "FORTRESS BUDGET: LOCKED"
 
   final-release-locked:
-    name: Release 35 Final Locked
+    name: Release 36 Final Locked
     needs: [final-master-gate, final-maestro-e2e, final-self-healing, final-auto-rollback, final-fortress-budget]
     if: ${{ always() && needs.final-master-gate.result == 'success' && needs.final-maestro-e2e.result == 'success' && needs.final-self-healing.result == 'success' && needs.final-auto-rollback.result == 'success' && needs.final-fortress-budget.result == 'success' }}
     runs-on: ubuntu-24.04
