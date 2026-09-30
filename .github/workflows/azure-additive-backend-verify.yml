@@ -1294,10 +1294,10 @@ jobs:
             GOLDEN_RELEASE_MANIFEST.txt
           if-no-files-found: error
 
-      - name: Upload Play Store Release AAB V35
+      - name: Upload Play Store Release AAB V36
         uses: actions/upload-artifact@v6
         with:
-          name: azure-additive-play-store-aab-v35
+          name: azure-additive-play-store-aab-v36
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
@@ -1325,7 +1325,7 @@ jobs:
         with:
           ref: azure-backend-additive
           fetch-depth: 1
-      - name: Lock exact Play Store V35 release identity
+      - name: Lock exact Play Store V36 release identity
         shell: bash
         run: |
           set -euo pipefail
@@ -1422,6 +1422,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "AZURE ADDITIVE RELEASE V35: FINAL LOCKED"
+          echo "AZURE ADDITIVE RELEASE V36: FINAL LOCKED"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback -> Fortress Budget"
-          echo "Play Store artifact in this run: azure-additive-play-store-aab-v35"
+          echo "Play Store artifact in this run: azure-additive-play-store-aab-v36"
