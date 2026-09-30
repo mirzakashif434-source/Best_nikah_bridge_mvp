@@ -679,11 +679,10 @@ jobs:
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
-          grep -Fq '"WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          grep -Fq 'R.raw.auth_config_play_current' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/main/AndroidManifest.xml
-          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/release/AndroidManifest.xml
+          grep -Fq 'return R.raw.auth_config;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          ! grep -Fq 'getSigningCertificateHistory()' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          ! grep -Fq 'R.raw.auth_config_play_current' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          echo "CURRENT PLAY SIGNER ONLY: PASS — retired signing history cannot select MSAL redirect"
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/main/res/raw/auth_config.json
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/release/res/raw/auth_config.json
           grep -Fq '"authorization_user_agent": "WEBVIEW"' app/src/apkTest/res/raw/auth_config.json
