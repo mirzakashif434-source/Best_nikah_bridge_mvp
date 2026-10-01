@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
 import android.content.pm.SigningInfo;
+import android.os.Build;
 import android.util.Base64;
 import org.json.JSONObject;
 
@@ -118,23 +119,30 @@ final class AzureAuthManager {
         // MSAL signature hash: haUulU8x36wsEGKo1k7aLZtIW0g=
         try {
             PackageManager pm = context.getPackageManager();
-            android.content.pm.PackageInfo info =
-                    pm.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
-            SigningInfo signingInfo = info.signingInfo;
-            if (signingInfo != null) {
-                Signature[] signers = signingInfo.hasMultipleSigners()
-                        ? signingInfo.getApkContentsSigners()
-                        : signingInfo.getApkContentsSigners();
-                if (signers != null) {
-                    for (Signature signer : signers) {
-                        byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(signer.toByteArray());
-                        String hash = Base64.encodeToString(sha1, Base64.NO_WRAP);
-                        if ("WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)) {
-                            return R.raw.auth_config_play_current;
-                        }
-                        if ("haUulU8x36wsEGKo1k7aLZtIW0g=".equals(hash)) {
-                            return R.raw.auth_config;
-                        }
+            Signature[] signers;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                android.content.pm.PackageInfo info =
+                        pm.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNING_CERTIFICATES);
+                SigningInfo signingInfo = info.signingInfo;
+                signers = signingInfo == null ? null : signingInfo.getApkContentsSigners();
+            } else {
+                @SuppressWarnings("deprecation")
+                android.content.pm.PackageInfo info =
+                        pm.getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNATURES);
+                @SuppressWarnings("deprecation")
+                Signature[] legacySigners = info.signatures;
+                signers = legacySigners;
+            }
+
+            if (signers != null) {
+                for (Signature signer : signers) {
+                    byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(signer.toByteArray());
+                    String hash = Base64.encodeToString(sha1, Base64.NO_WRAP);
+                    if ("WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)) {
+                        return R.raw.auth_config_play_current;
+                    }
+                    if ("haUulU8x36wsEGKo1k7aLZtIW0g=".equals(hash)) {
+                        return R.raw.auth_config;
                     }
                 }
             }
