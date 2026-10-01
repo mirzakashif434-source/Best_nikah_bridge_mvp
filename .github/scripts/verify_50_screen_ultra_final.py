@@ -71,7 +71,7 @@ for required in [
 "return R.raw.auth_config_play_current;",
 "85:A5:2E:95:4F:31:DF:AC:2C:10:62:A8:D6:4E:DA:2D:9B:48:5B:48",
 "haUulU8x36wsEGKo1k7aLZtIW0g=",
-"WS+BzloPDaXssn/RlroAGmd4iV+k="
+"WS+zloPDaXssn/RIrOAGmd4iV+k="
 ]:
     if required not in auth:
         issues.append("MSAL CURRENT-SIGNER CONTRACT MISSING: "+required)
@@ -82,7 +82,7 @@ for forbidden_auth in ["getSigningCertificateHistory()"]:
 for cfg,redirect in [
     ("app/src/main/res/raw/auth_config.json","msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"),
     ("app/src/release/res/raw/auth_config.json","msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"),
-    ("app/src/main/res/raw/auth_config_play_current.json","msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D")
+    ("app/src/main/res/raw/auth_config_play_current.json","msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D")
 ]:
     t=(ROOT/cfg).read_text(encoding="utf-8")
     if redirect not in t:
