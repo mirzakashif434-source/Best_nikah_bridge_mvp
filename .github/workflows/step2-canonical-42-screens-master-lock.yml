@@ -6,6 +6,14 @@ on:
     paths:
       - 'STEP_2_CANONICAL_42_SCREENS_LOCK.md'
       - '.github/workflows/step2-canonical-42-screens-master-lock.yml'
+      - 'app/build.gradle'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/src/release/AndroidManifest.xml'
+      - 'app/src/main/res/raw/auth_config.json'
+      - 'app/src/main/res/raw/auth_config_play_current.json'
+      - 'app/src/release/res/raw/auth_config.json'
+      - 'azure-backend/src/premiumPurchaseVerification.js'
+      - 'azure-backend/src/premiumPlans.js'
   workflow_dispatch:
 
 permissions:
@@ -18,6 +26,15 @@ concurrency:
 env:
   APP: app/src/main/java/com/nikahbridge
   MANIFEST: app/src/main/AndroidManifest.xml
+  EXPECTED_PACKAGE: com.nikahbridge
+  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_NAME: '2.25'
+  EXPECTED_MIN_SDK: '24'
+  EXPECTED_TARGET_SDK: '36'
+  EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
+  EXPECTED_PLAY_CLASSIC_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+  EXPECTED_PLAY_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67
+  EXPECTED_PLAY_PREVIOUS_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
 
 jobs:
   master-gate:
@@ -28,6 +45,47 @@ jobs:
         with:
           ref: azure-backend-additive
           fetch-depth: 1
+
+      - name: Lock Azure + Play package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Android package/version contract that must stay aligned with Play Console.
+          grep -Fq "namespace '$EXPECTED_PACKAGE'" app/build.gradle
+          grep -Fq "applicationId '$EXPECTED_PACKAGE'" app/build.gradle
+          grep -Eq "minSdk[[:space:]]+$EXPECTED_MIN_SDK" app/build.gradle
+          grep -Eq "targetSdk[[:space:]]+$EXPECTED_TARGET_SDK" app/build.gradle
+          grep -Eq "versionCode[[:space:]]+$EXPECTED_VERSION_CODE" app/build.gradle
+          grep -Fq "versionName '$EXPECTED_VERSION_NAME'" app/build.gradle
+
+          # Azure Google Play verification must use the same package identity.
+          grep -Fq 'process.env.PLAY_PACKAGE_NAME || "com.nikahbridge"' azure-backend/src/premiumPurchaseVerification.js
+          grep -Fq '"applications/" + encodeURIComponent(PACKAGE_NAME())' azure-backend/src/premiumPurchaseVerification.js
+          grep -Fq '"Package name mismatch."' azure-backend/src/premiumPurchaseVerification.js
+
+          # MSAL / Android redirect hosts must be bound to the same package.
+          grep -Fq 'android:host="com.nikahbridge"' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:host="com.nikahbridge"' app/src/release/AndroidManifest.xml
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/' app/src/main/res/raw/auth_config.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/' app/src/release/res/raw/auth_config.json
+
+          echo "AZURE + PLAY PACKAGE IDENTITY: $EXPECTED_PACKAGE"
+          echo "RELEASE IDENTITY: versionCode=$EXPECTED_VERSION_CODE versionName=$EXPECTED_VERSION_NAME minSdk=$EXPECTED_MIN_SDK targetSdk=$EXPECTED_TARGET_SDK"
+          echo "PACKAGE + PLAY IDENTITY MASTER MATCH: PASS"
+
+      - name: Preserve Step 1 Play signing identity lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          STEP1=.github/workflows/step3-azure-auth-sha-master-lock.yml
+          test -s "$STEP1"
+          grep -Fq "EXPECTED_PLAY_UPLOAD_SHA1: $EXPECTED_PLAY_UPLOAD_SHA1" "$STEP1"
+          grep -Fq "EXPECTED_PLAY_APP_SIGNING_SHA1: $EXPECTED_PLAY_CLASSIC_SHA1" "$STEP1"
+          grep -Fq "EXPECTED_PLAY_POST_QUANTUM_SHA1: $EXPECTED_PLAY_POST_QUANTUM_SHA1" "$STEP1"
+          grep -Fq "EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1: $EXPECTED_PLAY_PREVIOUS_SHA1" "$STEP1"
+          echo "STEP 1 SIGNING IDENTITIES: PRESERVED / NOT REPLACED"
 
       - name: Lock exact full 50 activities
         shell: bash
@@ -121,6 +179,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          grep -Fq "applicationId '$EXPECTED_PACKAGE'" app/build.gradle
+          grep -Fq 'process.env.PLAY_PACKAGE_NAME || "com.nikahbridge"' azure-backend/src/premiumPurchaseVerification.js
           grep -Fq 'android.intent.action.MAIN' "$MANIFEST"
           grep -Fq 'android.intent.category.LAUNCHER' "$MANIFEST"
           grep -Fq 'WelcomeActivity' "$MANIFEST"
@@ -207,5 +267,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "STEP 2 FULL 50 AZURE ACTIVITIES: LOCKED"
+          echo "STEP 2 PACKAGE + PLAY IDENTITY + FULL 50 AZURE ACTIVITIES: LOCKED"
+          echo "Package com.nikahbridge + release identity + Azure Play verification contract preserved"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
