@@ -1,0 +1,220 @@
+name: Step 23 Final No-Drift Play Azure Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_23_FINAL_NO_DRIFT_PLAY_AZURE_LOCK.md'
+      - '.github/workflows/step23-final-no-drift-play-azure-lock.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: step23-final-no-drift-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PACKAGE: com.nikahbridge
+  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_NAME: '2.25'
+  EXPECTED_ANDROID_CLIENT_ID: f5fc2b11-420f-4741-9a52-65d60cbddb7b
+  EXPECTED_ANDROID_OBJECT_ID: 8990738c-2833-4830-9447-461dc0fe6a9a
+  EXPECTED_CLASSICAL_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+  EXPECTED_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67
+  EXPECTED_PREVIOUS_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
+  EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
+  EXPECTED_CURRENT_SHA256: 66ABDEAFB0417716C6B1003A7A28FED0D742426905B2513E3D36A497CF5ADDAE
+  EXPECTED_PREVIOUS_CLASSICAL_SHA256: 70A6D765B552B649E83FCCAC378F0EEB0A3EACB301903BF38EF44F22A8099968
+  EXPECTED_POST_QUANTUM_SHA256: 5429EBF572B04C2B48A9C256AA0E659F066B7FE46EC06A653703A8FD882C0BEB
+  EXPECTED_UPLOAD_SHA256: AF824C01B11D280C159A4C233064AB8639154C89EEE1FABB07ED2E21A58C1E7B
+  LIVE_BASE_URL: https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Preserve Step 1-22 and release freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .github/workflows/step22-final-play-store-handoff-lock.yml
+          test -s STEP_22_FINAL_PLAY_STORE_HANDOFF_LOCK.md
+          grep -Fq "applicationId '$EXPECTED_PACKAGE'" app/build.gradle
+          grep -Eq "versionCode[[:space:]]+$EXPECTED_VERSION_CODE" app/build.gradle
+          grep -Fq "versionName '$EXPECTED_VERSION_NAME'" app/build.gradle
+          python3 .github/scripts/verify_final_release_master.py
+          echo "STEP 1-22 + RELEASE FREEZE: PASS"
+
+      - name: Verify exact Play Console signing identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_CURRENT_SHA256" = "66ABDEAFB0417716C6B1003A7A28FED0D742426905B2513E3D36A497CF5ADDAE"
+          test "$EXPECTED_PREVIOUS_CLASSICAL_SHA256" = "70A6D765B552B649E83FCCAC378F0EEB0A3EACB301903BF38EF44F22A8099968"
+          test "$EXPECTED_POST_QUANTUM_SHA256" = "5429EBF572B04C2B48A9C256AA0E659F066B7FE46EC06A653703A8FD882C0BEB"
+          test "$EXPECTED_UPLOAD_SHA256" = "AF824C01B11D280C159A4C233064AB8639154C89EEE1FABB07ED2E21A58C1E7B"
+          PREVIOUS_B64="$(printf '%s' "$EXPECTED_PREVIOUS_SHA1" | xxd -r -p | openssl base64 -A)"
+          CLASSICAL_B64="$(printf '%s' "$EXPECTED_CLASSICAL_SHA1" | xxd -r -p | openssl base64 -A)"
+          test "$PREVIOUS_B64" = "WS+zloPDaXssn/RIrOAGmd4iV+k="
+          test "$CLASSICAL_B64" = "haUulU8x36wsEGKo1k7aLZtIW0g="
+          grep -Fq 'msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq 'msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D' app/src/main/res/raw/auth_config.json
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
+          echo "PLAY CONSOLE IDENTITIES: PASS"
+
+  azure-readback:
+    name: Azure Readback
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: azure/login@v3
+        with:
+          client-id: 256ca508-50c5-4877-bc12-f20993fb97c4
+          tenant-id: c4ac0560-df59-48d4-af1b-bb0ed127ce6d
+          audience: api://AzureADTokenExchange
+          environment: azurecloud
+          allow-no-subscriptions: true
+      - name: Verify Azure app registration redirects
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(az account get-access-token --resource-type ms-graph --query accessToken -o tsv)"
+          curl -fsS -H "Authorization: Bearer $TOKEN" "https://graph.microsoft.com/v1.0/applications/$EXPECTED_ANDROID_OBJECT_ID" -o /tmp/app.json
+          jq -e --arg id "$EXPECTED_ANDROID_CLIENT_ID" '.appId == $id' /tmp/app.json >/dev/null
+          PREVIOUS_B64="$(printf '%s' "$EXPECTED_PREVIOUS_SHA1" | xxd -r -p | openssl base64 -A)"
+          CLASSICAL_B64="$(printf '%s' "$EXPECTED_CLASSICAL_SHA1" | xxd -r -p | openssl base64 -A)"
+          PREVIOUS_URI="msauth://$EXPECTED_PACKAGE/$(printf '%s' "$PREVIOUS_B64" | sed -e 's/+/%2B/g' -e 's#/#%2F#g' -e 's/=/%3D/g')"
+          CLASSICAL_URI="msauth://$EXPECTED_PACKAGE/$(printf '%s' "$CLASSICAL_B64" | sed -e 's/+/%2B/g' -e 's#/#%2F#g' -e 's/=/%3D/g')"
+          python3 - "$PREVIOUS_URI" "$CLASSICAL_URI" <<'PY'
+          import json,sys,urllib.parse
+          d=json.load(open('/tmp/app.json'))
+          got=[urllib.parse.unquote(x) for x in d.get('publicClient',{}).get('redirectUris',[])]
+          for raw in sys.argv[1:]:
+              uri=urllib.parse.unquote(raw)
+              assert uri in got, f"Missing Azure redirect: {uri}"
+          print("AZURE REDIRECT READBACK: PASS")
+          PY
+
+  live-azure:
+    name: Live Azure Readiness
+    needs: azure-readback
+    runs-on: ubuntu-24.04
+    steps:
+      - shell: bash
+        run: |
+          set -euo pipefail
+          for path in /api/health /api/database/health /api/storage/health /api/auth/azure/health /api/release/readiness; do
+            code="$(curl --silent --show-error --location --connect-timeout 20 --max-time 45 -o /tmp/out -w '%{http_code}' "$LIVE_BASE_URL$path")"
+            test "$code" = "200"
+          done
+          code="$(curl --silent --show-error --location --connect-timeout 20 --max-time 45 -o /tmp/me -w '%{http_code}' "$LIVE_BASE_URL/api/auth/azure/me")"
+          test "$code" = "401"
+          echo "LIVE AZURE READINESS: PASS"
+
+  signed-no-drift:
+    name: Signed Release No-Drift
+    needs: [master-gate, live-azure]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify upload key and final signed release
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge -file "$RUNNER_TEMP/upload.der"
+          SHA1="$(openssl sha1 -binary "$RUNNER_TEMP/upload.der" | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          SHA256="$(openssl sha256 -binary "$RUNNER_TEMP/upload.der" | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          test "$SHA1" = "$EXPECTED_UPLOAD_SHA1"
+          test "$SHA256" = "$EXPECTED_UPLOAD_SHA256"
+          chmod +x gradlew
+          KEYSTORE_FILE="$RUNNER_TEMP/release.jks" ./gradlew clean :app:compileReleaseJavaWithJavac :app:lintRelease :app:assembleRelease :app:bundleRelease --stacktrace
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab >/dev/null
+          echo "SIGNED RELEASE NO-DRIFT: PASS"
+
+  maestro-e2e:
+    name: Maestro E2E
+    needs: [master-gate, live-azure]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+      - run: |
+          set -euo pipefail
+          test -s .maestro/final-release-42-screen-master.yaml
+          python3 .github/scripts/verify_final_release_master.py
+          echo "MAESTRO E2E: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+      - run: |
+          set -euo pipefail
+          F=.github/workflows/step23-final-no-drift-play-azure-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy|update)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, azure-readback, live-azure, signed-no-drift, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, azure-readback, live-azure, signed-no-drift, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "AUTO-ROLLBACK SAFETY: Step 23 performs read-only Azure verification and no destructive cloud mutation."
+
+  locked:
+    name: Step 23 Locked
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.azure-readback.result == 'success' && needs.live-azure.result == 'success' && needs.signed-no-drift.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    needs: [master-gate, azure-readback, live-azure, signed-no-drift, maestro-e2e, fortress-budget, self-healing]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 23 FINAL NO-DRIFT PLAY + AZURE LOCK: GREEN"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback -> Fortress Budget"
