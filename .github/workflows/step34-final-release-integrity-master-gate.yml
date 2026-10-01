@@ -87,7 +87,7 @@ jobs:
           test ! -e app/google-services.json
           test ! -d functions
           ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
-          ! grep -RInE '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|AIza[0-9A-Za-z_-]{30,}|sk-[0-9A-Za-z]{20,}' . --exclude-dir=.git --exclude='*.md' || exit 1
+          ! grep -RInE --exclude-dir=.git --exclude='*.md' -- '-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|AIza[0-9A-Za-z_-]{30,}|sk-[0-9A-Za-z]{20,}' .
           grep -Fq '${{ secrets.KEYSTORE_BASE64 }}' .github/workflows/azure-additive-backend-verify.yml
           grep -Fq '${{ secrets.KEYSTORE_PASSWORD }}' .github/workflows/azure-additive-backend-verify.yml
           echo "NO-FIREBASE + SECRET-REFERENCE SECURITY: PASS"
