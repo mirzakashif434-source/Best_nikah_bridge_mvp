@@ -22,7 +22,7 @@
                 <data
                     android:scheme="msauth"
                     android:host="com.nikahbridge"
-                    android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k=" />
+                    android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k=" />
             </intent-filter>
         </activity>
     </application>
