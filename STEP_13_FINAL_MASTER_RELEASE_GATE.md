@@ -12,8 +12,9 @@ It combines all prior protections:
 - buttons, Back navigation, UI safety, no null/raw JSON/blur regressions
 - Microsoft Entra auth, issuer/audience/JWKS/token validation
 - Play upload SHA and Play App Signing SHA separation
+- all four Play SHA-1 identities preserved: classical, post-quantum, previous app signing, upload key
 - MSAL redirect hash lock
-- versionCode 34 Play Console compatibility
+- versionCode 36 Play Console compatibility
 - Google Play Billing + Azure purchase verification
 - AdMob + UMP + rewarded SSV
 - notifications
