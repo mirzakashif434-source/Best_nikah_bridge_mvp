@@ -27,3 +27,9 @@ Step 10 locks the special production features that must be real, Azure-backed an
 - no existing feature Activity is deleted or replaced
 - Firebase production runtime/config remains zero
 - Azure remains authoritative
+
+
+## Final preservation
+- Step 1-9 Azure/Play preservation remains locked.
+- Azure Portal and Play Console values are verification-only here; no cloud mutation.
+- Protection stack: Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget.
