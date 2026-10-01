@@ -95,6 +95,59 @@ jobs:
 
           echo "AZURE BACKEND ROUTE FAMILIES: PASS"
 
+      - name: Lock Play Console premium products to Azure configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Exact Google Play subscription product IDs and base-plan env contracts.
+          P=azure-backend/src/premiumPlans.js
+          V=azure-backend/src/premiumPurchaseVerification.js
+          A=app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+
+          grep -Fq 'planKey: "premium_basic_20"' "$P"
+          grep -Fq 'productIdEnv: "PLAY_PREMIUM_BASIC_PRODUCT_ID"' "$P"
+          grep -Fq 'basePlanIdEnv: "PLAY_PREMIUM_BASIC_BASE_PLAN_ID"' "$P"
+          grep -Fq 'planKey: "premium_plus_40"' "$P"
+          grep -Fq 'productIdEnv: "PLAY_PREMIUM_PLUS_PRODUCT_ID"' "$P"
+          grep -Fq 'basePlanIdEnv: "PLAY_PREMIUM_PLUS_BASE_PLAN_ID"' "$P"
+          grep -Fq 'planKey: "premium_vip_60"' "$P"
+          grep -Fq 'productIdEnv: "PLAY_PREMIUM_VIP_PRODUCT_ID"' "$P"
+          grep -Fq 'basePlanIdEnv: "PLAY_PREMIUM_VIP_BASE_PLAN_ID"' "$P"
+          test "$(grep -Fc 'billingPeriod: "monthly"' "$P")" -ge 3
+
+          # Android Billing must request the same 3 Play subscription IDs.
+          grep -Fq 'new String[]{"premium_basic_20","premium_plus_40","premium_vip_60"}' "$A"
+          grep -Fq 'BillingClient.ProductType.SUBS' "$A"
+          grep -Fq 'AzureApiClient.post("/premium/purchases/verify"' "$A"
+
+          # Azure verifies package, service account, purchase token and base plan server-side.
+          grep -Fq 'process.env.PLAY_PACKAGE_NAME || "com.nikahbridge"' "$V"
+          grep -Fq 'GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL' "$V"
+          grep -Fq 'GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY' "$V"
+          grep -Fq 'purchasedBasePlanId' "$V"
+          grep -Fq '"Package name mismatch."' "$V"
+
+          echo "PLAY 20/40/60 + MONTHLY BASE PLAN + AZURE VERIFICATION CONTRACT: PASS"
+
+      - name: Preserve Step 1-4 Azure and Play locks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Fq "versionName '2.25'" app/build.gradle
+
+          S=.github/workflows/step3-azure-auth-sha-master-lock.yml
+          grep -Fq 'EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48' "$S"
+          grep -Fq 'EXPECTED_PLAY_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67' "$S"
+          grep -Fq 'EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9' "$S"
+          grep -Fq 'EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048' "$S"
+
+          test -s .github/workflows/step4-legacy-firebase-deep-cleanup-lock.yml
+          echo "STEP 1-4 PACKAGE + SHA + AZURE-ONLY CONTRACTS: PRESERVED"
+
       - name: Verify no Firebase runtime can satisfy any feature
         shell: bash
         run: |
@@ -139,7 +192,10 @@ jobs:
           grep -Fq 'NikahAssistantActivity.class' "$A/ProductionMainActivity.java"
           grep -Fq 'CommunityChatActivity.class' "$A/ProductionMainActivity.java"
           grep -Fq 'RewardedMessageActivity.class' "$A/ProductionMainActivity.java"
-          echo "MAESTRO E2E FEATURE ROUTING: PASS"
+          grep -Fq 'p20.setOnClickListener(v -> buy("premium_basic_20"));' "$A/PremiumPlansActivity.java"
+          grep -Fq 'p40.setOnClickListener(v -> buy("premium_plus_40"));' "$A/PremiumPlansActivity.java"
+          grep -Fq 'p60.setOnClickListener(v -> buy("premium_vip_60"));' "$A/PremiumPlansActivity.java"
+          echo "MAESTRO E2E FEATURE ROUTING + PLAY PREMIUM ENTRY: PASS"
 
   fortress-budget:
     name: Fortress Budget
@@ -204,5 +260,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "STEP 5 FIREBASE -> AZURE FEATURE REPLACEMENT: LOCKED"
+          echo "STEP 5 AZURE FEATURE REPLACEMENT + PLAY PREMIUM CONTRACT: LOCKED"
+          echo "20/40/60 subscriptions + monthly base-plan env + Azure server verification preserved"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
