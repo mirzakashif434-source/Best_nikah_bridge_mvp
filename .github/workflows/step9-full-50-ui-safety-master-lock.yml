@@ -136,6 +136,43 @@ jobs:
           print("PREMIUM BACK-STACK: PASS")
           PY
 
+      - name: Preserve Step 1-8 Azure and Play contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Play package/release identity remains fixed.
+          grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Fq "versionName '2.25'" app/build.gradle
+          grep -Eq 'minSdk[[:space:]]+24' app/build.gradle
+          grep -Eq 'targetSdk[[:space:]]+36' app/build.gradle
+
+          # Exact four Play Console SHA-1 identities remain locked.
+          S=.github/workflows/step3-azure-auth-sha-master-lock.yml
+          grep -Fq 'EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48' "$S"
+          grep -Fq 'EXPECTED_PLAY_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67' "$S"
+          grep -Fq 'EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9' "$S"
+          grep -Fq 'EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048' "$S"
+
+          # Play premium 20/40/60 and monthly base-plan Azure contract.
+          P=azure-backend/src/premiumPlans.js
+          V=azure-backend/src/premiumPurchaseVerification.js
+          grep -Fq 'planKey: "premium_basic_20"' "$P"
+          grep -Fq 'planKey: "premium_plus_40"' "$P"
+          grep -Fq 'planKey: "premium_vip_60"' "$P"
+          test "$(grep -Fc 'billingPeriod: "monthly"' "$P")" -ge 3
+          grep -Fq 'process.env.PLAY_PACKAGE_NAME || "com.nikahbridge"' "$V"
+          grep -Fq 'GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL' "$V"
+          grep -Fq 'GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY' "$V"
+
+          # Prior final locks must remain present.
+          for wf in             .github/workflows/step4-legacy-firebase-deep-cleanup-lock.yml             .github/workflows/step5-azure-feature-replacement-master-lock.yml             .github/workflows/step6-final-firebase-production-removal-lock.yml             .github/workflows/step7-full-50-azure-wiring-master-lock.yml             .github/workflows/step8-full-50-buttons-back-navigation-lock.yml; do
+            test -s "$wf"
+          done
+
+          echo "STEP 1-8 AZURE + PLAY CONTRACTS: PRESERVED"
+
       - name: Verify Firebase remains absent
         shell: bash
         run: |
@@ -167,7 +204,10 @@ jobs:
           grep -Fq 'Secure Azure session verified' .maestro/final-release-42-screen-master.yaml
           grep -Fq 'Permanently Delete Account' .maestro/final-release-42-screen-master.yaml
           grep -Fq 'Sign out of Azure' .maestro/final-release-42-screen-master.yaml
-          echo "MAESTRO UI/NAVIGATION CONTRACT: PASS"
+          grep -Fq 'p20.setOnClickListener(v -> buy("premium_basic_20"));' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'p40.setOnClickListener(v -> buy("premium_plus_40"));' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'p60.setOnClickListener(v -> buy("premium_vip_60"));' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          echo "MAESTRO UI/NAVIGATION + PLAY PREMIUM CONTRACT: PASS"
 
   fortress-budget:
     name: Fortress Budget
@@ -232,5 +272,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "STEP 9 FULL 50 UI SAFETY: LOCKED"
+          echo "STEP 9 FULL 50 UI SAFETY + AZURE/PLAY PRESERVATION: LOCKED"
+          echo "50 UI safety + Step 1-8 package/SHA/premium contracts preserved"
           echo "Master Gate -> Maestro E2E Contract -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
