@@ -111,8 +111,8 @@ final class AzureAuthManager {
         // with a different App Signing certificate than the local/upload key.
         //
         // Play-installed signer currently observed by MSAL:
-        // SHA-1 59:2F:81:CE:5A:0F:0D:A5:EC:B2:7F:D1:96:BA:00:1A:67:78:89:5F:A4
-        // MSAL signature hash: WS+BzloPDaXssn/RlroAGmd4iV+k=
+        // SHA-1 59:2F:B3:96:83:C3:69:7B:2C:9F:F4:48:AC:E0:06:99:DE:22:57:E9
+        // MSAL signature hash: WS+zloPDaXssn/RIrOAGmd4iV+k=
         //
         // Classic signer:
         // SHA-1 85:A5:2E:95:4F:31:DF:AC:2C:10:62:A8:D6:4E:DA:2D:9B:48:5B:48
@@ -138,7 +138,7 @@ final class AzureAuthManager {
                 for (Signature signer : signers) {
                     byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(signer.toByteArray());
                     String hash = Base64.encodeToString(sha1, Base64.NO_WRAP);
-                    if ("WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)) {
+                    if ("WS+zloPDaXssn/RIrOAGmd4iV+k=".equals(hash)) {
                         return R.raw.auth_config_play_current;
                     }
                     if ("haUulU8x36wsEGKo1k7aLZtIW0g=".equals(hash)) {
