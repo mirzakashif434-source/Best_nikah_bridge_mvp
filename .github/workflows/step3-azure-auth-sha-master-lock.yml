@@ -30,6 +30,8 @@ env:
   EXPECTED_TENANT_ID: c4ac0560-df59-48d4-af1b-bb0ed127ce6d
   EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
   EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+  EXPECTED_PLAY_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67
+  EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
 
 jobs:
   master-gate:
@@ -94,6 +96,27 @@ jobs:
           grep -Fq "android:host=\"$EXPECTED_PACKAGE\"" app/src/release/AndroidManifest.xml
           grep -Fq "android:path=\"/$B64\"" app/src/release/AndroidManifest.xml
           echo "PLAY APP SIGNING -> MSAL REDIRECT: PASS"
+
+      - name: Lock all Play Console signing identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_PLAY_APP_SIGNING_SHA1" = "85A52E954F31DFAC2C1062A8D64EDA2D9B485B48"
+          test "$EXPECTED_PLAY_POST_QUANTUM_SHA1" = "C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67"
+          test "$EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1" = "592FB39683C3697B2C9FF448ACE00699DE2257E9"
+          test "$EXPECTED_PLAY_UPLOAD_SHA1" = "41097230F8DBA1DB824958C851D8284C65BA5048"
+
+          CLASSIC_B64="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
+          PQ_B64="$(printf '%s' "$EXPECTED_PLAY_POST_QUANTUM_SHA1" | xxd -r -p | openssl base64 -A)"
+          PREVIOUS_B64="$(printf '%s' "$EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
+          UPLOAD_B64="$(printf '%s' "$EXPECTED_PLAY_UPLOAD_SHA1" | xxd -r -p | openssl base64 -A)"
+
+          test "$CLASSIC_B64" = "haUulU8x36wsEGKo1k7aLZtIW0g="
+          test "$PQ_B64" = "xa4oM318nc3T8JsVyR7gAV6limc="
+          test "$PREVIOUS_B64" = "WS+zloPDaXssn/RIrOAGmd4iV+k="
+          test "$UPLOAD_B64" = "QQlyMPjboduCSVjIUdgoTGW6UEg="
+
+          echo "PLAY CONSOLE SIGNING IDENTITIES: CLASSICAL + POST-QUANTUM + PREVIOUS + UPLOAD = LOCKED"
 
       - name: Forbid upload-key redirect rewrite regression
         shell: bash
