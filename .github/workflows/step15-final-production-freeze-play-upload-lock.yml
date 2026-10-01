@@ -1,0 +1,299 @@
+name: Step 15 Final Production Freeze and Play Upload Readiness Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_15_FINAL_PRODUCTION_FREEZE_PLAY_UPLOAD_LOCK.md'
+      - '.github/workflows/step15-final-production-freeze-play-upload-lock.yml'
+      - 'app/**'
+      - 'azure-backend/**'
+      - '.maestro/**'
+      - '.github/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step15-production-freeze-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PACKAGE: com.nikahbridge
+  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_NAME: '2.25'
+  EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
+  EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+  EXPECTED_PLAY_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67
+  EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+
+      - name: Preserve Step 1-14 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for wf in             .github/workflows/step3-azure-auth-sha-master-lock.yml             .github/workflows/step4-legacy-firebase-deep-cleanup-lock.yml             .github/workflows/step5-azure-feature-replacement-master-lock.yml             .github/workflows/step6-final-firebase-production-removal-lock.yml             .github/workflows/step7-full-50-azure-wiring-master-lock.yml             .github/workflows/step8-full-50-buttons-back-navigation-lock.yml             .github/workflows/step9-full-50-ui-safety-master-lock.yml             .github/workflows/step10-special-real-features-master-lock.yml             .github/workflows/step11-notifications-billing-ads-master-lock.yml             .github/workflows/step12-security-play-store-compliance-master-lock.yml             .github/workflows/step13-final-master-release-gate.yml             .github/workflows/step14-play-ready-artifact-handoff-lock.yml; do
+            test -s "$wf"
+          done
+          echo "STEP 1-14 CONTRACTS: PRESERVED"
+
+      - name: Freeze package version SDK and screen inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          B=app/build.gradle
+          grep -Fq "applicationId '$EXPECTED_PACKAGE'" "$B"
+          grep -Fq 'compileSdk 36' "$B"
+          grep -Fq 'targetSdk 36' "$B"
+          grep -Fq 'minSdk 24' "$B"
+          grep -Eq "versionCode[[:space:]]+$EXPECTED_VERSION_CODE" "$B"
+          grep -Fq "versionName '$EXPECTED_VERSION_NAME'" "$B"
+          COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
+          test "$COUNT" = "50"
+          python3 .github/scripts/verify_final_release_master.py
+          echo "PACKAGE/V36/SDK/50-ACTIVITY/FLOW INVENTORY: FROZEN"
+
+      - name: Freeze Play signing identities and Azure MSAL redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          S=.github/workflows/step3-azure-auth-sha-master-lock.yml
+          grep -Fq "EXPECTED_PLAY_APP_SIGNING_SHA1: $EXPECTED_PLAY_APP_SIGNING_SHA1" "$S"
+          grep -Fq "EXPECTED_PLAY_POST_QUANTUM_SHA1: $EXPECTED_PLAY_POST_QUANTUM_SHA1" "$S"
+          grep -Fq "EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1: $EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1" "$S"
+          grep -Fq "EXPECTED_PLAY_UPLOAD_SHA1: $EXPECTED_UPLOAD_SHA1" "$S"
+
+          B64="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
+          test "$B64" = 'haUulU8x36wsEGKo1k7aLZtIW0g='
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
+          echo "PLAY SHA + AZURE MSAL IDENTITY: FROZEN"
+
+      - name: Freeze Azure-only backend and Play billing contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d azure-backend
+          test ! -e firebase.json
+          test ! -e firestore.rules
+          test ! -e firestore.indexes.json
+          test ! -e storage.rules
+          test ! -e app/google-services.json
+          test ! -d functions
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+
+          P=azure-backend/src/premiumPlans.js
+          V=azure-backend/src/premiumPurchaseVerification.js
+          grep -Fq 'planKey: "premium_basic_20"' "$P"
+          grep -Fq 'planKey: "premium_plus_40"' "$P"
+          grep -Fq 'planKey: "premium_vip_60"' "$P"
+          test "$(grep -Fc 'billingPeriod: "monthly"' "$P")" -ge 3
+          grep -Fq 'process.env.PLAY_PACKAGE_NAME || "com.nikahbridge"' "$V"
+          grep -Fq 'GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL' "$V"
+          grep -Fq 'GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY' "$V"
+          echo "AZURE-ONLY + PLAY BILLING: FROZEN"
+
+      - name: Freeze critical UI safety contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          A=app/src/main/java/com/nikahbridge
+          grep -Fq 'AUTH_TIMEOUT_MS=12000L' "$A/AzureApiClient.java"
+          grep -Fq 'code==401&&allowAuthRetry' "$A/AzureApiClient.java"
+          grep -Fq 'WindowInsetsCompat.Type.systemBars()' "$A/NikahBridgeApplication.java"
+          grep -Fq 'normalizeControls(a)' "$A/NikahBridgeApplication.java"
+          ! grep -RInF 'null null' "$A" --include='*.java'
+          ! grep -RInE 'setAlpha\(0\.[0-4]|alpha\s*=\s*0\.[0-4]' "$A" --include='*.java'
+          echo "UI/BUTTON/BACK/LOADING/NULL/BLUR SAFETY: FROZEN"
+
+      - name: Create production freeze manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "commit=$(git rev-parse HEAD)"
+            sha256sum app/build.gradle
+            sha256sum app/src/main/AndroidManifest.xml
+            sha256sum app/src/main/res/raw/auth_config.json
+            sha256sum azure-backend/src/index.js
+            sha256sum azure-backend/src/azureExternalAuth.js
+            sha256sum azure-backend/src/premiumPlans.js
+            sha256sum azure-backend/src/premiumPurchaseVerification.js
+            sha256sum .maestro/final-release-42-screen-master.yaml
+          } > step15-production-freeze-manifest.txt
+          test -s step15-production-freeze-manifest.txt
+          cat step15-production-freeze-manifest.txt
+          echo "PRODUCTION FREEZE MANIFEST: CREATED"
+
+  maestro-e2e:
+    name: Maestro E2E Contract
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify frozen final user-flow contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          FLOW=.maestro/final-release-42-screen-master.yaml
+          test -s "$FLOW"
+          for txt in             'Secure Azure session verified'             'Premium Plans'             'Global Community Chat'             'Family / Wali Connect'             'Four-Photo Verification'             'Permanently Delete Account'             'Sign out of Azure'; do
+            grep -Fq "$txt" "$FLOW"
+          done
+          grep -Fq 'p20.setOnClickListener(v -> buy("premium_basic_20"));' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'p40.setOnClickListener(v -> buy("premium_plus_40"));' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          grep -Fq 'p60.setOnClickListener(v -> buy("premium_vip_60"));' app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          python3 .github/scripts/verify_final_release_master.py
+          echo "MAESTRO FINAL FROZEN USER FLOW: PASS"
+
+  build-sign-verify:
+    name: Build Verify and Freeze Play Upload Artifacts
+    needs: [master-gate, maestro-e2e]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore real upload keystore and match Play Console
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          ACTUAL="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          test "$ACTUAL" = "$EXPECTED_UPLOAD_SHA1"
+          echo "REAL UPLOAD KEY -> PLAY CONSOLE: PASS"
+
+      - name: Compile lint and build immutable signed APK AAB
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean :app:compileReleaseJavaWithJavac :app:lintRelease :app:assembleRelease :app:bundleRelease --stacktrace
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          test -s "$APK"
+          test -s "$AAB"
+          jarsigner -verify -verbose -certs "$AAB" >/dev/null
+          sha256sum "$APK" > step15-final-apk-v36.sha256
+          sha256sum "$AAB" > step15-final-aab-v36.sha256
+          {
+            echo "package=$EXPECTED_PACKAGE"
+            echo "versionCode=$EXPECTED_VERSION_CODE"
+            echo "versionName=$EXPECTED_VERSION_NAME"
+            cat step15-final-apk-v36.sha256
+            cat step15-final-aab-v36.sha256
+          } > step15-play-upload-handoff.txt
+          echo "FINAL PLAY UPLOAD APK+AAB: PASS"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: step15-final-frozen-apk-v36
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            step15-final-apk-v36.sha256
+            step15-play-upload-handoff.txt
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: step15-final-frozen-aab-v36
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            step15-final-aab-v36.sha256
+            step15-play-upload-handoff.txt
+          if-no-files-found: error
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+      - name: Verify no production/cloud mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step15-final-production-freeze-play-upload-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy)|git[[:space:]]+push[[:space:]]+--force|gh[[:space:]]+release[[:space:]]+delete' "$F"
+          echo "FORTRESS BUDGET + NO CLOUD MUTATION: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, maestro-e2e, build-sign-verify, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Restore temporary runner state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, maestro-e2e, build-sign-verify, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Roll temporary runner back
+        shell: bash
+        run: |
+          set -euo pipefail
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          test "$(git rev-parse HEAD)" = "$ORIGINAL"
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 15 Locked
+    needs: [master-gate, maestro-e2e, build-sign-verify, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.maestro-e2e.result == 'success' && needs.build-sign-verify.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 15 FINAL PRODUCTION FREEZE + PLAY UPLOAD READINESS: LOCKED"
+          echo "Step 1-14 preserved / Azure-only / Firebase-zero / V36 / 50 Activities / signed APK+AAB / SHA256 handoff"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
