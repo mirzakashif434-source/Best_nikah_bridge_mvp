@@ -134,15 +134,50 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # Production Firebase files/config/deployments must stay absent.
           test ! -e firebase.json
           test ! -e firestore.rules
           test ! -e firestore.indexes.json
           test ! -e storage.rules
           test ! -e app/google-services.json
-          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          test ! -d functions
+          test ! -e .github/workflows/firebase-production-deploy.yml
+
+          # Android runtime + Gradle must stay Azure-only.
+          ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main --include='*.java' --include='*.kt'
+          ! grep -RInE 'firebase-(auth|firestore|functions|storage|ai)|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle gradle.properties
+
+          # Firebase-named paths are allowed only when they are safety-lock docs/workflows.
+          python3 - <<'PY'
+          import subprocess,re
+          paths=subprocess.check_output(["git","ls-files"],text=True).splitlines()
+          hits=[p for p in paths if re.search(r"firebase|firestore|google-services|storage\.rules|(^|/)functions(/|$)",p,re.I)]
+          allowed={
+            ".github/workflows/step1-firebase-zero-runtime-lock.yml",
+            "STEP_1_FIREBASE_ZERO_RUNTIME_LOCK.md",
+            ".github/workflows/step4-legacy-firebase-deep-cleanup-lock.yml",
+            "STEP_4_LEGACY_FIREBASE_DEEP_CLEANUP_LOCK.md",
+            ".github/workflows/step6-final-firebase-production-removal-lock.yml",
+            "STEP_6_FINAL_FIREBASE_PRODUCTION_REMOVAL_LOCK.md",
+          }
+          unexpected=sorted(set(hits)-allowed)
+          assert not unexpected, "Unexpected Firebase legacy paths: "+", ".join(unexpected)
+          print("FIREBASE SAFETY-GUARD PATHS ONLY:", len(hits))
+          PY
+
+          # Azure remains authoritative.
+          test -d azure-backend
+          test -s azure-backend/src/index.js
+          test -s azure-backend/src/azureExternalAuth.js
+          test -s app/src/main/java/com/nikahbridge/AzureApiClient.java
+          test -s app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -RInq 'azurewebsites.net' app/src/main/java/com/nikahbridge
+
+          # Preserve complete app surface.
           COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
           test "$COUNT" = "50"
-          echo "FIREBASE ZERO + 50 ACTIVITIES: PASS"
+          echo "FIREBASE ZERO + AZURE AUTHORITATIVE + 50 ACTIVITIES: PASS"
 
   maestro-e2e:
     name: Maestro E2E Baseline
@@ -232,5 +267,6 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "STEP 3 AZURE AUTH + SHA + MSAL + 401 PROTECTION: LOCKED"
+          echo "STEP 3 FIREBASE ZERO + 4 SHA + AZURE AUTH + MSAL + 401 PROTECTION: LOCKED"
+          echo "Azure Portal + Play Console settings preserved; no mutation performed"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
