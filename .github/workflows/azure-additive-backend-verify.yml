@@ -390,14 +390,19 @@ jobs:
 
           curl -fsS -H "Authorization: Bearer $TOKEN"             "https://graph.microsoft.com/v1.0/applications/$OBJECT_ID"             -o /tmp/android-client-after.json
 
-          jq -e --arg a "$DIRECT" --arg b "$CLASSIC" --arg c "$CURRENT" '
-            (.publicClient.redirectUris // []) as $u
-            | ($u | index($a) != null)
-              and ($u | index($b) != null)
-              and ($u | index($c) != null)
-          ' /tmp/android-client-after.json >/dev/null
-
-          echo "ANDROID CLIENT REDIRECTS: DIRECT + CLASSIC PLAY + CURRENT PLAY PRESERVED"
+          python3 - <<'PY'
+          import json, urllib.parse
+          data=json.load(open("/tmp/android-client-after.json"))
+          got={urllib.parse.unquote(x) for x in (data.get("publicClient",{}).get("redirectUris") or [])}
+          expected={
+              urllib.parse.unquote("msauth://com.nikahbridge/QQlyMPjboduCSVjIUdgoTGW6UEg%3D"),
+              urllib.parse.unquote("msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"),
+              urllib.parse.unquote("msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"),
+          }
+          missing=expected-got
+          assert not missing, f"Missing Android redirect(s) after Azure normalization: {sorted(missing)}"
+          print("ANDROID CLIENT REDIRECTS: DIRECT + CLASSIC PLAY + CURRENT PLAY PRESERVED")
+          PY
 
       - name: Step 5 — clean API Android redirect only and verify scope
         shell: bash
