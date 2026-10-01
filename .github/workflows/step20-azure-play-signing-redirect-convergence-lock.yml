@@ -65,7 +65,7 @@ jobs:
           CLASSIC_B64="$(printf '%s' "$EXPECTED_PLAY_CLASSICAL_SHA1" | xxd -r -p | openssl base64 -A)"
           test "$CURRENT_B64" = "WS+zloPDaXssn/RIrOAGmd4iV+k="
           test "$CLASSIC_B64" = "haUulU8x36wsEGKo1k7aLZtIW0g="
-          grep -Fq 'msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq 'msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq 'msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D' app/src/main/res/raw/auth_config.json
           grep -Fq 'WS+BzloPDaXssn/RIrOAGmd4iV+k=' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq 'haUulU8x36wsEGKo1k7aLZtIW0g=' app/src/main/java/com/nikahbridge/AzureAuthManager.java
