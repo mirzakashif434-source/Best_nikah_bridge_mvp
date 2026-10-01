@@ -42,7 +42,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="msauth" android:host="com.nikahbridge" android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k=" />
+                <data android:scheme="msauth" android:host="com.nikahbridge" android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k=" />
             </intent-filter>
         </activity>
     </application>
