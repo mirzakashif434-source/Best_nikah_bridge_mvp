@@ -21,6 +21,12 @@ on:
       - '.github/scripts/**'
       - '.maestro/final-release-42-screen-master.yaml'
       - '.github/workflows/final-release-master-gate.yml'
+      - '.github/workflows/step33-real-external-services-test-lock.yml'
+      - 'STEP_33_REAL_EXTERNAL_SERVICES_TEST_LOCK.md'
+      - '.github/workflows/step34-final-release-integrity-master-gate.yml'
+      - 'STEP_34_FINAL_RELEASE_INTEGRITY_MASTER_GATE.md'
+      - '.github/workflows/step35-final-artifact-play-readiness-check.yml'
+      - 'STEP_35_FINAL_ARTIFACT_PLAY_READINESS_CHECK.md'
   workflow_dispatch:
 
 concurrency:
@@ -55,6 +61,21 @@ jobs:
           ! grep -RInE 'FirebaseAuth|FirebaseFirestore|FirebaseFunctions|FirebaseStorage|FirebaseAI|getHttpsCallable|com\.google\.firebase' app/src/main/java --include='*.java'
           ! grep -InE 'firebase-|com\.google\.firebase|google-services' app/build.gradle build.gradle settings.gradle
           echo "AZURE-ONLY RUNTIME: PASS"
+
+      - name: Step 33 real external-services lock handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s STEP_33_REAL_EXTERNAL_SERVICES_TEST_LOCK.md
+          test -s .github/workflows/step33-real-external-services-test-lock.yml
+          grep -Fq 'Live Azure + Identity + AdMob Reachability' .github/workflows/step33-real-external-services-test-lock.yml
+          grep -Fq 'Signed Release APK' .github/workflows/step33-real-external-services-test-lock.yml
+          grep -Fq 'Master Gate' .github/workflows/step33-real-external-services-test-lock.yml
+          grep -Fq 'Maestro E2E' .github/workflows/step33-real-external-services-test-lock.yml
+          grep -Fq 'Self-Healing' .github/workflows/step33-real-external-services-test-lock.yml
+          grep -Fq 'Auto-Rollback' .github/workflows/step33-real-external-services-test-lock.yml
+          grep -Fq 'Fortress Budget' .github/workflows/step33-real-external-services-test-lock.yml
+          echo "STEP 33 HANDOFF INTO MAIN AZURE ADDITIVE BUILD: PASS"
 
       - name: Set up Node 22
         uses: actions/setup-node@v5
@@ -1342,6 +1363,18 @@ jobs:
         with:
           name: azure-additive-play-store-aab-v36
           path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+
+      - name: Upload Azure Additive final APK + AAB download pack
+        uses: actions/upload-artifact@v6
+        with:
+          name: azure-additive-final-apk-aab-v36
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            app-release-apk.sha256
+            app-release-aab.sha256
+            GOLDEN_RELEASE_MANIFEST.txt
           if-no-files-found: error
 
       - name: Step 8 result
