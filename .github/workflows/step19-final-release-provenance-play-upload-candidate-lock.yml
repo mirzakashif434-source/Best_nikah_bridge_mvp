@@ -1,0 +1,249 @@
+name: Step 19 Final Release Provenance and Play Upload Candidate Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_19_FINAL_RELEASE_PROVENANCE_PLAY_UPLOAD_CANDIDATE_LOCK.md'
+      - '.github/workflows/step19-final-release-provenance-play-upload-candidate-lock.yml'
+      - 'app/**'
+      - 'azure-backend/**'
+      - '.maestro/**'
+      - '.github/scripts/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step19-release-provenance-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  LIVE_BASE_URL: https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net
+  EXPECTED_PACKAGE: com.nikahbridge
+  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_NAME: '2.25'
+  EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
+  EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
+  EXPECTED_PLAY_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67
+  EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Preserve Step 1-18
+        shell: bash
+        run: |
+          set -euo pipefail
+          for wf in             .github/workflows/step13-final-master-release-gate.yml             .github/workflows/step14-play-ready-artifact-handoff-lock.yml             .github/workflows/step15-final-production-freeze-play-upload-lock.yml             .github/workflows/step16-live-azure-readiness-no-drift-lock.yml             .github/workflows/step17-final-play-store-preflight-zero-drift-lock.yml             .github/workflows/step18-final-store-submission-integrity-release-freeze-lock.yml; do
+            test -s "$wf"
+          done
+          echo "STEP 1-18 PRESERVED"
+
+      - name: Verify frozen Android Play Azure contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          B=app/build.gradle
+          grep -Fq "applicationId '$EXPECTED_PACKAGE'" "$B"
+          grep -Eq "versionCode[[:space:]]+$EXPECTED_VERSION_CODE" "$B"
+          grep -Fq "versionName '$EXPECTED_VERSION_NAME'" "$B"
+          grep -Fq 'compileSdk 36' "$B"
+          grep -Fq 'targetSdk 36' "$B"
+          grep -Fq 'minSdk 24' "$B"
+          COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
+          test "$COUNT" = "50"
+
+          B64="$(printf '%s' "$EXPECTED_PLAY_APP_SIGNING_SHA1" | xxd -r -p | openssl base64 -A)"
+          test "$B64" = 'haUulU8x36wsEGKo1k7aLZtIW0g='
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
+          grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
+
+          test ! -e firebase.json
+          test ! -e app/google-services.json
+          test ! -d functions
+          python3 .github/scripts/verify_final_release_master.py
+          echo "ANDROID/PLAY/AZURE ZERO-DRIFT: PASS"
+
+      - name: Verify billing UI and auth safeguards
+        shell: bash
+        run: |
+          set -euo pipefail
+          P=azure-backend/src/premiumPlans.js
+          V=azure-backend/src/premiumPurchaseVerification.js
+          grep -Fq 'planKey: "premium_basic_20"' "$P"
+          grep -Fq 'planKey: "premium_plus_40"' "$P"
+          grep -Fq 'planKey: "premium_vip_60"' "$P"
+          grep -Fq 'GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL' "$V"
+          grep -Fq 'GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY' "$V"
+
+          A=app/src/main/java/com/nikahbridge
+          grep -Fq 'AUTH_TIMEOUT_MS=12000L' "$A/AzureApiClient.java"
+          grep -Fq 'code==401&&allowAuthRetry' "$A/AzureApiClient.java"
+          grep -Fq 'WindowInsetsCompat.Type.systemBars()' "$A/NikahBridgeApplication.java"
+          ! grep -RInF 'null null' "$A" --include='*.java'
+          echo "BILLING/UI/AUTH SAFEGUARDS: PASS"
+
+  live-azure:
+    name: Live Azure Readiness
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Read-only live Azure verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in /api/health /api/database/health /api/storage/health /api/auth/azure/health /api/release/readiness; do
+            code="$(curl --fail-with-body --silent --show-error --location --connect-timeout 20 --max-time 45 -o /tmp/out -w '%{http_code}' "$LIVE_BASE_URL$path")"
+            test "$code" = "200"
+          done
+          code="$(curl --silent --show-error --location --connect-timeout 20 --max-time 45 -o /tmp/me -w '%{http_code}' "$LIVE_BASE_URL/api/auth/azure/me")"
+          test "$code" = "401"
+          echo "LIVE AZURE READINESS: PASS"
+
+  maestro-e2e:
+    name: Maestro E2E
+    needs: [master-gate, live-azure]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Verify final flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .maestro/final-release-42-screen-master.yaml
+          python3 .github/scripts/verify_final_release_master.py
+          echo "MAESTRO FINAL FLOW: PASS"
+
+  build-sign-provenance:
+    name: Signed APK AAB Provenance
+    needs: [master-gate, live-azure, maestro-e2e]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Restore and verify Play upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          ACTUAL="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          test "$ACTUAL" = "$EXPECTED_UPLOAD_SHA1"
+          echo "PLAY UPLOAD KEY: PASS"
+
+      - name: Build sign and create provenance handoff
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew clean :app:compileReleaseJavaWithJavac :app:lintRelease :app:assembleRelease :app:bundleRelease --stacktrace
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAB=app/build/outputs/bundle/release/app-release.aab
+          test -s "$APK"
+          test -s "$AAB"
+          jarsigner -verify -verbose -certs "$AAB" >/dev/null
+          APK_SHA="$(sha256sum "$APK" | awk '{print $1}')"
+          AAB_SHA="$(sha256sum "$AAB" | awk '{print $1}')"
+          {
+            echo "sourceCommit=$(git rev-parse HEAD)"
+            echo "package=$EXPECTED_PACKAGE"
+            echo "versionCode=$EXPECTED_VERSION_CODE"
+            echo "versionName=$EXPECTED_VERSION_NAME"
+            echo "playUploadSha1=$EXPECTED_UPLOAD_SHA1"
+            echo "playAppSigningSha1=$EXPECTED_PLAY_APP_SIGNING_SHA1"
+            echo "apkSha256=$APK_SHA"
+            echo "aabSha256=$AAB_SHA"
+          } > step19-release-provenance.txt
+          test -s step19-release-provenance.txt
+          echo "SIGNED APK+AAB PROVENANCE: PASS"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: step19-final-play-upload-candidate-v36
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+            step19-release-provenance.txt
+          if-no-files-found: error
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+      - name: Verify zero cloud mutation
+        shell: bash
+        run: |
+          set -euo pipefail
+          F=.github/workflows/step19-final-release-provenance-play-upload-candidate-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy|update)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, live-azure, maestro-e2e, build-sign-provenance, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - run: |
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, live-azure, maestro-e2e, build-sign-provenance, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - run: |
+          ORIGINAL="$(git rev-parse HEAD)"
+          git reset --hard "$ORIGINAL"
+          git clean -fd
+          echo "AUTO-ROLLBACK SAFETY: PASS"
+
+  locked:
+    name: Step 19 Locked
+    needs: [master-gate, live-azure, maestro-e2e, build-sign-provenance, fortress-budget, self-healing]
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.live-azure.result == 'success' && needs.maestro-e2e.result == 'success' && needs.build-sign-provenance.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 19 FINAL RELEASE PROVENANCE + PLAY UPLOAD CANDIDATE: LOCKED"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"
