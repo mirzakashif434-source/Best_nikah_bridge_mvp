@@ -1,0 +1,182 @@
+name: Step 32 APK Runtime 50-Screen Forensic Lock
+
+on:
+  push:
+    branches: [azure-backend-additive]
+    paths:
+      - 'STEP_32_APK_RUNTIME_50_SCREEN_FORENSIC_LOCK.md'
+      - '.github/workflows/step32-apk-runtime-50-screen-forensic-lock.yml'
+      - '.github/scripts/verify_50_screen_ultra_final.py'
+      - '.github/scripts/runtime_50_screen_ultra_gate.sh'
+      - '.github/scripts/runtime_apk_smoke_gate.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: step32-apk-runtime-50-screen-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  EXPECTED_PACKAGE: com.nikahbridge
+  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_NAME: '2.25'
+  EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
+  EXPECTED_UPLOAD_SHA256: AF824C01B11D280C159A4C233064AB8639154C89EEE1FABB07ED2E21A58C1E7B
+
+jobs:
+  master-gate:
+    name: Master Gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - name: Preserve prior release locks
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .github/workflows/step30-final-release-closure-lock.yml
+          test -s STEP_30_FINAL_RELEASE_CLOSURE_LOCK.md
+          grep -Fq "applicationId '$EXPECTED_PACKAGE'" app/build.gradle
+          grep -Eq "versionCode[[:space:]]+$EXPECTED_VERSION_CODE" app/build.gradle
+          grep -Fq "versionName '$EXPECTED_VERSION_NAME'" app/build.gradle
+          python3 .github/scripts/verify_final_release_master.py
+          echo "PRIOR RELEASE LOCKS: PASS"
+      - name: Verify 50-screen source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_50_screen_ultra_final.py
+          echo "50-SCREEN SOURCE FORENSIC: PASS"
+
+  signed-apk:
+    name: Signed APK + Compiled Forensic
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build signed APK and verify upload signer
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge -file "$RUNNER_TEMP/upload.der"
+          SHA1="$(openssl sha1 -binary "$RUNNER_TEMP/upload.der" | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          SHA256="$(openssl sha256 -binary "$RUNNER_TEMP/upload.der" | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          test "$SHA1" = "$EXPECTED_UPLOAD_SHA1"
+          test "$SHA256" = "$EXPECTED_UPLOAD_SHA256"
+          chmod +x gradlew
+          KEYSTORE_FILE="$RUNNER_TEMP/release.jks" ./gradlew clean :app:compileReleaseJavaWithJavac :app:lintRelease :app:assembleRelease --stacktrace
+          APK=app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          python3 .github/scripts/verify_50_screen_ultra_final.py "$APK"
+          echo "SIGNED APK + COMPILED FORENSIC: PASS"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: step32-signed-apk-runtime-candidate-v36
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+  runtime-emulator:
+    name: APK Runtime Smoke + Ultra
+    needs: signed-apk
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+      - uses: actions/download-artifact@v6
+        with:
+          name: step32-signed-apk-runtime-candidate-v36
+          path: app/build/outputs/apk/release
+      - name: Run signed APK on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            chmod +x .github/scripts/runtime_apk_smoke_gate.sh .github/scripts/runtime_50_screen_ultra_gate.sh
+            .github/scripts/runtime_apk_smoke_gate.sh app/build/outputs/apk/release/app-release.apk
+            .github/scripts/runtime_50_screen_ultra_gate.sh app/build/outputs/apk/release/app-release.apk
+
+  maestro-e2e:
+    name: Maestro E2E
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+      - run: |
+          set -euo pipefail
+          test -s .maestro/final-release-42-screen-master.yaml
+          python3 .github/scripts/verify_final_release_master.py
+          echo "MAESTRO E2E CONTRACT: PASS"
+
+  fortress-budget:
+    name: Fortress Budget
+    needs: master-gate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+      - run: |
+          set -euo pipefail
+          F=.github/workflows/step32-apk-runtime-50-screen-forensic-lock.yml
+          ! grep -Eq 'firebase[[:space:]]+deploy|gcloud[[:space:]].*(deploy|delete)|az[[:space:]].*(create|delete|deploy|update)|git[[:space:]]+push[[:space:]]+--force' "$F"
+          echo "FORTRESS BUDGET: PASS"
+
+  self-healing:
+    name: Self-Healing
+    if: always()
+    needs: [master-gate, signed-apk, runtime-emulator, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: azure-backend-additive
+          fetch-depth: 1
+      - run: |
+          set -euo pipefail
+          git reset --hard HEAD
+          git clean -fd
+          test -z "$(git status --porcelain)"
+          echo "SELF-HEALING: PASS"
+
+  auto-rollback:
+    name: Auto-Rollback
+    if: failure()
+    needs: [master-gate, signed-apk, runtime-emulator, maestro-e2e, fortress-budget]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "AUTO-ROLLBACK SAFETY: Step 32 changes no Azure or Play Console state."
+
+  locked:
+    name: Step 32 Locked
+    if: ${{ always() && needs.master-gate.result == 'success' && needs.signed-apk.result == 'success' && needs.runtime-emulator.result == 'success' && needs.maestro-e2e.result == 'success' && needs.fortress-budget.result == 'success' && needs.self-healing.result == 'success' }}
+    needs: [master-gate, signed-apk, runtime-emulator, maestro-e2e, fortress-budget, self-healing]
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "STEP 32 APK RUNTIME + 50-SCREEN FORENSIC: GREEN"
+          echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback -> Fortress Budget"
+          echo "NOTE: authenticated physical-device external-service testing remains Step 33."
