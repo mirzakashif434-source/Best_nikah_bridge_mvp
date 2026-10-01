@@ -397,7 +397,7 @@ jobs:
 
           DIRECT='msauth://com.nikahbridge/QQlyMPjboduCSVjIUdgoTGW6UEg%3D'
           CLASSIC='msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D'
-          CURRENT='msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D'
+          CURRENT='msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D'
 
           jq --arg a "$DIRECT" --arg b "$CLASSIC" --arg c "$CURRENT" '
             {
@@ -418,7 +418,7 @@ jobs:
           expected={
               urllib.parse.unquote("msauth://com.nikahbridge/QQlyMPjboduCSVjIUdgoTGW6UEg%3D"),
               urllib.parse.unquote("msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"),
-              urllib.parse.unquote("msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"),
+              urllib.parse.unquote("msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"),
           }
           missing=expected-got
           assert not missing, f"Missing Android redirect(s) after Azure normalization: {sorted(missing)}"
@@ -709,13 +709,13 @@ jobs:
           grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
-          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/main/AndroidManifest.xml
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
-          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/release/AndroidManifest.xml
-          grep -Fq '"WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/release/AndroidManifest.xml
+          grep -Fq '"WS+zloPDaXssn/RIrOAGmd4iV+k=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq '"haUulU8x36wsEGKo1k7aLZtIW0g=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           ! grep -Fq 'getSigningCertificateHistory()' app/src/main/java/com/nikahbridge/AzureAuthManager.java
@@ -755,9 +755,9 @@ jobs:
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/QQlyMPjboduCSVjIUdgoTGW6UEg%3D"' app/src/apkTest/res/raw/auth_config.json
           grep -Fq 'android:path="/QQlyMPjboduCSVjIUdgoTGW6UEg="' app/src/apkTest/AndroidManifest.xml
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
-          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/release/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/release/AndroidManifest.xml
           grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           echo "DIRECT APK UPLOAD-KEY MSAL: PASS"
           echo "PLAY STORE APP-SIGNING MSAL: CLASSIC + CURRENT WS SELECTOR PASS"
@@ -1077,7 +1077,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
           EXPECTED_PLAY_CLASSIC_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
-          EXPECTED_PLAY_CURRENT_SHA1: 592F81CE5A0F0DA5ECB27FD196BA001A6778895FA4
+          EXPECTED_PLAY_CURRENT_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
         run: |
           set -euo pipefail
           test -n "$KEYSTORE_BASE64"
@@ -1095,13 +1095,13 @@ jobs:
           CLASSIC_HASH="$(printf '%s' "$EXPECTED_PLAY_CLASSIC_SHA1" | xxd -r -p | openssl base64 -A)"
           CURRENT_HASH="$(printf '%s' "$EXPECTED_PLAY_CURRENT_SHA1" | xxd -r -p | openssl base64 -A)"
           test "$CLASSIC_HASH" = "haUulU8x36wsEGKo1k7aLZtIW0g="
-          test "$CURRENT_HASH" = "WS+BzloPDaXssn/RlroAGmd4iV+k="
+          test "$CURRENT_HASH" = "WS+zloPDaXssn/RIrOAGmd4iV+k="
 
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
-          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/release/AndroidManifest.xml
-          grep -Fq '"WS+BzloPDaXssn/RlroAGmd4iV+k=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/release/AndroidManifest.xml
+          grep -Fq '"WS+zloPDaXssn/RIrOAGmd4iV+k=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
 
           echo "UPLOAD CERT: VERIFIED SEPARATELY"
@@ -1144,7 +1144,7 @@ jobs:
           grep -Fq 'android:scheme="msauth"' /tmp/bnb-release-manifest.xml
           grep -Fq 'android:host="com.nikahbridge"' /tmp/bnb-release-manifest.xml
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' /tmp/bnb-release-manifest.xml
-          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' /tmp/bnb-release-manifest.xml
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' /tmp/bnb-release-manifest.xml
 
           AAPT2="$(command -v aapt2 || true)"
           if [ -z "$AAPT2" ] && [ -n "${ANDROID_HOME:-}" ]; then
@@ -1409,10 +1409,10 @@ jobs:
           grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
-          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq '"authority_url": "https://bestnikahbredge.ciamlogin.com/c4ac0560-df59-48d4-af1b-bb0ed127ce6d"' app/src/main/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
-          grep -Fq 'android:path="/WS+BzloPDaXssn/RlroAGmd4iV+k="' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/main/AndroidManifest.xml
           grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           echo "MASTER GATE V36: PASS — installed signer selects WS config when Play requires it"
 
