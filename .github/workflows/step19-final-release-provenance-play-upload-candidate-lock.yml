@@ -28,6 +28,10 @@ env:
   EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
   EXPECTED_PLAY_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67
   EXPECTED_PLAY_PREVIOUS_APP_SIGNING_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
+  EXPECTED_PLAY_CURRENT_APP_SIGNING_SHA256: 66ABDEAFB0417716C6B1003A7A28FED0D742426905B2513E3D36A497CF5ADDAE
+  EXPECTED_PLAY_PREVIOUS_CLASSICAL_SHA256: 70A6D765B552B649E83FCCAC378F0EEB0A3EACB301903BF38EF44F22A8099968
+  EXPECTED_PLAY_POST_QUANTUM_SHA256: 5429EBF572B04C2B48A9C256AA0E659F066B7FE46EC06A653703A8FD882C0BEB
+  EXPECTED_UPLOAD_SHA256: AF824C01B11D280C159A4C233064AB8639154C89EEE1FABB07ED2E21A58C1E7B
 
 jobs:
   master-gate:
@@ -71,6 +75,17 @@ jobs:
           test ! -d functions
           python3 .github/scripts/verify_final_release_master.py
           echo "ANDROID/PLAY/AZURE ZERO-DRIFT: PASS"
+
+      - name: Lock exact Play Console SHA-256 certificate identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$EXPECTED_PLAY_CURRENT_APP_SIGNING_SHA256" = "66ABDEAFB0417716C6B1003A7A28FED0D742426905B2513E3D36A497CF5ADDAE"
+          test "$EXPECTED_PLAY_PREVIOUS_CLASSICAL_SHA256" = "70A6D765B552B649E83FCCAC378F0EEB0A3EACB301903BF38EF44F22A8099968"
+          test "$EXPECTED_PLAY_POST_QUANTUM_SHA256" = "5429EBF572B04C2B48A9C256AA0E659F066B7FE46EC06A653703A8FD882C0BEB"
+          test "$EXPECTED_UPLOAD_SHA256" = "AF824C01B11D280C159A4C233064AB8639154C89EEE1FABB07ED2E21A58C1E7B"
+          echo "PLAY CONSOLE SHA-256 IDENTITIES: CURRENT + PREVIOUS CLASSICAL + POST-QUANTUM + UPLOAD = LOCKED"
+          echo "MSAL redirect remains SHA-1 based and is intentionally unchanged."
 
       - name: Verify billing UI and auth safeguards
         shell: bash
@@ -146,9 +161,13 @@ jobs:
         run: |
           set -euo pipefail
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
-          ACTUAL="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
-          test "$ACTUAL" = "$EXPECTED_UPLOAD_SHA1"
-          echo "PLAY UPLOAD KEY: PASS"
+          CERT="$RUNNER_TEMP/upload-cert.der"
+          keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge -file "$CERT"
+          ACTUAL_SHA1="$(openssl sha1 -binary "$CERT" | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          ACTUAL_SHA256="$(openssl sha256 -binary "$CERT" | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          test "$ACTUAL_SHA1" = "$EXPECTED_UPLOAD_SHA1"
+          test "$ACTUAL_SHA256" = "$EXPECTED_UPLOAD_SHA256"
+          echo "PLAY UPLOAD KEY SHA-1 + SHA-256: PASS"
 
       - name: Build sign and create provenance handoff
         env:
@@ -175,6 +194,10 @@ jobs:
             echo "versionName=$EXPECTED_VERSION_NAME"
             echo "playUploadSha1=$EXPECTED_UPLOAD_SHA1"
             echo "playAppSigningSha1=$EXPECTED_PLAY_APP_SIGNING_SHA1"
+            echo "playCurrentAppSigningSha256=$EXPECTED_PLAY_CURRENT_APP_SIGNING_SHA256"
+            echo "playPreviousClassicalSha256=$EXPECTED_PLAY_PREVIOUS_CLASSICAL_SHA256"
+            echo "playPostQuantumSha256=$EXPECTED_PLAY_POST_QUANTUM_SHA256"
+            echo "playUploadSha256=$EXPECTED_UPLOAD_SHA256"
             echo "apkSha256=$APK_SHA"
             echo "aabSha256=$AAB_SHA"
           } > step19-release-provenance.txt
