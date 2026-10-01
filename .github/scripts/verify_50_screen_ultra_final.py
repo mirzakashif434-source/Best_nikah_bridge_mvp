@@ -68,19 +68,25 @@ for required in [
 auth=(APP/"AzureAuthManager.java").read_text(encoding="utf-8")
 for required in [
 "return R.raw.auth_config;",
+"return R.raw.auth_config_play_current;",
 "85:A5:2E:95:4F:31:DF:AC:2C:10:62:A8:D6:4E:DA:2D:9B:48:5B:48",
-"haUulU8x36wsEGKo1k7aLZtIW0g="
+"haUulU8x36wsEGKo1k7aLZtIW0g=",
+"WS+BzloPDaXssn/RlroAGmd4iV+k="
 ]:
     if required not in auth:
         issues.append("MSAL CURRENT-SIGNER CONTRACT MISSING: "+required)
-for forbidden_auth in ["getSigningCertificateHistory()","R.raw.auth_config_play_current"]:
+for forbidden_auth in ["getSigningCertificateHistory()"]:
     if forbidden_auth in auth:
         issues.append("MSAL RETIRED-SIGNER REGRESSION: "+forbidden_auth)
 
-for cfg in ["app/src/main/res/raw/auth_config.json","app/src/release/res/raw/auth_config.json"]:
+for cfg,redirect in [
+    ("app/src/main/res/raw/auth_config.json","msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"),
+    ("app/src/release/res/raw/auth_config.json","msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"),
+    ("app/src/main/res/raw/auth_config_play_current.json","msauth://com.nikahbridge/WS%2BBzloPDaXssn%2FRlroAGmd4iV%2Bk%3D")
+]:
     t=(ROOT/cfg).read_text(encoding="utf-8")
-    if 'msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D' not in t:
-        issues.append(cfg+": current Play redirect missing")
+    if redirect not in t:
+        issues.append(cfg+": expected Play redirect missing")
 
 if issues:
     print("50-SCREEN ULTRA FINAL STATIC GATE: FAIL")
