@@ -265,7 +265,6 @@ paid40_client_files=[
     "SafeCommunicationActivity.java",
     "ConversationHealthActivity.java",
     "IdentityVerificationActivity.java",
-    "RealFourPhotoActivity.java",
     "NikahSuccessPlanActivity.java",
     "NikahSuccessNetworkActivity.java",
 ]
@@ -293,14 +292,14 @@ if verification_status_start>=0 and verification_admin_start>verification_status
          "paid40Features" not in status_block)
 
 photo_verify_paid=read(AZ/"photoVerification.js")
-need("Four-photo paid operations must enforce 40 SAR",
-     photo_verify_paid.count("capabilities.paid40Features") >= 3)
+need("Four-photo verification must remain free for all authenticated 18+ users",
+     "paid40Features" not in photo_verify_paid and "PREMIUM_PLUS_REQUIRED" not in photo_verify_paid)
 photo_status_start=photo_verify_paid.find('app.http("photoVerificationStatus"')
 photo_admin_start=photo_verify_paid.find('app.http("photoVerificationAdminList"')
 if photo_status_start>=0 and photo_admin_start>photo_status_start:
     status_block=photo_verify_paid[photo_status_start:photo_admin_start]
-    need("Four-photo status must remain outside 40 SAR gate",
-         "paid40Features" not in status_block)
+    need("Four-photo status must remain outside premium gates",
+         "paid40Features" not in status_block and "PREMIUM_PLUS_REQUIRED" not in status_block)
 admin_helper_start=photo_verify_paid.find("async function requireAdmin")
 admin_helper_end=photo_verify_paid.find("async function readPhotoBytes",admin_helper_start)
 if admin_helper_start>=0 and admin_helper_end>admin_helper_start:
@@ -314,7 +313,7 @@ need("Success Network mentor routes must enforce 40 SAR",
      settings_paid.count("capabilities.paid40Features") >= 4)
 
 paid40_doc=read(ROOT/"PAID_40_FEATURES_LOCK.md")
-for required in ("premium_plus_40","Global Community Chat","Four-Photo Verification","Nikah Success Network","60 SAR Azure AI remains a separate VIP-only entitlement"):
+for required in ("premium_plus_40","Global Community Chat","Nikah Success Network","Four-Photo Verification is FREE","60 SAR Azure AI remains a separate VIP-only entitlement"):
     need(f"40 SAR documentation contract missing: {required}", required in paid40_doc)
 
 # CONTRACT 17 — Step 3 60 SAR VIP-only Azure AI lock.
