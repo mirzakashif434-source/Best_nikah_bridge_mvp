@@ -1,22 +1,6 @@
 name: Step 35 Final Artifact Play Readiness Heavy Lock
 
 on:
-  push:
-    branches: [azure-backend-additive]
-    paths:
-      - 'STEP_35_FINAL_ARTIFACT_PLAY_READINESS_CHECK.md'
-      - '.github/workflows/step35-final-artifact-play-readiness-check.yml'
-      - '.github/workflows/step34-final-release-integrity-master-gate.yml'
-      - '.github/workflows/azure-additive-backend-verify.yml'
-      - '.github/scripts/**'
-      - '.maestro/**'
-      - 'app/**'
-      - 'azure-backend/**'
-      - 'build.gradle'
-      - 'settings.gradle'
-      - 'gradle.properties'
-      - 'gradle/**'
-      - 'gradlew'
   workflow_dispatch:
 
 permissions:
@@ -219,7 +203,7 @@ jobs:
           profile: pixel_6
           emulator-boot-timeout: 900
           disable-animations: false
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          emulator-options: -no-snapshot -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none -camera-front none
           script: bash "$GITHUB_WORKSPACE/.github/scripts/step35_runtime_entry.sh"
 
   maestro-e2e:

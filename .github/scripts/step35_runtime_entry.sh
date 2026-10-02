@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APK="$GITHUB_WORKSPACE/step35-artifacts/app/build/outputs/apk/release/app-release.apk"
+APK="${1:-$GITHUB_WORKSPACE/step35-artifacts/app/build/outputs/apk/release/app-release.apk}"
 
 test -s "$APK"
 chmod +x "$GITHUB_WORKSPACE/.github/scripts/runtime_apk_smoke_gate.sh"

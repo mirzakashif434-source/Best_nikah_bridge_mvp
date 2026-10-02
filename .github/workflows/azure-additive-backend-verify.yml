@@ -1210,9 +1210,9 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-boot-timeout: 900
-          disable-animations: true
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: bash "$GITHUB_WORKSPACE/.github/scripts/runtime_maestro_master_gate.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+          disable-animations: false
+          emulator-options: -no-snapshot -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash "$GITHUB_WORKSPACE/.github/scripts/runtime_maestro_master_gate.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk" && bash "$GITHUB_WORKSPACE/.github/scripts/step35_runtime_entry.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
 
       - name: Runtime APK smoke and crash gate — fresh-emulator recovery
         if: steps.runtime_primary.outcome == 'failure'
@@ -1223,18 +1223,18 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-boot-timeout: 900
-          disable-animations: true
-          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          script: bash "$GITHUB_WORKSPACE/.github/scripts/runtime_maestro_master_gate.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
+          disable-animations: false
+          emulator-options: -no-snapshot -no-window -gpu swiftshader -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: bash "$GITHUB_WORKSPACE/.github/scripts/runtime_maestro_master_gate.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk" && bash "$GITHUB_WORKSPACE/.github/scripts/step35_runtime_entry.sh" "$GITHUB_WORKSPACE/app/build/outputs/apk/release/app-release.apk"
 
       - name: Runtime gate result
         shell: bash
         run: |
           set -euo pipefail
           if [ "${{ steps.runtime_primary.outcome }}" = "success" ]; then
-            echo "RUNTIME GATE: PRIMARY PASS"
+            echo "RUNTIME GATE: PRIMARY PASS — MAESTRO + STEP35 50-SCREEN HEAVY RUNTIME"
           else
-            echo "RUNTIME GATE: PRIMARY INFRA/TEST FAILURE — FRESH EMULATOR RECOVERY PASSED"
+            echo "RUNTIME GATE: PRIMARY INFRA/TEST FAILURE — FRESH EMULATOR RECOVERY PASSED — MAESTRO + STEP35 50-SCREEN HEAVY RUNTIME"
           fi
 
       - name: Forensic scan compiled final APK
