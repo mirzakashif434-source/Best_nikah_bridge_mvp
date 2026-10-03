@@ -94,18 +94,14 @@ jobs:
           node -e "require('./src/index.js'); console.log('AZURE MODULE LOAD: PASS')"
 
       - name: Lock matches user presence join regression
+        shell: bash
         run: |
           set -euo pipefail
           MATCHES=azure-backend/src/matches.js
           grep -Fq 'up.last_seen_at' "$MATCHES"
           grep -Fq 'LEFT JOIN user_presence up ON up.user_id=u.id' "$MATCHES"
-          python3 - <<'PY'
-from pathlib import Path
-p=Path("azure-backend/src/matches.js").read_text()
-if "up.last_seen_at" in p and "LEFT JOIN user_presence up ON up.user_id=u.id" not in p:
-    raise SystemExit("MATCHES REGRESSION: up.last_seen_at is referenced without user_presence join")
-print("MATCHES USER PRESENCE JOIN LOCK: PASS")
-PY
+          python3 -c 'from pathlib import Path; p=Path("azure-backend/src/matches.js").read_text(); assert ("up.last_seen_at" not in p) or ("LEFT JOIN user_presence up ON up.user_id=u.id" in p), "MATCHES REGRESSION: user_presence join missing"'
+          echo "MATCHES USER PRESENCE JOIN LOCK: PASS"
 
       - name: Verify Azure production routes
         shell: bash
