@@ -20,7 +20,7 @@ concurrency:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_VERSION_NAME: '2.25'
   EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
   EXPECTED_UPLOAD_SHA256: AF824C01B11D280C159A4C233064AB8639154C89EEE1FABB07ED2E21A58C1E7B
@@ -88,7 +88,7 @@ jobs:
           echo "SIGNED APK + COMPILED FORENSIC: PASS"
       - uses: actions/upload-artifact@v6
         with:
-          name: step32-signed-apk-runtime-candidate-v36
+          name: step32-signed-apk-runtime-candidate-v37
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
@@ -102,7 +102,7 @@ jobs:
           ref: azure-backend-additive
       - uses: actions/download-artifact@v6
         with:
-          name: step32-signed-apk-runtime-candidate-v36
+          name: step32-signed-apk-runtime-candidate-v37
           path: app/build/outputs/apk/release
       - name: Run signed APK on Android emulator
         uses: reactivecircus/android-emulator-runner@v2

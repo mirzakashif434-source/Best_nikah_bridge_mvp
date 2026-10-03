@@ -19,7 +19,7 @@ concurrency:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_VERSION_NAME: '2.25'
   EXPECTED_ANDROID_CLIENT_ID: f5fc2b11-420f-4741-9a52-65d60cbddb7b
   EXPECTED_ANDROID_OBJECT_ID: 8990738c-2833-4830-9447-461dc0fe6a9a
@@ -169,7 +169,7 @@ jobs:
             app/build/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v6
         with:
-          name: step25-final-release-seal-v36
+          name: step25-final-release-seal-v37
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/bundle/release/app-release.aab
