@@ -22,7 +22,7 @@ concurrency:
 env:
   LIVE_BASE_URL: https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_VERSION_NAME: '2.25'
   EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
   EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
@@ -234,33 +234,33 @@ jobs:
           test -s "$APK"
           test -s "$AAB"
           jarsigner -verify -verbose -certs "$AAB" >/dev/null
-          sha256sum "$APK" > step17-final-apk-v36.sha256
-          sha256sum "$AAB" > step17-final-aab-v36.sha256
+          sha256sum "$APK" > step17-final-apk-v37.sha256
+          sha256sum "$AAB" > step17-final-aab-v37.sha256
           {
             echo "package=$EXPECTED_PACKAGE"
             echo "versionCode=$EXPECTED_VERSION_CODE"
             echo "versionName=$EXPECTED_VERSION_NAME"
             echo "sourceCommit=$(git rev-parse HEAD)"
-            cat step17-final-apk-v36.sha256
-            cat step17-final-aab-v36.sha256
+            cat step17-final-apk-v37.sha256
+            cat step17-final-aab-v37.sha256
           } > step17-play-store-preflight-handoff.txt
           echo "FINAL SIGNED APK+AAB PREFLIGHT: PASS"
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step17-final-play-apk-v36
+          name: step17-final-play-apk-v37
           path: |
             app/build/outputs/apk/release/app-release.apk
-            step17-final-apk-v36.sha256
+            step17-final-apk-v37.sha256
             step17-play-store-preflight-handoff.txt
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step17-final-play-aab-v36
+          name: step17-final-play-aab-v37
           path: |
             app/build/outputs/bundle/release/app-release.aab
-            step17-final-aab-v36.sha256
+            step17-final-aab-v37.sha256
             step17-play-store-preflight-handoff.txt
           if-no-files-found: error
 
@@ -327,5 +327,5 @@ jobs:
     steps:
       - run: |
           echo "STEP 17 FINAL PLAY STORE PREFLIGHT + ZERO-DRIFT: LOCKED"
-          echo "Step 1-16 preserved / Azure-only / Live Azure ready / V36 / 50 Activities / Play identity / billing / UI safety / signed APK+AAB"
+          echo "Step 1-16 preserved / Azure-only / Live Azure ready / V37 / 50 Activities / Play identity / billing / UI safety / signed APK+AAB"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"

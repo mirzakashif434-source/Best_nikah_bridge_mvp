@@ -21,7 +21,7 @@ concurrency:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_VERSION_NAME: '2.25'
   EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
   EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
@@ -61,7 +61,7 @@ jobs:
           COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
           test "$COUNT" = "50"
           python3 .github/scripts/verify_final_release_master.py
-          echo "PACKAGE/V36/SDK/50-ACTIVITY/FLOW INVENTORY: FROZEN"
+          echo "PACKAGE/V37/SDK/50-ACTIVITY/FLOW INVENTORY: FROZEN"
 
       - name: Freeze Play signing identities and Azure MSAL redirect
         shell: bash
@@ -203,32 +203,32 @@ jobs:
           test -s "$APK"
           test -s "$AAB"
           jarsigner -verify -verbose -certs "$AAB" >/dev/null
-          sha256sum "$APK" > step15-final-apk-v36.sha256
-          sha256sum "$AAB" > step15-final-aab-v36.sha256
+          sha256sum "$APK" > step15-final-apk-v37.sha256
+          sha256sum "$AAB" > step15-final-aab-v37.sha256
           {
             echo "package=$EXPECTED_PACKAGE"
             echo "versionCode=$EXPECTED_VERSION_CODE"
             echo "versionName=$EXPECTED_VERSION_NAME"
-            cat step15-final-apk-v36.sha256
-            cat step15-final-aab-v36.sha256
+            cat step15-final-apk-v37.sha256
+            cat step15-final-aab-v37.sha256
           } > step15-play-upload-handoff.txt
           echo "FINAL PLAY UPLOAD APK+AAB: PASS"
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step15-final-frozen-apk-v36
+          name: step15-final-frozen-apk-v37
           path: |
             app/build/outputs/apk/release/app-release.apk
-            step15-final-apk-v36.sha256
+            step15-final-apk-v37.sha256
             step15-play-upload-handoff.txt
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step15-final-frozen-aab-v36
+          name: step15-final-frozen-aab-v37
           path: |
             app/build/outputs/bundle/release/app-release.aab
-            step15-final-aab-v36.sha256
+            step15-final-aab-v37.sha256
             step15-play-upload-handoff.txt
           if-no-files-found: error
 
@@ -295,5 +295,5 @@ jobs:
     steps:
       - run: |
           echo "STEP 15 FINAL PRODUCTION FREEZE + PLAY UPLOAD READINESS: LOCKED"
-          echo "Step 1-14 preserved / Azure-only / Firebase-zero / V36 / 50 Activities / signed APK+AAB / SHA256 handoff"
+          echo "Step 1-14 preserved / Azure-only / Firebase-zero / V37 / 50 Activities / signed APK+AAB / SHA256 handoff"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"

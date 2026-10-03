@@ -48,10 +48,10 @@ jobs:
           test -s .github/workflows/step19-final-release-provenance-play-upload-candidate-lock.yml
           test -s STEP_19_FINAL_RELEASE_PROVENANCE_PLAY_UPLOAD_CANDIDATE_LOCK.md
           grep -Fq "applicationId '$EXPECTED_PACKAGE'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
           python3 .github/scripts/verify_final_release_master.py
-          echo "STEP 1-19 + RELEASE 36: PRESERVED"
+          echo "STEP 1-19 + RELEASE 37: PRESERVED"
 
       - name: Verify exact Play signing locks
         shell: bash

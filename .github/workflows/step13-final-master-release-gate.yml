@@ -21,7 +21,7 @@ concurrency:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
   EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
 
@@ -41,7 +41,7 @@ jobs:
           set -euo pipefail
 
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
           grep -Fq 'compileSdk 36' app/build.gradle
           grep -Fq 'targetSdk 36' app/build.gradle
@@ -97,7 +97,7 @@ jobs:
           COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
           test "$COUNT" = "50"
           python3 .github/scripts/verify_final_release_master.py
-          echo "PACKAGE/SDK/V36/50-ACTIVITY/42-HOME CONTRACT: PASS"
+          echo "PACKAGE/SDK/V37/50-ACTIVITY/42-HOME CONTRACT: PASS"
 
       - name: Verify UI buttons Back loading and safety regressions
         shell: bash
@@ -230,13 +230,13 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step13-final-signed-apk-v36
+          name: step13-final-signed-apk-v37
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step13-final-play-store-aab-v36
+          name: step13-final-play-store-aab-v37
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
@@ -304,5 +304,5 @@ jobs:
     steps:
       - run: |
           echo "STEP 13 FINAL MASTER RELEASE GATE + AZURE/PLAY PRESERVATION: LOCKED"
-          echo "Azure-only / Firebase-zero / 50 Activities / V36 / signed APK+AAB / Step 1-12 preserved"
+          echo "Azure-only / Firebase-zero / 50 Activities / V37 / signed APK+AAB / Step 1-12 preserved"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"

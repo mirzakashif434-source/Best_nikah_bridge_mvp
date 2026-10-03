@@ -22,7 +22,7 @@ concurrency:
 env:
   LIVE_BASE_URL: https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_VERSION_NAME: '2.25'
   EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
   EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
@@ -218,33 +218,33 @@ jobs:
           test -s "$APK"
           test -s "$AAB"
           jarsigner -verify -verbose -certs "$AAB" >/dev/null
-          sha256sum "$APK" > step16-release-candidate-apk-v36.sha256
-          sha256sum "$AAB" > step16-release-candidate-aab-v36.sha256
+          sha256sum "$APK" > step16-release-candidate-apk-v37.sha256
+          sha256sum "$AAB" > step16-release-candidate-aab-v37.sha256
           {
             echo "package=$EXPECTED_PACKAGE"
             echo "versionCode=$EXPECTED_VERSION_CODE"
             echo "versionName=$EXPECTED_VERSION_NAME"
             echo "sourceCommit=$(git rev-parse HEAD)"
-            cat step16-release-candidate-apk-v36.sha256
-            cat step16-release-candidate-aab-v36.sha256
+            cat step16-release-candidate-apk-v37.sha256
+            cat step16-release-candidate-aab-v37.sha256
           } > step16-release-candidate-handoff.txt
           echo "NO-DRIFT RELEASE CANDIDATE APK+AAB: PASS"
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step16-release-candidate-apk-v36
+          name: step16-release-candidate-apk-v37
           path: |
             app/build/outputs/apk/release/app-release.apk
-            step16-release-candidate-apk-v36.sha256
+            step16-release-candidate-apk-v37.sha256
             step16-release-candidate-handoff.txt
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step16-release-candidate-aab-v36
+          name: step16-release-candidate-aab-v37
           path: |
             app/build/outputs/bundle/release/app-release.aab
-            step16-release-candidate-aab-v36.sha256
+            step16-release-candidate-aab-v37.sha256
             step16-release-candidate-handoff.txt
           if-no-files-found: error
 
@@ -311,5 +311,5 @@ jobs:
     steps:
       - run: |
           echo "STEP 16 LIVE AZURE READINESS + RELEASE CANDIDATE NO-DRIFT: LOCKED"
-          echo "Step 1-15 preserved / Live Azure ready / Azure-only / Firebase-zero / V36 / 50 Activities / signed RC APK+AAB"
+          echo "Step 1-15 preserved / Live Azure ready / Azure-only / Firebase-zero / V37 / 50 Activities / signed RC APK+AAB"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback safety -> Fortress Budget"

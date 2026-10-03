@@ -22,7 +22,7 @@ concurrency:
 env:
   LIVE_BASE_URL: https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_VERSION_NAME: '2.25'
   EXPECTED_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
   EXPECTED_PLAY_APP_SIGNING_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
@@ -206,7 +206,7 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step19-final-play-upload-candidate-v36
+          name: step19-final-play-upload-candidate-v37
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/bundle/release/app-release.aab

@@ -1,4 +1,4 @@
-name: Release 36 Pre-Upload Golden Lock
+name: Release 37 Pre-Upload Golden Lock
 
 on:
   push:
@@ -18,7 +18,7 @@ permissions:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_PLAY_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
   EXPECTED_MSAL_HASH: haUulU8x36wsEGKo1k7aLZtIW0g=
   EXPECTED_MSAL_REDIRECT: msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D
@@ -43,7 +43,7 @@ jobs:
           grep -Fq 'targetSdk 36' app/build.gradle
           COUNT="$(grep -o 'android:name="\.[A-Za-z0-9_]*Activity"' app/src/main/AndroidManifest.xml | sort -u | wc -l | tr -d ' ')"
           test "$COUNT" = "50"
-          echo "PACKAGE + V36 + 50 ACTIVITIES: PASS"
+          echo "PACKAGE + V37 + 50 ACTIVITIES: PASS"
 
       - name: Freeze Play signing to MSAL redirect
         shell: bash
@@ -74,5 +74,5 @@ jobs:
 
       - name: Golden checkpoint
         run: |
-          echo "RELEASE 36 PRE-UPLOAD GOLDEN LOCK: PASS"
+          echo "RELEASE 37 PRE-UPLOAD GOLDEN LOCK: PASS"
           echo "Final runtime lock still requires Google Play install + real Azure sign-in."
