@@ -8,21 +8,21 @@ const PLAN_CONFIG = [
     productIdEnv: "PLAY_PREMIUM_BASIC_PRODUCT_ID",
     basePlanIdEnv: "PLAY_PREMIUM_BASIC_BASE_PLAN_ID",
     billingPeriod: "monthly",
-    title: "Serious Nikah Plus Basic 20"
+    title: "20 SAR Basic"
   },
   {
     planKey: "premium_plus_40",
     productIdEnv: "PLAY_PREMIUM_PLUS_PRODUCT_ID",
     basePlanIdEnv: "PLAY_PREMIUM_PLUS_BASE_PLAN_ID",
     billingPeriod: "monthly",
-    title: "Serious Nikah Plus 40"
+    title: "40 SAR Premium"
   },
   {
     planKey: "premium_vip_60",
     productIdEnv: "PLAY_PREMIUM_VIP_PRODUCT_ID",
     basePlanIdEnv: "PLAY_PREMIUM_VIP_BASE_PLAN_ID",
     billingPeriod: "monthly",
-    title: "Serious Nikah VIP 60"
+    title: "60 SAR VIP"
   }
 ];
 
