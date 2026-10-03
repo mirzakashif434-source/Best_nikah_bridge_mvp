@@ -1071,13 +1071,18 @@ jobs:
           chmod +x ./gradlew
           ./gradlew :app:compileDebugJavaWithJavac :app:lintDebug --stacktrace
 
-      - name: Prepare real release signing and verify Play signing redirect
+      - name: Prepare real release signing and verify authoritative Play Console certificate matrix
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
           EXPECTED_PLAY_CLASSIC_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
-          EXPECTED_PLAY_CURRENT_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
+          EXPECTED_PLAY_POST_QUANTUM_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67
+          EXPECTED_PLAY_PREVIOUS_SHA1: 592FB39683C3697B2C9FF448ACE00699DE2257E9
+          EXPECTED_PLAY_UPLOAD_SHA1: 41097230F8DBA1DB824958C851D8284C65BA5048
+          EXPECTED_PLAY_CURRENT_SHA256: 66ABDEAFB0417716C6B1003A7A28FED0D742426905B2513E3D36A497CF5ADDAE
+          EXPECTED_PLAY_PREVIOUS_SHA256: 70A6D765B552B649E83FCCAC378F0EEB0A3EACB301903BF38EF44F22A8099968
+          EXPECTED_PLAY_POST_QUANTUM_SHA256: 5429EBF572B04C2B48A9C256AA0E659F066B7FE46EC06A653703A8FD882C0BEB
+          EXPECTED_PLAY_UPLOAD_SHA256: AF824C01B11D280C159A4C233064AB8639154C89EEE1FABB07ED2E21A58C1E7B
         run: |
           set -euo pipefail
           test -n "$KEYSTORE_BASE64"
@@ -1085,27 +1090,30 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           keytool -list -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
 
-          # The upload key signs the AAB uploaded to Play Console.
-          # It is NOT the MSAL redirect certificate for the Play-installed app.
           ACTUAL_UPLOAD_SHA1="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
+          ACTUAL_UPLOAD_SHA256="$(keytool -exportcert -keystore "$RUNNER_TEMP/release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha256 -binary | xxd -p -c 256 | tr '[:lower:]' '[:upper:]')"
           test "$ACTUAL_UPLOAD_SHA1" = "$EXPECTED_PLAY_UPLOAD_SHA1"
+          test "$ACTUAL_UPLOAD_SHA256" = "$EXPECTED_PLAY_UPLOAD_SHA256"
 
-          # Play may install with the current signer observed at runtime (WS...)
-          # while classic signer compatibility remains valid for older signing lineage.
           CLASSIC_HASH="$(printf '%s' "$EXPECTED_PLAY_CLASSIC_SHA1" | xxd -r -p | openssl base64 -A)"
-          CURRENT_HASH="$(printf '%s' "$EXPECTED_PLAY_CURRENT_SHA1" | xxd -r -p | openssl base64 -A)"
+          PREVIOUS_HASH="$(printf '%s' "$EXPECTED_PLAY_PREVIOUS_SHA1" | xxd -r -p | openssl base64 -A)"
+          UPLOAD_HASH="$(printf '%s' "$EXPECTED_PLAY_UPLOAD_SHA1" | xxd -r -p | openssl base64 -A)"
           test "$CLASSIC_HASH" = "haUulU8x36wsEGKo1k7aLZtIW0g="
-          test "$CURRENT_HASH" = "WS+zloPDaXssn/RIrOAGmd4iV+k="
+          test "$PREVIOUS_HASH" = "WS+zloPDaXssn/RIrOAGmd4iV+k="
+          test "$UPLOAD_HASH" = "QQlyMPjboduCSVjIUdgoTGW6UEg="
 
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/release/res/raw/auth_config.json
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
+          grep -Fq '"redirect_uri": "msauth://com.nikahbridge/QQlyMPjboduCSVjIUdgoTGW6UEg%3D"' app/src/apkTest/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/release/AndroidManifest.xml
           grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/release/AndroidManifest.xml
           grep -Fq '"WS+zloPDaXssn/RIrOAGmd4iV+k=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
+          grep -Fq '"haUulU8x36wsEGKo1k7aLZtIW0g=".equals(hash)' app/src/main/java/com/nikahbridge/AzureAuthManager.java
           grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
 
-          echo "UPLOAD CERT: VERIFIED SEPARATELY"
-          echo "PLAY APP-SIGNING MSAL REDIRECTS + INSTALLED-SIGNER SELECTOR: VERIFIED"
+          echo "PLAY CONSOLE SHA MATRIX LOCK: 4x SHA-1 + 4x SHA-256 AUTHORITATIVE"
+          echo "UPLOAD CERT SHA-1/SHA-256: VERIFIED"
+          echo "PLAY APP-SIGNING MSAL REDIRECTS + SIGNING LINEAGE: VERIFIED"
 
       - name: Build final signed Azure APK and AAB
         env:
