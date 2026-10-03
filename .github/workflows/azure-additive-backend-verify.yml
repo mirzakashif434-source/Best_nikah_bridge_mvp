@@ -1486,7 +1486,7 @@ jobs:
         run: |
           set -euo pipefail
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
