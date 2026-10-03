@@ -1,5 +1,5 @@
 name: Azure Additive Backend + Android Verification
-# Release 36 Final Locked — current Play signing redirect verified
+# Release 37 Final Locked — current Play signing redirect verified
 
 on:
   push:
@@ -778,7 +778,7 @@ jobs:
           grep -Fq 'import androidx.core.view.WindowCompat;' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'WindowCompat.setDecorFitsSystemWindows(a.getWindow(),false);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
           grep -Fq 'applySafeInsets(a);' app/src/main/java/com/nikahbridge/NikahBridgeApplication.java
-          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
@@ -1438,17 +1438,17 @@ jobs:
             GOLDEN_RELEASE_MANIFEST.txt
           if-no-files-found: error
 
-      - name: Upload Play Store Release AAB V36
+      - name: Upload Play Store Release AAB V37
         uses: actions/upload-artifact@v6
         with:
-          name: azure-additive-play-store-aab-v36
+          name: azure-additive-play-store-aab-v37
           path: app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
 
       - name: Upload Azure Additive final APK + AAB download pack
         uses: actions/upload-artifact@v6
         with:
-          name: azure-additive-final-apk-aab-v36
+          name: azure-additive-final-apk-aab-v37
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/bundle/release/app-release.aab
@@ -1481,7 +1481,7 @@ jobs:
         with:
           ref: azure-backend-additive
           fetch-depth: 1
-      - name: Lock exact Play Store V36 release identity
+      - name: Lock exact Play Store V37 release identity
         shell: bash
         run: |
           set -euo pipefail
@@ -1494,7 +1494,7 @@ jobs:
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
           grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/main/AndroidManifest.xml
           grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          echo "MASTER GATE V36: PASS — installed signer selects WS config when Play requires it"
+          echo "MASTER GATE V37: PASS — installed signer selects WS config when Play requires it"
 
   final-maestro-e2e:
     name: Maestro E2E
@@ -1575,12 +1575,12 @@ jobs:
           echo "FORTRESS BUDGET: LOCKED"
 
   final-release-locked:
-    name: Release 36 Final Locked
+    name: Release 37 Final Locked
     needs: [final-master-gate, final-maestro-e2e, final-self-healing, final-auto-rollback, final-fortress-budget]
     if: ${{ always() && needs.final-master-gate.result == 'success' && needs.final-maestro-e2e.result == 'success' && needs.final-self-healing.result == 'success' && needs.final-auto-rollback.result == 'success' && needs.final-fortress-budget.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "AZURE ADDITIVE RELEASE V36: FINAL LOCKED"
+          echo "AZURE ADDITIVE RELEASE V37: FINAL LOCKED"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback -> Fortress Budget"
-          echo "Play Store artifact in this run: azure-additive-play-store-aab-v36"
+          echo "Play Store artifact in this run: azure-additive-play-store-aab-v37"

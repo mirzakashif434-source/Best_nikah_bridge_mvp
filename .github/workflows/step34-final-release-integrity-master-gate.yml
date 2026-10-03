@@ -20,7 +20,7 @@ concurrency:
 
 env:
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_VERSION_NAME: '2.25'
   PLAY_CLASSIC_SHA1: 85A52E954F31DFAC2C1062A8D64EDA2D9B485B48
   PLAY_PQ_SHA1: C5AE28337D7C9DCDD3F09B15C91EE0015EA58A67
@@ -178,7 +178,7 @@ jobs:
 
       - uses: actions/upload-artifact@v6
         with:
-          name: step34-final-integrity-apk-aab-v36
+          name: step34-final-integrity-apk-aab-v37
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/bundle/release/app-release.aab
@@ -260,5 +260,5 @@ jobs:
       - run: |
           echo "STEP 34 FINAL RELEASE INTEGRITY: GREEN"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback -> Fortress Budget"
-          echo "APK + AAB downloadable as: step34-final-integrity-apk-aab-v36"
+          echo "APK + AAB downloadable as: step34-final-integrity-apk-aab-v37"
           echo "PLAY CONSOLE UPLOAD/PUBLISH: NOT PERFORMED"
