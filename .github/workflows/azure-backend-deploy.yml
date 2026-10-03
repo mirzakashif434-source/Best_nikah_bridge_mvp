@@ -67,6 +67,20 @@ jobs:
           PY
           echo "FORTRESS BUDGET REGRESSION: LOCKED"
 
+      - name: Lock matches user presence join before deploy
+        run: |
+          set -euo pipefail
+          MATCHES=azure-backend/src/matches.js
+          grep -Fq 'up.last_seen_at' "$MATCHES"
+          grep -Fq 'LEFT JOIN user_presence up ON up.user_id=u.id' "$MATCHES"
+          python3 - <<'PY'
+from pathlib import Path
+p=Path("azure-backend/src/matches.js").read_text()
+if "up.last_seen_at" in p and "LEFT JOIN user_presence up ON up.user_id=u.id" not in p:
+    raise SystemExit("MATCHES REGRESSION: deployment blocked because user_presence join is missing")
+print("MATCHES USER PRESENCE JOIN DEPLOY LOCK: PASS")
+PY
+
       - uses: actions/setup-node@v5
         with:
           node-version: 22
