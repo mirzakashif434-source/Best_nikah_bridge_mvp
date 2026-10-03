@@ -178,6 +178,19 @@ jobs:
 
           echo "PREMIUM TIER NAME + PRODUCT ID LOCK: PASS"
 
+      - name: Lock premium tier live DB migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          MIG=azure-backend/database/migrations/20261003_premium_tier_display_names.sql
+          DEP=.github/workflows/azure-backend-deploy.yml
+          test -f "$MIG"
+          grep -Fq "WHEN 'premium_basic_20' THEN '20 SAR Basic'" "$MIG"
+          grep -Fq "WHEN 'premium_plus_40' THEN '40 SAR Premium'" "$MIG"
+          grep -Fq "WHEN 'premium_vip_60' THEN '60 SAR VIP'" "$MIG"
+          grep -Fq '20261003_premium_tier_display_names.sql' "$DEP"
+          echo "PREMIUM TIER LIVE DB MIGRATION LOCK: PASS"
+
       - name: Verify locked 2030 premium design
         shell: bash
         run: |
