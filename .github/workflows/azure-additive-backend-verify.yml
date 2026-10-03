@@ -146,6 +146,38 @@ jobs:
           grep -Fq 'AzureApiClient.post("/admin/owner/provider-settlement"' app/src/main/java/com/nikahbridge/OwnerEarningsActivity.java
           echo "OWNER WALLET GOOGLE PLAY → AL RAJHI TRACKING: PASS"
 
+      - name: Lock premium tier names and Play product IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=app/src/main/java/com/nikahbridge/PremiumPlansActivity.java
+          API=azure-backend/src/premiumPlans.js
+          DB=azure-backend/database/schema.sql
+
+          grep -Fq '20 SAR Basic — Buy' "$APP"
+          grep -Fq '40 SAR Premium — Buy' "$APP"
+          grep -Fq '60 SAR VIP — Buy' "$APP"
+
+          grep -Fq 'premium_basic_20' "$APP"
+          grep -Fq 'premium_plus_40' "$APP"
+          grep -Fq 'premium_vip_60' "$APP"
+
+          grep -Fq 'title: "20 SAR Basic"' "$API"
+          grep -Fq 'title: "40 SAR Premium"' "$API"
+          grep -Fq 'title: "60 SAR VIP"' "$API"
+
+          grep -Fq "('premium_basic_20', '20 SAR Basic', 'monthly'," "$DB"
+          grep -Fq "('premium_plus_40', '40 SAR Premium', 'monthly'," "$DB"
+          grep -Fq "('premium_vip_60', '60 SAR VIP', 'monthly'," "$DB"
+
+          ! grep -Fq '20 SAR Premium — Buy' "$APP"
+          ! grep -Fq '60 SAR Premium — Buy' "$APP"
+          ! grep -Fq 'Serious Nikah Plus Basic 20' "$API"
+          ! grep -Fq 'Serious Nikah Plus 40' "$API"
+          ! grep -Fq 'Serious Nikah VIP 60' "$API"
+
+          echo "PREMIUM TIER NAME + PRODUCT ID LOCK: PASS"
+
       - name: Verify locked 2030 premium design
         shell: bash
         run: |
