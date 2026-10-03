@@ -63,6 +63,7 @@ app.http("matches",{
         FROM users u JOIN profiles p ON p.user_id=u.id
         LEFT JOIN partner_preferences pp ON pp.user_id=u.id
         LEFT JOIN privacy_settings ps ON ps.user_id=u.id
+        LEFT JOIN user_presence up ON up.user_id=u.id
         WHERE u.status='active' AND p.profile_completed=true AND p.is_visible=true
           AND COALESCE(ps.profile_discoverable,false)=true
           AND u.id<>$1
