@@ -16,6 +16,8 @@ on:
       - '.github/workflows/azure-additive-backend-verify.yml'
       - '.github/workflows/azure-backend-deploy.yml'
       - '.github/workflows/step3-azure-auth-sha-master-lock.yml'
+      - '.github/workflows/step4-legacy-firebase-deep-cleanup-lock.yml'
+      - '.github/workflows/step6-final-firebase-production-removal-lock.yml'
       - '.github/workflows/step8-azure-final-full-app-gate.yml'
       - '.github/workflows/final-auth-signing-playstore-match.yml'
       - '.github/workflows/step4-azure-android-redirect-cleanup.yml'
