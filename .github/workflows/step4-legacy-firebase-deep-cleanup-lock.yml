@@ -92,7 +92,7 @@ jobs:
 
           # Step 2 package/release identity must remain unchanged.
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
 
           # Step 3 exact Play Console signing identities must remain locked.
