@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
 const { getProfilePhotosContainer } = require("./storage");
+const { downloadBlobWithContentType } = require("./efficientBlobRead");
 const { analyzeImage, shouldReject } = require("./contentSafety");
 const { entitlementForUser, capabilitiesFor } = require("./premiumAccess");
 
@@ -86,11 +87,9 @@ app.http("photoContent",{
       if(!r.rows[0]) return {status:404,jsonBody:{ok:false,error:"PHOTO_NOT_FOUND"}};
       if(r.rows[0].moderation_status!=="approved") return {status:403,jsonBody:{ok:false,error:"PHOTO_NOT_AVAILABLE"}};
       const blob=getProfilePhotosContainer().getBlockBlobClient(r.rows[0].blob_key);
-      const exists=await blob.exists();
-      if(!exists) return {status:404,jsonBody:{ok:false,error:"PHOTO_BLOB_NOT_FOUND"}};
-      const downloaded=await blob.downloadToBuffer();
-      const props=await blob.getProperties();
-      return {status:200,headers:{"Content-Type":props.contentType||"application/octet-stream","Cache-Control":"private, no-store"},body:downloaded};
+      const downloaded=await downloadBlobWithContentType(blob);
+      if(!downloaded) return {status:404,jsonBody:{ok:false,error:"PHOTO_BLOB_NOT_FOUND"}};
+      return {status:200,headers:{"Content-Type":downloaded.contentType||"application/octet-stream","Cache-Control":"private, no-store"},body:downloaded.bytes};
     }catch(e){
       context.error("PHOTO_CONTENT_FAILED",e);
       return {status:500,jsonBody:{ok:false,error:"PHOTO_CONTENT_FAILED"}};
@@ -140,10 +139,9 @@ app.http("matchPhotoContent",{
         return {status:404,jsonBody:{ok:false,error:"PHOTO_NOT_AVAILABLE"}};
 
       const blob=getProfilePhotosContainer().getBlockBlobClient(photo.blob_key);
-      if(!(await blob.exists())) return {status:404,jsonBody:{ok:false,error:"PHOTO_BLOB_NOT_FOUND"}};
-      const bytes=await blob.downloadToBuffer();
-      const props=await blob.getProperties();
-      return {status:200,headers:{"Content-Type":props.contentType||"image/jpeg","Cache-Control":"private, no-store"},body:bytes};
+      const downloaded=await downloadBlobWithContentType(blob);
+      if(!downloaded) return {status:404,jsonBody:{ok:false,error:"PHOTO_BLOB_NOT_FOUND"}};
+      return {status:200,headers:{"Content-Type":downloaded.contentType||"image/jpeg","Cache-Control":"private, no-store"},body:downloaded.bytes};
     }catch(e){
       context.error("MATCH_PHOTO_CONTENT_FAILED",e);
       return {status:500,jsonBody:{ok:false,error:"MATCH_PHOTO_CONTENT_FAILED"}};
