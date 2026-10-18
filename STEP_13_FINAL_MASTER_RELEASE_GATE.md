@@ -26,3 +26,4 @@ It combines all prior protections:
 - final artifact upload
 
 No existing feature Activity is deleted or replaced by Step 13.
+Verification rerun requested: 2026-10-18 | azure-backend-additive | No source or configuration changes.
