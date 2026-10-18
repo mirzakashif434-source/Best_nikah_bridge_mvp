@@ -54,8 +54,8 @@ public class SeriousNikahPlusActivity extends Activity {
         card.addView(Premium2030Ui.section(this,"Premium unlocks"));
         card.addView(Premium2030Ui.subtitle(this,
             "20 SAR Basic\n✓ See Who Liked You\n✓ Unlimited interests\n✓ Family Circle up to 4\n\n"+
-            "40 SAR Plus\n✓ Basic features\n✓ Full Why We Matched\n✓ Advanced compatibility\n✓ Marriage timeline\n✓ Family Circle up to 7\n\n"+
-            "60 SAR VIP\n✓ Plus features\n✓ Azure AI Nikah Assistant\n✓ Family Circle up to 10\n✓ Priority profile visibility"));
+            "40 SAR Premium\n✓ Basic features\n✓ Full Why We Matched\n✓ Advanced compatibility\n✓ Marriage timeline\n✓ Family Circle up to 7\n\n"+
+            "60 SAR VIP\n✓ Premium features\n✓ Azure AI Nikah Assistant\n✓ Family Circle up to 10\n✓ Priority profile visibility"));
         root.addView(card);
 
         whoLiked=btn("See Who Liked You",true);whoLiked.setOnClickListener(v->loadWhoLiked());
