@@ -138,6 +138,10 @@ final class AzureAuthManager {
                 for (Signature signer : signers) {
                     byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(signer.toByteArray());
                     String hash = Base64.encodeToString(sha1, Base64.NO_WRAP);
+                    // Direct GitHub APK: use the upload signing certificate, not Google Play signing.
+                    if ("QQlyMPjboduCSVjIUdgoTGW6UEg=".equals(hash)) {
+                        return R.raw.auth_config_upload;
+                    }
                     if ("WS+zloPDaXssn/RIrOAGmd4iV+k=".equals(hash)) {
                         return R.raw.auth_config_play_current;
                     }
