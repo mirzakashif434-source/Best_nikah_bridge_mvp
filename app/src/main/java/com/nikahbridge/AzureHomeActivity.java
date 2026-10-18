@@ -209,7 +209,11 @@ public class AzureHomeActivity extends Activity {
                     if(p==null){status.setText("No profile yet. Create your real profile below.");}
                     else status.setText("Email: "+valueOrEmpty(p,"email")+"\nName: "+valueOrEmpty(p,"display_name")+"\nGender: "+valueOrEmpty(p,"gender")+"\nCountry: "+valueOrEmpty(p,"country")+"\nCity: "+valueOrEmpty(p,"city")+"\nProfile completed: "+p.optBoolean("profile_completed"));
                     name.setText(valueOrEmpty(p,"display_name"));
-                    dob.setText(valueOrEmpty(p,"date_of_birth"));
+                    String savedDob=valueOrEmpty(p,"date_of_birth");
+                    // PostgreSQL DATE may arrive as an ISO timestamp; keep only its calendar date.
+                    // Do not alter the stored value or silently accept invalid date strings.
+                    if(savedDob.matches("\\d{4}-\\d{2}-\\d{2}T.*")) savedDob=savedDob.substring(0,10);
+                    dob.setText(savedDob);
                     gender.setText(valueOrEmpty(p,"gender"));
                     preferredGender.setText(valueOrEmpty(p,"preferred_gender"));
                     country.setText(valueOrEmpty(p,"country"));
