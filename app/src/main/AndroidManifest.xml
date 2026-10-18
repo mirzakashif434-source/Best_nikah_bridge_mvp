@@ -19,6 +19,12 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="msauth" android:host="com.nikahbridge" android:path="/QQlyMPjboduCSVjIUdgoTGW6UEg=" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="bestnikahbredge" android:host="circle" android:pathPrefix="/join" />
             </intent-filter>
         </activity><activity android:name=".TrustPassportActivity" android:exported="false" /><activity android:name=".CompatibilityTrafficLightActivity" android:exported="false" /><activity android:name=".WhyWeMatchedActivity" android:exported="false" /><activity android:name=".NikahIntelligenceActivity" android:exported="false" />
