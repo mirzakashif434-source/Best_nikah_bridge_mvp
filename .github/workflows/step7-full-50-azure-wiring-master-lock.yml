@@ -134,7 +134,7 @@ jobs:
 
           # Play package/release identity.
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
           grep -Eq 'minSdk[[:space:]]+24' app/build.gradle
           grep -Eq 'targetSdk[[:space:]]+36' app/build.gradle
