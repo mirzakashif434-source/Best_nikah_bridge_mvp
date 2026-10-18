@@ -27,7 +27,7 @@ env:
   APP: app/src/main/java/com/nikahbridge
   MANIFEST: app/src/main/AndroidManifest.xml
   EXPECTED_PACKAGE: com.nikahbridge
-  EXPECTED_VERSION_CODE: '36'
+  EXPECTED_VERSION_CODE: '37'
   EXPECTED_VERSION_NAME: '2.25'
   EXPECTED_MIN_SDK: '24'
   EXPECTED_TARGET_SDK: '36'
