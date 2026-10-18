@@ -37,6 +37,7 @@ public class RewardedMessageActivity extends Activity {
     private String azureSubject;
     private static final String AZURE_REWARDED_CONFIG_URL = "https://bestnikahbredge-prod-fn-dkf3ake6d8gsg7cw.eastus-01.azurewebsites.net/api/admob/rewarded/config";
     private ConsentInformation consentInformation;
+    private boolean adInitializationStarted = false;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -150,19 +151,32 @@ public class RewardedMessageActivity extends Activity {
         consentInformation.requestConsentInfoUpdate(this, params,
                 () -> UserMessagingPlatform.loadAndShowConsentFormIfRequired(this, formError -> {
                     if (formError != null) {
+                        android.util.Log.w("BNBRewardedConsent", "UMP form error " + formError.getErrorCode() + ": " + formError.getMessage());
+                        // Google UMP allows previously established consent after a transient error.
+                        // Never request an ad if UMP says consent is not available.
+                        if (consentInformation.canRequestAds()) {
+                            initializeAdsIfAllowed();
+                            return;
+                        }
                         rewardedAd = null;
                         watch.setEnabled(true);
                         watch.setText("Retry Rewarded Ad");
-                        status.setText("Privacy consent could not be completed. Tap Retry.");
+                        status.setText("Privacy consent could not be completed (code " + formError.getErrorCode() + "). Tap Retry.");
                         return;
                     }
                     initializeAdsIfAllowed();
                 }),
                 error -> {
+                    android.util.Log.w("BNBRewardedConsent", "UMP consent update error " + error.getErrorCode() + ": " + error.getMessage());
+                    // Check UMP's prior-session consent only; do not create or assume consent.
+                    if (consentInformation.canRequestAds()) {
+                        initializeAdsIfAllowed();
+                        return;
+                    }
                     rewardedAd = null;
                     watch.setEnabled(true);
                     watch.setText("Retry Rewarded Ad");
-                    status.setText("Privacy consent status could not be loaded. Tap Retry.");
+                    status.setText("Privacy consent status could not be loaded (code " + error.getErrorCode() + "). Tap Retry.");
                 });
     }
 
@@ -174,6 +188,9 @@ public class RewardedMessageActivity extends Activity {
             status.setText("Ads cannot be requested until privacy consent is available. Tap Retry after consent is available.");
             return;
         }
+        if (adInitializationStarted) return;
+        adInitializationStarted = true;
+        watch.setEnabled(false);
         MobileAds.initialize(this, s -> loadRewarded());
     }
 
