@@ -37,7 +37,7 @@ jobs:
           grep -Fq 'compileSdk 36' "$B"
           grep -Fq 'targetSdk 36' "$B"
           grep -Fq 'minSdk 24' "$B"
-          grep -Fq 'versionCode 36' "$B"
+          grep -Fq 'versionCode 37' "$B"
           grep -Fq 'signingConfig signingConfigs.release' "$B"
           ! grep -Fq 'storePassword "' "$B"
           ! grep -Fq "storePassword '" "$B"
@@ -51,7 +51,7 @@ jobs:
           set -euo pipefail
 
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
           grep -Fq 'compileSdk 36' app/build.gradle
           grep -Fq 'targetSdk 36' app/build.gradle
