@@ -136,7 +136,7 @@ jobs:
           set -euo pipefail
 
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+36' app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
           grep -Fq "versionName '2.25'" app/build.gradle
 
           S=.github/workflows/step3-azure-auth-sha-master-lock.yml
