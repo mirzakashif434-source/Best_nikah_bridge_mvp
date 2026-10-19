@@ -58,7 +58,7 @@ jobs:
           const match = code.match(/const escapeHtmlAttr=([^;]+);/);
           if (!match) process.exit(1);
           const escapeHtmlAttr = new Function('return (' + match[1] + ')')();
-          if (escapeHtmlAttr('a"&<>\\'b') !== 'a&quot;&amp;&lt;&gt;&#39;b') process.exit(1);
+          if (escapeHtmlAttr(`a"&<>'b`) !== 'a&quot;&amp;&lt;&gt;&#39;b') process.exit(1);
           if (!code.includes('href="${escapeHtmlAttr(openApp)}"') || !code.includes('href="${escapeHtmlAttr(play)}"')) process.exit(1);
           console.log('Family Circle HTML escaping test: PASS');
           console.log('Family Circle token syntax test: PASS');
