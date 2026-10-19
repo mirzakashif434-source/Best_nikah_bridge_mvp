@@ -1,0 +1,67 @@
+name: Dashboard-Only Azure Additive Signed APK AAB
+on:
+  push:
+    branches:
+      - fix/owner-dashboard-readonly-20261019
+    paths:
+      - 'azure-backend/src/ownerReportAccess.js'
+      - 'azure-backend/src/ownerAnalytics.js'
+      - 'azure-backend/src/ownerEarnings.js'
+      - 'azure-backend/tests/owner-report-only.test.js'
+      - '.github/workflows/dashboard-only-azure-additive-apk-aab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  signed-build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check only Owner Dashboard permission changes
+        run: |
+          node --check azure-backend/src/ownerReportAccess.js
+          node --check azure-backend/src/ownerAnalytics.js
+          node --check azure-backend/src/ownerEarnings.js
+          node --test azure-backend/tests/owner-report-only.test.js
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prepare existing release signing
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/bnb-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/bnb-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge >/dev/null
+      - name: Compile signed APK and AAB (no deployment)
+        shell: bash
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/bnb-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease :app:bundleRelease --stacktrace
+          test -s app/build/outputs/apk/release/app-release.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+          sha256sum app/build/outputs/apk/release/app-release.apk app/build/outputs/bundle/release/app-release.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bnb-azure-additive-dashboard-only-apk-aab
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 7
