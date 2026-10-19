@@ -37,8 +37,14 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Verify preinstalled Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -d "${ANDROID_HOME:?Android SDK not configured}"
+          test -d "$ANDROID_HOME/platforms/android-36" || { echo "Android API 36 missing"; exit 1; }
+          test -d "$ANDROID_HOME/build-tools" || { echo "Android build-tools missing"; exit 1; }
+          echo "PREINSTALLED ANDROID SDK: PASS"
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
       - name: Prepare upload-key signing without exposing secrets
