@@ -55,7 +55,7 @@ jobs:
           for (const bad of ['"><script>alert(1)</script>', 'bad/token', 'abc', 'a'.repeat(33)]) {
             if (/^[A-Za-z0-9_-]{32}$/.test(bad)) process.exit(1);
           }
-          const escapingLine = code.split('\\n').find(line => line.includes('const escapeHtmlAttr='));
+          const escapingLine = code.split(String.fromCharCode(10)).find(line => line.includes('const escapeHtmlAttr='));
           if (!escapingLine) process.exit(1);
           const escapeHtmlAttr = new Function('return (' + escapingLine.trim().replace(/^const escapeHtmlAttr=/, '').replace(/;$/, '') + ')')();
           if (escapeHtmlAttr(`a"&<>'b`) !== 'a&quot;&amp;&lt;&gt;&#39;b') process.exit(1);
