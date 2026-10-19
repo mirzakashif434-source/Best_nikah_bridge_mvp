@@ -1,0 +1,82 @@
+name: MSAL Isolated Safe Android Build
+
+on:
+  push:
+    branches:
+      - fix/msal-safe-redirect-20261019
+    paths:
+      - '.github/workflows/msal-isolated-safe-build.yml'
+      - 'app/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-build-only:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout isolated fix branch
+        uses: actions/checkout@v4
+      - name: Validate branch and preserve production
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "fix/msal-safe-redirect-20261019"
+          git diff --check
+          test -s app/src/main/AndroidManifest.xml
+          test -s app/src/release/AndroidManifest.xml
+          test -s app/src/apkTest/AndroidManifest.xml
+          grep -Fq 'android:scheme="bestnikahbredge"' app/src/main/AndroidManifest.xml
+          grep -Fq 'android:scheme="msauth"' app/src/apkTest/AndroidManifest.xml
+          ! sed -n '/android:name=".FamilyCircleActivity"/,/<\/activity>/p' app/src/main/AndroidManifest.xml | grep -Fq 'android:scheme="msauth"'
+          echo "ISOLATED SOURCE AND FAMILY CIRCLE CALLBACK CHECK: PASS"
+      - name: Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+      - name: Prepare upload-key signing without exposing secrets
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64"
+          test -n "$KEYSTORE_PASSWORD"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/bnb-release.jks"
+          test -s "$RUNNER_TEMP/bnb-release.jks"
+          HASH="$(keytool -exportcert -keystore "$RUNNER_TEMP/bnb-release.jks" -storepass "$KEYSTORE_PASSWORD" -alias best-nikah-bridge | openssl sha1 -binary | openssl base64 -A)"
+          test "$HASH" = "QQlyMPjboduCSVjIUdgoTGW6UEg="
+          echo "UPLOAD SIGNING SHA-1 MATCH: PASS"
+      - name: Compile and build signed APK and AAB only
+        shell: bash
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/bnb-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: best-nikah-bridge
+          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease :app:assembleApkTest :app:bundleRelease --stacktrace
+          test -s app/build/outputs/apk/apkTest/app-apkTest.apk
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify app/build/outputs/bundle/release/app-release.aab
+          sha256sum app/build/outputs/apk/apkTest/app-apkTest.apk app/build/outputs/bundle/release/app-release.aab
+          echo "SIGNED ARTIFACT EXISTENCE: PASS"
+      - name: Upload isolated test artifacts (no deployment)
+        uses: actions/upload-artifact@v4
+        with:
+          name: bnb-msal-fix-signed-apk-aab
+          path: |
+            app/build/outputs/apk/apkTest/app-apkTest.apk
+            app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 7
