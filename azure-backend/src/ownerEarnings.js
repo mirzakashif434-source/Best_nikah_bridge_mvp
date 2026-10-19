@@ -1,6 +1,7 @@
 const { app } = require("@azure/functions");
 const { getPool, query } = require("./db");
 const { requireAuth } = require("./auth");
+const { requireOwnerReportAccess } = require("./ownerReportAccess");
 const { createNotification } = require("./notifications");
 
 const PLAN_VALUES = { premium_basic_20: 2000, premium_plus_40: 4000, premium_vip_60: 6000 };
@@ -12,7 +13,7 @@ function validDestination(c,v){const d=clean(v,300);if(d.length<6)return false;i
 async function admin(user){const r=await query("SELECT id,role,status FROM users WHERE (azure_subject=$1 OR azure_subject=$1) AND status='active' LIMIT 1",[user.azure_subject||user.uid]);if(!r.rows[0]||!["admin","moderator"].includes(r.rows[0].role))throw Object.assign(new Error("ADMIN_REQUIRED"),{statusCode:403});return r.rows[0];}
 
 app.http("ownerEarningsDashboardAzure",{methods:["GET"],authLevel:"anonymous",route:"owner/earnings",handler:requireAuth(async(request,context,user)=>{
- try{await admin(user);const [s,rows,plans,settlements,providerPayouts]=await Promise.all([
+ try{await requireOwnerReportAccess(user);const [s,rows,plans,settlements,providerPayouts]=await Promise.all([
   query("SELECT * FROM owner_earnings_summary WHERE id=true"),
   query("SELECT oe.id,oe.product_id,oe.order_id,oe.status,oe.plan_value_sar_minor,oe.created_at,oe.verified_at,u.azure_subject,u.email FROM owner_earnings oe LEFT JOIN users u ON u.id=oe.user_id ORDER BY oe.created_at DESC LIMIT 500"),
   query("SELECT plan_key,display_name,sort_order FROM premium_plans WHERE active=true ORDER BY sort_order"),

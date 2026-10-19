@@ -1,0 +1,27 @@
+name: Owner Dashboard Read-Only Gate
+on:
+  pull_request:
+    paths:
+      - 'azure-backend/src/ownerReportAccess.js'
+      - 'azure-backend/src/ownerAnalytics.js'
+      - 'azure-backend/src/ownerEarnings.js'
+      - 'azure-backend/tests/owner-report-only.test.js'
+      - '.github/workflows/owner-dashboard-readonly-gate.yml'
+  workflow_dispatch:
+jobs:
+  owner-report-only:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check isolated changes
+        run: |
+          node --check azure-backend/src/ownerReportAccess.js
+          node --check azure-backend/src/ownerAnalytics.js
+          node --check azure-backend/src/ownerEarnings.js
+      - name: Run read-only access and payout safety tests
+        run: node --test azure-backend/tests/owner-report-only.test.js

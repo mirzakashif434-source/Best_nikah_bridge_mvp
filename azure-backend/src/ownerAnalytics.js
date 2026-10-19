@@ -1,25 +1,13 @@
 const { app } = require("@azure/functions");
 const { query } = require("./db");
 const { requireAuth } = require("./auth");
-
-async function requireOwnerAdmin(user){
-  const key=(user.azure_subject||user.uid||"").trim();
-  const r=await query(
-    "SELECT id,role,status FROM users WHERE (azure_subject=$1 OR azure_subject=$1) AND status='active' LIMIT 1",
-    [key]
-  );
-  const me=r.rows[0];
-  if(!me||!["admin","moderator"].includes(me.role)){
-    const e=new Error("ADMIN_REQUIRED");e.statusCode=403;throw e;
-  }
-  return me;
-}
+const { requireOwnerReportAccess } = require("./ownerReportAccess");
 
 app.http("ownerLiveAnalyticsAzure",{
   methods:["GET"],authLevel:"anonymous",route:"owner/live-analytics",
   handler:requireAuth(async(request,context,user)=>{
     try{
-      await requireOwnerAdmin(user);
+      await requireOwnerReportAccess(user);
       const [
         users,profiles,presence,likes,messages,conversations,
         premium,earnings,todayRevenue,monthRevenue,
