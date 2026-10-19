@@ -193,7 +193,16 @@ need("ProductionMainActivity reverted to wrong admin owner analytics route",
      '/admin/owner/live-analytics' not in prod)
 owner_backend=contains(AZ/"ownerAnalytics.js",
     'route:"owner/live-analytics"',
-    'ADMIN_REQUIRED')
+    'await requireOwnerReportAccess(user)')
+report_guard=contains(AZ/"ownerReportAccess.js",
+    'ADMIN_REQUIRED',
+    'azure_subject=$1',
+    'status=\'active\'',
+    'mirzakashif121212@gmail.com')
+owner_earnings=contains(AZ/"ownerEarnings.js",
+    'route:"owner/earnings"',
+    'await requireOwnerReportAccess(user)',
+    'await admin(user)')
 
 # CONTRACT 14 — Azure-only runtime and release safety.
 all_java="\n".join(read(p) for p in APP.glob("*.java"))
