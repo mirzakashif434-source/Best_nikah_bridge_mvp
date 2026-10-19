@@ -12,7 +12,7 @@ function authFor(dbUser) {
   const sandbox = {
     module: mod, exports: mod.exports,
     require(id) { assert.equal(id, "./db"); return { query: async (_sql, params) => {
-      assert.match(_sql, /azure_subject=\\$1/);
+      assert.match(_sql, /azure_subject=\$1/);
       assert.match(_sql, /status='active'/);
       return { rows: dbUser && dbUser.subject === params[0] ? [dbUser] : [] };
     } }; }
@@ -43,11 +43,11 @@ test("existing admin and moderator report access remains", async () => {
 test("only GET report handlers use read-only check; payout mutation handlers remain admin guarded", () => {
   const analytics = read("ownerAnalytics.js");
   const earnings = read("ownerEarnings.js");
-  assert.match(analytics, /methods:\\["GET"\\],authLevel:"anonymous",route:"owner\\/live-analytics"/);
-  assert.match(earnings, /methods:\\["GET"\\],authLevel:"anonymous",route:"owner\\/earnings"/);
-  assert.match(analytics, /await requireOwnerReportAccess\\(user\\)/);
-  assert.match(earnings, /try\\{await requireOwnerReportAccess\\(user\\);const \\[s,rows/);
-  assert.equal((earnings.match(/await admin\\(user\\)/g)||[]).length, 4);
+  assert.match(analytics, /methods:\["GET"\],authLevel:"anonymous",route:"owner\/live-analytics"/);
+  assert.match(earnings, /methods:\["GET"\],authLevel:"anonymous",route:"owner\/earnings"/);
+  assert.match(analytics, /await requireOwnerReportAccess\(user\)/);
+  assert.match(earnings, /try\{await requireOwnerReportAccess\(user\);const \[s,rows/);
+  assert.equal((earnings.match(/await admin\(user\)/g)||[]).length, 4);
   for (const route of ["admin/owner/settlement-profile","admin/owner/provider-settlement","admin/owner/settlements"]) {
     assert.ok(earnings.includes(route));
   }
