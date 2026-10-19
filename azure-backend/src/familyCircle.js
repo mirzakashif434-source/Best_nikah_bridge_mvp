@@ -158,7 +158,9 @@ app.http("familyCircleInviteLanding",{
   handler:async(request,context)=>{
     try{
       const token=text((request.params&&request.params.token)||context.triggerMetadata?.token,200);
-      if(!token) return {status:400,headers:{"Content-Type":"text/plain; charset=utf-8"},body:"Invalid Family Circle invite."};
+      // Invite tokens are generated as 24 random bytes in base64url format (32 safe characters).
+      // Reject non-token input before it can enter an HTML attribute or a database lookup.
+      if(!/^[A-Za-z0-9_-]{32}$/.test(token)) return {status:400,headers:{"Content-Type":"text/plain; charset=utf-8"},body:"Invalid Family Circle invite."};
       const r=await query(
         `SELECT i.role,i.max_uses,i.use_count,i.expires_at,i.revoked_at,c.status
          FROM family_circle_invites i JOIN family_circles c ON c.id=i.circle_id
