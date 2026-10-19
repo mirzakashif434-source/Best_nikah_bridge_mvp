@@ -4,6 +4,7 @@ on:
     branches: [audit/free-check-20261020]
     paths:
       - '.github/workflows/audit-copy-free-static.yml'
+      - 'azure-backend/src/familyCircle.js'
   workflow_dispatch:
 
 permissions:
@@ -35,6 +36,26 @@ jobs:
         run: python -m pip install --disable-pip-version-check semgrep
       - name: Semgrep static scan (no autofix, no upload)
         run: semgrep scan --config p/default --metrics off --no-git-ignore --error app/src/main/java azure-backend/src
+      - name: Check Family Circle input hardening (no Azure calls)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check azure-backend/src/familyCircle.js
+          node - <<'NODE'
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const code = fs.readFileSync('azure-backend/src/familyCircle.js','utf8');
+          if (!code.includes('if(!/^[A-Za-z0-9_-]{32}$/.test(token))')) process.exit(1);
+          for (let i = 0; i < 100; i++) {
+            const token = crypto.randomBytes(24).toString('base64url');
+            if (!/^[A-Za-z0-9_-]{32}$/.test(token)) process.exit(1);
+          }
+          for (const bad of ['"><script>alert(1)</script>', 'bad/token', 'abc', 'a'.repeat(33)]) {
+            if (/^[A-Za-z0-9_-]{32}$/.test(bad)) process.exit(1);
+          }
+          console.log('Family Circle token syntax test: PASS');
+          NODE
       - name: Setup Java 17
         if: always()
         uses: actions/setup-java@v4
