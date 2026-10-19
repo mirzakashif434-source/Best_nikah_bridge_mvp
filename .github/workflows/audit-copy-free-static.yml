@@ -55,9 +55,9 @@ jobs:
           for (const bad of ['"><script>alert(1)</script>', 'bad/token', 'abc', 'a'.repeat(33)]) {
             if (/^[A-Za-z0-9_-]{32}$/.test(bad)) process.exit(1);
           }
-          const match = code.match(/const escapeHtmlAttr=([^;]+);/);
-          if (!match) process.exit(1);
-          const escapeHtmlAttr = new Function('return (' + match[1] + ')')();
+          const escapingLine = code.split('\\n').find(line => line.includes('const escapeHtmlAttr='));
+          if (!escapingLine) process.exit(1);
+          const escapeHtmlAttr = new Function('return (' + escapingLine.trim().replace(/^const escapeHtmlAttr=/, '').replace(/;$/, '') + ')')();
           if (escapeHtmlAttr(`a"&<>'b`) !== 'a&quot;&amp;&lt;&gt;&#39;b') process.exit(1);
           if (!code.includes('href="${escapeHtmlAttr(openApp)}"') || !code.includes('href="${escapeHtmlAttr(play)}"')) process.exit(1);
           console.log('Family Circle HTML escaping test: PASS');
