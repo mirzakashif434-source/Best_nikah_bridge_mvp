@@ -136,7 +136,8 @@ final class AzureAuthManager {
 
             if (signers != null) {
                 for (Signature signer : signers) {
-                    byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(signer.toByteArray());
+                    // MSAL Android redirect certificate fingerprint only; not used for cryptographic security.
+                    byte[] sha1 = MessageDigest.getInstance("SHA-1").digest(signer.toByteArray()); // nosemgrep: java.lang.security.audit.crypto.use-of-sha1.use-of-sha1
                     String hash = Base64.encodeToString(sha1, Base64.NO_WRAP);
                     // Direct GitHub APK: use the upload signing certificate, not Google Play signing.
                     if ("QQlyMPjboduCSVjIUdgoTGW6UEg=".equals(hash)) {
