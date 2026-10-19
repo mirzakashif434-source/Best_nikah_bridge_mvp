@@ -1,4 +1,5 @@
 name: Azure Additive Backend + Android Verification
+# Trigger unified signed APK/AAB verification after read-only Owner Dashboard PR #3; no Azure deploy.
 # Release 37 Final Locked — current Play signing redirect verified
 
 on:
