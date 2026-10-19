@@ -1,0 +1,49 @@
+name: SAFE COPY - Free Static Audit (No Azure)
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-free-static.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-audit:
+    name: Source audit only - no deployment or secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout audit branch ONLY
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify audit branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+          test -f app/build.gradle
+          test -f azure-backend/package.json
+          echo "AUDIT BRANCH ONLY - PASS"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Semgrep Community Edition
+        run: python -m pip install --disable-pip-version-check semgrep
+      - name: Semgrep static scan (no autofix, no upload)
+        run: semgrep scan --config p/default --metrics off --no-git-ignore --error app/src/main/java azure-backend/src
+      - name: Setup Java 17
+        if: always()
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android Lint (no signing, no deploy)
+        if: always()
+        shell: bash
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:lintDebug --no-daemon --stacktrace
