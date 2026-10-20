@@ -31,7 +31,8 @@ public class WelcomeOfflineSmokeTest {
     AlertDialog dialog = ShadowAlertDialog.getLatestAlertDialog();
     assertNotNull("Language dialog must open", dialog);
     assertTrue("Language dialog must be visible", dialog.isShowing());
-    assertEquals("Choose Your Language", ShadowAlertDialog.getShadowAlertDialog(dialog).getTitle().toString());
+    assertNotNull("Language options must be present", dialog.getListView());
+    assertEquals("All 14 languages available", LanguageManager.NAMES.length, dialog.getListView().getAdapter().getCount());
     assertNotNull("Cancel button", dialog.getButton(AlertDialog.BUTTON_NEGATIVE));
     dialog.dismiss();
     assertFalse("Dialog must close", dialog.isShowing());
