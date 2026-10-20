@@ -4,6 +4,7 @@ on:
     branches: [audit/free-check-20261020]
     paths:
       - '.github/workflows/audit-copy-clean-emulator-baseline.yml'
+      - '.github/scripts/audit_copy_clean_emulator_baseline.sh'
   workflow_dispatch:
 permissions:
   contents: read
@@ -29,17 +30,7 @@ jobs:
           cores: 4
           ram-size: 4096M
           disable-animations: true
-          script: |
-            adb wait-for-device
-            adb shell getprop sys.boot_completed
-            adb shell dumpsys activity processes > clean-emulator-processes.txt || true
-            adb shell dumpsys window > clean-emulator-window.txt || true
-            adb logcat -d -v threadtime > clean-emulator-logcat.txt || true
-            if grep -E 'ANR in com\.android\.(phone|systemui)|Process system isn.t responding|System UI isn.t responding' clean-emulator-logcat.txt; then
-              echo 'CLEAN EMULATOR SYSTEM ANR FOUND'
-              exit 40
-            fi
-            echo 'NO SYSTEM ANR OBSERVED IN CLEAN EMULATOR LOG'
+          script: bash .github/scripts/audit_copy_clean_emulator_baseline.sh
       - name: Preserve baseline diagnostics
         if: always()
         uses: actions/upload-artifact@v6
