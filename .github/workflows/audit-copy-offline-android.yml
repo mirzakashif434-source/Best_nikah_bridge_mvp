@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/audit-copy-offline-android.yml'
       - '.github/scripts/audit_copy_offline_welcome.sh'
+      - '.github/scripts/audit_copy_welcome_navigation.sh'
   workflow_dispatch:
 
 permissions:
@@ -48,4 +49,4 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: bash .github/scripts/audit_copy_offline_welcome.sh
+          script: bash .github/scripts/audit_copy_offline_welcome.sh && bash .github/scripts/audit_copy_welcome_navigation.sh
