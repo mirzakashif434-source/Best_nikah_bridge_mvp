@@ -1,0 +1,32 @@
+name: SAFE COPY - 50 Screen Robot Safety Matrix
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-50-robot-matrix.yml'
+      - '.github/scripts/audit_50_robot_safety_matrix.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  robot-readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify audit copy and generate 50 individual safety records
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+          python3 .github/scripts/audit_50_robot_safety_matrix.py
+      - name: Save per-screen robot readiness
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: 50-screen-robot-readiness-not-runtime-pass
+          path: audit-50-screen-robot-matrix.csv
+          if-no-files-found: error
+          retention-days: 3
