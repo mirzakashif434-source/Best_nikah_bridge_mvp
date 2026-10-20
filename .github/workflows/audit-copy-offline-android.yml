@@ -5,6 +5,7 @@ on:
     branches: [audit/free-check-20261020]
     paths:
       - '.github/workflows/audit-copy-offline-android.yml'
+      - '.github/scripts/audit_copy_offline_welcome.sh'
   workflow_dispatch:
 
 permissions:
@@ -47,42 +48,4 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: |
-            set -eu
-            # Wait for Android system services, not just ADB transport.
-            adb wait-for-device
-            ready=0
-            n=0
-            while [ "$n" -lt 90 ]; do
-              boot=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)
-              if [ "$boot" = "1" ] && adb shell pm list packages android 2>/dev/null | grep -q 'package:android'; then
-                ready=1
-                break
-              fi
-              n=$((n+1))
-              sleep 3
-            done
-            if [ "$ready" -ne 1 ]; then
-              echo "FAIL: Emulator boot or Android package service unavailable"
-              exit 86
-            fi
-            # Restrict all testing to the disconnected, no-auth welcome flow.
-            adb shell svc wifi disable
-            adb shell svc data disable
-            adb shell settings put global airplane_mode_on 1
-            state=$(adb shell settings get global airplane_mode_on | tr -d '\r')
-            test "$state" = "1"
-            adb install -r app/build/outputs/apk/debug/app-debug.apk
-            adb shell pm clear com.nikahbridge
-            adb logcat -c
-            adb shell am start -W -n com.nikahbridge/.WelcomeActivity | tee /tmp/bnb-safe-welcome.txt
-            sleep 8
-            adb shell uiautomator dump /sdcard/bnb-offline-ui.xml
-            adb pull /sdcard/bnb-offline-ui.xml /tmp/bnb-offline-ui.xml
-            grep -q '<node' /tmp/bnb-offline-ui.xml
-            adb logcat -d > /tmp/bnb-safe-logcat.txt
-            if grep -E 'FATAL EXCEPTION|ANR in com\.nikahbridge|Process: com\.nikahbridge' /tmp/bnb-safe-logcat.txt; then
-              echo "FAIL: crash/ANR detected"
-              exit 1
-            fi
-            echo "OFFLINE WELCOME/CRASH SMOKE PASS (not full signed-in 50-screen E2E)"
+          script: bash .github/scripts/audit_copy_offline_welcome.sh
