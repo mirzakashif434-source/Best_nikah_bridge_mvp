@@ -1,0 +1,43 @@
+name: SAFE COPY - 50 Screen Isolated Robot Checks
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-50-screen-jvm-robot.yml'
+      - 'app/src/test/java/com/nikahbridge/All50ScreenLoadRobotTest.java'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fifty-screens:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Audit branch isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Run 50 per-screen JVM safety tests and Welcome UI robot
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest --tests com.nikahbridge.All50ScreenLoadRobotTest --tests com.nikahbridge.WelcomeOfflineSmokeTest --no-daemon
+          echo '50 ACTIVITY CLASS TESTS + WELCOME UI: PASS. FULL 50-SCREEN RUNTIME CLICKS STILL PENDING.'
+      - name: Save 50-screen test results
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: isolated-50-screen-junit-results
+          path: app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+          retention-days: 3
