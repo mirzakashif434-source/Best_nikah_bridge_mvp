@@ -1,0 +1,50 @@
+name: SAFE COPY - 50 Screen Navigation and Feature Contracts
+
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-screen-feature-contracts.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  copy-only-contracts:
+    name: 50 screen source + navigation + Azure feature wiring (read only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Prove isolated testing branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+          test -d azure-backend/src
+          test -d app/src/main/java/com/nikahbridge
+      - name: Verify 50 registered screens, UI controls and navigation contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_50_screen_ultra_final.py
+          echo '50 SCREEN STATIC NAVIGATION CONTRACT PASS'
+      - name: Verify source feature and Azure wiring contracts (NO API calls)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_locked_feature_contracts.py
+          echo 'SOURCE FEATURE CONTRACT PASS'
+      - name: Check Maestro flow files exist (not signed-in E2E execution)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s .maestro/ci-welcome.yaml
+          test -s .maestro/final-release-42-screen-master.yaml
+          test -s .maestro/signed-in-38-screen-master.yaml
+          test -s .maestro/step4-four-history-real-e2e.yaml
+          grep -Fq 'appId: com.nikahbridge' .maestro/ci-welcome.yaml
+          echo 'MAESTRO FLOW PRESENCE PASS — execution awaits safe authenticated test setup'
