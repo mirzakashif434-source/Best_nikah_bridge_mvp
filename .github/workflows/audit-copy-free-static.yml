@@ -14,11 +14,11 @@ permissions:
 jobs:
   source-audit:
     name: Source audit only - no deployment or secrets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Checkout audit branch ONLY
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           persist-credentials: false
       - name: Verify audit branch
@@ -30,7 +30,7 @@ jobs:
           test -f azure-backend/package.json
           echo "AUDIT BRANCH ONLY - PASS"
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install Semgrep Community Edition
@@ -65,7 +65,7 @@ jobs:
           NODE
       - name: Setup Java 17
         if: always()
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
