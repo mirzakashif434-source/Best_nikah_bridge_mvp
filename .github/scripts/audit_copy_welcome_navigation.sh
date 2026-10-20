@@ -7,8 +7,9 @@ adb shell svc wifi disable
 adb shell svc data disable || true
 
 capture_ui(){
-  adb shell uiautomator dump /sdcard/bnb-audit-nav.xml >/dev/null
-  adb shell cat /sdcard/bnb-audit-nav.xml | tr -d '\r' > /tmp/bnb-audit-nav.xml
+  # /sdcard is permission-restricted on the CI emulator; shell-owned /data/local/tmp is accessible.
+  adb shell uiautomator dump /data/local/tmp/bnb-audit-nav.xml >/dev/null
+  adb exec-out cat /data/local/tmp/bnb-audit-nav.xml | tr -d '\r' > /tmp/bnb-audit-nav.xml
   grep -q '<hierarchy' /tmp/bnb-audit-nav.xml
 }
 
