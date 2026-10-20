@@ -49,10 +49,29 @@ jobs:
           disable-animations: true
           script: |
             set -eu
-            adb shell svc wifi disable || true
-            adb shell svc data disable || true
+            # Wait for Android system services, not just ADB transport.
+            adb wait-for-device
+            ready=0
+            n=0
+            while [ "$n" -lt 90 ]; do
+              boot=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)
+              if [ "$boot" = "1" ] && adb shell pm list packages android 2>/dev/null | grep -q 'package:android'; then
+                ready=1
+                break
+              fi
+              n=$((n+1))
+              sleep 3
+            done
+            if [ "$ready" -ne 1 ]; then
+              echo "FAIL: Emulator boot or Android package service unavailable"
+              exit 86
+            fi
+            # Restrict all testing to the disconnected, no-auth welcome flow.
+            adb shell svc wifi disable
+            adb shell svc data disable
             adb shell settings put global airplane_mode_on 1
-            adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null || true
+            state=$(adb shell settings get global airplane_mode_on | tr -d '\r')
+            test "$state" = "1"
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell pm clear com.nikahbridge
             adb logcat -c
