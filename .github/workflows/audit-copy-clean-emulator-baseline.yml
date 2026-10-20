@@ -1,0 +1,53 @@
+name: SAFE COPY - Clean Emulator Baseline (NO APP)
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-clean-emulator-baseline.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  clean-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Isolated audit branch only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+      - name: Boot API 34 emulator WITHOUT installing Best Nikah Bridge
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          cores: 4
+          ram-size: 4096M
+          disable-animations: true
+          script: |
+            adb wait-for-device
+            adb shell getprop sys.boot_completed
+            adb shell dumpsys activity processes > clean-emulator-processes.txt || true
+            adb shell dumpsys window > clean-emulator-window.txt || true
+            adb logcat -d -v threadtime > clean-emulator-logcat.txt || true
+            if grep -E 'ANR in com\.android\.(phone|systemui)|Process system isn.t responding|System UI isn.t responding' clean-emulator-logcat.txt; then
+              echo 'CLEAN EMULATOR SYSTEM ANR FOUND'
+              exit 40
+            fi
+            echo 'NO SYSTEM ANR OBSERVED IN CLEAN EMULATOR LOG'
+      - name: Preserve baseline diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: audit-only-clean-emulator-baseline
+          path: |
+            clean-emulator-processes.txt
+            clean-emulator-window.txt
+            clean-emulator-logcat.txt
+          if-no-files-found: warn
+          retention-days: 1
