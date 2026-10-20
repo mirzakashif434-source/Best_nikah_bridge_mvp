@@ -48,7 +48,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            set -euo pipefail
+            set -eu
             adb shell svc wifi disable || true
             adb shell svc data disable || true
             adb shell settings put global airplane_mode_on 1
