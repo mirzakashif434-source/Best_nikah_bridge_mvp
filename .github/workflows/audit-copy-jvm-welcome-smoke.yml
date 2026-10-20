@@ -1,0 +1,35 @@
+name: SAFE COPY - JVM Welcome Smoke (No Emulator)
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-jvm-welcome-smoke.yml'
+      - 'app/src/test/java/com/nikahbridge/WelcomeOfflineSmokeTest.java'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  welcome-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Prove audit-only branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Run offline JVM Welcome + Language dialog smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest --tests com.nikahbridge.WelcomeOfflineSmokeTest --no-daemon --stacktrace
+          echo 'LOCAL JVM WELCOME/LANGUAGE SMOKE PASS — no emulator, no backend, no billing'
