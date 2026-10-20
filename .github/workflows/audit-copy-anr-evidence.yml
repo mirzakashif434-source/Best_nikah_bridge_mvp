@@ -4,6 +4,7 @@ on:
     branches: [audit/free-check-20261020]
     paths:
       - '.github/workflows/audit-copy-anr-evidence.yml'
+      - '.github/scripts/audit_copy_anr_evidence.sh'
   workflow_dispatch:
 permissions:
   contents: read
