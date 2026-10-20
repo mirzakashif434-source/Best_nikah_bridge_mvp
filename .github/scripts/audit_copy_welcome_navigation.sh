@@ -45,15 +45,27 @@ assert x2>x1 and y2>y1
 print((x1+x2)//2,(y1+y2)//2)
 PY
 read -r x y < /tmp/bnb-audit-lang-coords
+echo "LANGUAGE CONTROL TAP COORDS: $x,$y"
+adb exec-out screencap -p > /tmp/bnb-before-lang-tap.png
 adb shell input tap "$x" "$y"
-sleep 3
+sleep 5
+adb exec-out screencap -p > /tmp/bnb-after-lang-tap.png
+adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 15 || true
 capture_ui
+python3 - <<'PY'
+import xml.etree.ElementTree as ET
+r=ET.parse('/tmp/bnb-audit-nav.xml').getroot()
+for n in r.iter('node'):
+    d=n.attrib
+    t=d.get('text','') or d.get('content-desc','')
+    if t: print('VISIBLE UI:',repr(t[:120]))
+PY
 # Verify dialog's actual content before dismissing, without changing language.
 python3 - <<'PY'
 import xml.etree.ElementTree as ET
 root=ET.parse('/tmp/bnb-audit-nav.xml').getroot()
 text=' '.join(n.attrib.get('text','')+' '+n.attrib.get('content-desc','') for n in root.iter('node'))
-assert ('Cancel' in text or 'Choose Your Language' in text), 'Language dialog not visible'
+assert ('Cancel' in text or 'Choose Your Language' in text), 'Language dialog not visible; see UI dump, focus and captured screenshots'
 print('LANGUAGE DIALOG OPEN: PASS')
 PY
 adb shell input keyevent KEYCODE_BACK
