@@ -1,0 +1,31 @@
+name: SAFE COPY - 50 Screen Maestro Readiness (No Device)
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-maestro-50-readiness.yml'
+      - '.github/scripts/audit_maestro_50_readiness.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Audit branch and 50 screen robot coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+          python3 .github/scripts/audit_maestro_50_readiness.py
+      - name: Preserve coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: maestro-50-screen-readiness-not-runtime-proof
+          path: audit-maestro-50-screen-readiness.json
+          retention-days: 3
