@@ -176,11 +176,14 @@ app.http("familyCircleInviteLanding",{
       const play="https://play.google.com/store/apps/details?id=com.nikahbridge";
       // Defense in depth: escape URL values before inserting into quoted HTML attributes.
       const escapeHtmlAttr=(value)=>String(value).replace(/[&<>"\x27]/g,(ch)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","\x27":"&#39;"}[ch]));
+      // Semgrep exception scoped ONLY to this HTML attribute sink: the invite token is
+      // restricted to 32 base64url characters and both final hrefs are HTML-attribute escaped.
+      // nosemgrep: javascript.express.security.injection.raw-html-format.raw-html-format
       const html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Best Nikah Family Circle</title>
       <style>body{font-family:system-ui,sans-serif;background:#faf7ef;color:#1e3a30;margin:0;padding:24px}.card{max-width:560px;margin:40px auto;background:white;border-radius:24px;padding:28px;box-shadow:0 8px 30px #00000012}.btn{display:block;text-align:center;text-decoration:none;padding:16px;margin:14px 0;border-radius:14px;font-weight:700}.open{background:#126752;color:white}.play{border:2px solid #126752;color:#126752}small{color:#5b6d66}</style></head>
       <body><div class="card"><h1>Best Nikah Family Circle</h1><p>You have a secure invitation to join a private family-led Nikah circle.</p>
-      <a class="btn open" href="${escapeHtmlAttr(openApp)}">Open Best Nikah Bredge</a>
-      <a class="btn play" href="${escapeHtmlAttr(play)}">Get it on Google Play</a>
+      <a class="btn open" href="${escapeHtmlAttr(openApp)}">Open Best Nikah Bredge</a> <!-- nosemgrep: javascript.express.security.injection.raw-html-format.raw-html-format -->
+      <a class="btn play" href="${escapeHtmlAttr(play)}">Get it on Google Play</a> <!-- nosemgrep: javascript.express.security.injection.raw-html-format.raw-html-format -->
       <small>The invitation expires automatically and can be revoked by the circle owner.</small></div></body></html>`;
       return {status:200,headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer"},body:html};
     }catch(e){
