@@ -1,0 +1,41 @@
+name: SAFE COPY - API34 Language Comparison (No Azure)
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-api34-compare.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  api34-language:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify audit only
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build debug without keys or deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_50_screen_ultra_final.py
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon
+      - name: Compare Language button on isolated API 34 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash .github/scripts/audit_copy_offline_welcome.sh && bash .github/scripts/audit_copy_welcome_navigation.sh
