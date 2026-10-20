@@ -1,0 +1,69 @@
+name: SAFE COPY - Offline Android Smoke (No Azure)
+
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-offline-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-android:
+    name: Isolated unsigned debug APK + offline emulator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Prove audit-only branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+          test -f .github/scripts/verify_50_screen_ultra_final.py
+          test -f app/build.gradle
+          echo "BRANCH SAFETY PASS"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Check 50-screen source and build debug without signing secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_50_screen_ultra_final.py
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          echo "SOURCE + DEBUG BUILD PASS"
+      - name: Offline emulator - welcome screen and crash smoke ONLY
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb shell svc wifi disable || true
+            adb shell svc data disable || true
+            adb shell settings put global airplane_mode_on 1
+            adb shell am broadcast -a android.intent.action.AIRPLANE_MODE --ez state true >/dev/null || true
+            adb install -r app/build/outputs/apk/debug/app-debug.apk
+            adb shell pm clear com.nikahbridge
+            adb logcat -c
+            adb shell am start -W -n com.nikahbridge/.WelcomeActivity | tee /tmp/bnb-safe-welcome.txt
+            sleep 8
+            adb shell uiautomator dump /sdcard/bnb-offline-ui.xml
+            adb pull /sdcard/bnb-offline-ui.xml /tmp/bnb-offline-ui.xml
+            grep -q '<node' /tmp/bnb-offline-ui.xml
+            adb logcat -d > /tmp/bnb-safe-logcat.txt
+            if grep -E 'FATAL EXCEPTION|ANR in com\.nikahbridge|Process: com\.nikahbridge' /tmp/bnb-safe-logcat.txt; then
+              echo "FAIL: crash/ANR detected"
+              exit 1
+            fi
+            echo "OFFLINE WELCOME/CRASH SMOKE PASS (not full signed-in 50-screen E2E)"
