@@ -7,10 +7,24 @@ adb shell svc wifi disable
 adb shell svc data disable || true
 
 capture_ui(){
-  # /sdcard is permission-restricted on the CI emulator; shell-owned /data/local/tmp is accessible.
-  adb shell uiautomator dump /data/local/tmp/bnb-audit-nav.xml >/dev/null
-  adb exec-out cat /data/local/tmp/bnb-audit-nav.xml | tr -d '\r' > /tmp/bnb-audit-nav.xml
-  grep -q '<hierarchy' /tmp/bnb-audit-nav.xml
+  # Uiautomator sometimes reports "null root node" during Android window transitions.
+  # Never interpret an empty/stale hierarchy as a successful UI assertion.
+  local attempt
+  for attempt in 1 2 3 4; do
+    adb shell rm -f /data/local/tmp/bnb-audit-nav.xml || true
+    adb shell uiautomator dump /data/local/tmp/bnb-audit-nav.xml 2>&1 | tee /tmp/bnb-ui-dump-status.txt || true
+    adb exec-out cat /data/local/tmp/bnb-audit-nav.xml 2>/dev/null | tr -d '\r' > /tmp/bnb-audit-nav.xml || true
+    if grep -q '<hierarchy' /tmp/bnb-audit-nav.xml && grep -q '<node' /tmp/bnb-audit-nav.xml; then
+      echo "VALID UI HIERARCHY: attempt $attempt"
+      return 0
+    fi
+    echo "EMULATOR UI ROOT UNAVAILABLE: attempt $attempt"
+    sleep 4
+  done
+  adb exec-out screencap -p > /tmp/bnb-ui-unavailable.png || true
+  adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' | head -n 12 || true
+  echo "FAIL INFRA: no reliable UI hierarchy after 4 attempts; cannot assert dialog"
+  return 86
 }
 
 capture_ui
