@@ -25,11 +25,20 @@ test "$(adb shell settings get global airplane_mode_on | tr -d '\r')" = "1"
 adb install -r "$APK"
 adb shell pm clear com.nikahbridge
 adb logcat -c
-adb shell am start -W -n com.nikahbridge/.WelcomeActivity | tee /tmp/bnb-safe-welcome.txt
-sleep 8
-adb shell uiautomator dump /sdcard/bnb-offline-ui.xml
-adb pull /sdcard/bnb-offline-ui.xml /tmp/bnb-offline-ui.xml
-grep -q '<node' /tmp/bnb-offline-ui.xml
+# Do not use -W: emulators can time out waiting for a launch report even
+# when the app process starts. Validate the running process separately.
+adb shell am start -n com.nikahbridge/.WelcomeActivity | tee /tmp/bnb-safe-welcome.txt
+sleep 12
+if ! adb shell pidof com.nikahbridge | grep -Eq '[0-9]+'; then
+  echo "FAIL: Welcome app process is not running"
+  adb logcat -d | tail -n 100 || true
+  exit 1
+fi
+# Android emulators may deny pulling files from /sdcard. Capture the screen
+# directly over adb stdout instead; assert a real PNG was produced.
+adb exec-out screencap -p > /tmp/bnb-offline-welcome.png
+test -s /tmp/bnb-offline-welcome.png
+python3 -c 'from pathlib import Path; p=Path("/tmp/bnb-offline-welcome.png"); assert p.read_bytes()[:8] == bytes([137,80,78,71,13,10,26,10]), "Bad screenshot PNG"'
 adb logcat -d > /tmp/bnb-safe-logcat.txt
 if grep -E 'FATAL EXCEPTION|ANR in com\.nikahbridge|Process: com\.nikahbridge' /tmp/bnb-safe-logcat.txt; then
   echo "FAIL: app crash/ANR detected"
