@@ -1,0 +1,54 @@
+name: SAFE COPY - Fast Critical Regression Robot (NO Emulator)
+on:
+  push:
+    branches: [audit/free-check-20261020]
+    paths:
+      - '.github/workflows/audit-copy-fast-critical-robot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  critical-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify audit branch only (no deploy secrets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REF_NAME}" = "audit/free-check-20261020"
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 50-screen manifest, back, buttons and MSAL contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/verify_50_screen_ultra_final.py
+          python3 .github/scripts/verify_locked_feature_contracts.py
+      - name: Check every Azure backend JS file syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find azure-backend/src -type f -name '*.js' -print0 | xargs -0 -r -n1 node --check
+      - name: Run existing Azure permission regression tests (offline)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test azure-backend/tests/owner-report-only.test.js
+      - name: Compile Android debug and run Android Lint (no emulator or signing)
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug :app:lintDebug --no-daemon
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          echo 'FAST OFFLINE CRITICAL REGRESSION PASS. Not a substitute for 50-screen UI robot.'
