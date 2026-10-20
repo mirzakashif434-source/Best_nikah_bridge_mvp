@@ -14,6 +14,8 @@ android {
         versionName '2.25'
     }
 
+    testOptions { unitTests.includeAndroidResources = true }
+
     signingConfigs {
         release {
             def keystorePath = System.getenv("KEYSTORE_FILE")
@@ -51,4 +53,7 @@ dependencies {
     implementation 'androidx.work:work-runtime:2.10.3'
     // Microsoft Entra External ID is the production authentication authority.
     implementation 'com.microsoft.identity.client:msal:8.4.2'
+    // Audit-copy local JVM UI smoke; never packaged into release APK/AAB.
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
 }
