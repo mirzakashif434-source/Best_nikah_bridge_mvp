@@ -95,7 +95,7 @@ public class AzureHomeActivity extends Activity {
         root.addView(Premium2030Ui.subtitle(this,"Faith • Family • Trust • A Brighter Tomorrow"));
         root.addView(Premium2030Ui.heroLine(this,"Meaningful Matches • Verified Profiles • Private & Safe"));
         TextView authStatus=text("Verifying secure Azure session…",14,false); root.addView(authStatus);
-        AzureApiClient.get("/auth/azure/me",new AzureApiClient.Callback(){ public void ok(int code,String body){runOnUiThread(()->authStatus.setText("✓ Secure Azure session verified"));} public void err(String m){runOnUiThread(()->authStatus.setText("Azure token verification failed: "+m));} });
+        // Authentication status is checked after dashboard buttons are initialized below.
         root.addView(Premium2030Ui.section(this,"Your Nikah Journey"));
 
         Button profile=button("My Real Azure Profile",true);
@@ -142,6 +142,8 @@ public class AzureHomeActivity extends Activity {
 
         Button ownerAnalytics=button("Owner Live Analytics",false);
         Button ownerWallet=button("Owner Wallet / Payout",false);
+        ownerAnalytics.setVisibility(android.view.View.GONE);
+        ownerWallet.setVisibility(android.view.View.GONE);
         Button wallet=button("Azure Wallet",false);
         Button delete=button("Permanently Delete Account",false);
         Button out=button("Sign out of Azure",false);
@@ -188,6 +190,41 @@ public class AzureHomeActivity extends Activity {
         wallet.setOnClickListener(v->startActivity(new Intent(this,AzureWalletActivity.class)));
         delete.setOnClickListener(v->deleteAccount());
         out.setOnClickListener(v->signOut());
+
+        // Re-check the signed-in Azure identity before showing owner-only dashboard controls.
+        final String ownerReportEmail = "mirzakashif121212@gmail.com";
+        AzureApiClient.get("/auth/azure/me",new AzureApiClient.Callback(){
+            public void ok(int code,String body){
+                runOnUiThread(()->{
+                    try {
+                        JSONObject response = new JSONObject(body);
+                        JSONObject user = response.optJSONObject("user");
+                        String role = user == null ? "" : user.optString("role","");
+                        String email = user == null ? "" : user.optString("email","").trim().toLowerCase(java.util.Locale.ROOT);
+                        String status = user == null ? "" : user.optString("status","");
+                        boolean verifiedActive = response.optBoolean("ok") && "active".equalsIgnoreCase(status);
+                        boolean admin = "admin".equalsIgnoreCase(role) || "moderator".equalsIgnoreCase(role);
+                        boolean ownerReportViewer = ownerReportEmail.equals(email);
+                        authStatus.setText(verifiedActive
+                                ? "✓ Secure Azure session verified"
+                                : "Azure account is not active. Please sign in or contact support.");
+                        ownerAnalytics.setVisibility(verifiedActive && (admin || ownerReportViewer) ? android.view.View.VISIBLE : android.view.View.GONE);
+                        ownerWallet.setVisibility(verifiedActive && admin ? android.view.View.VISIBLE : android.view.View.GONE);
+                    } catch (Exception e) {
+                        authStatus.setText("Azure account could not be verified. Owner controls remain hidden.");
+                        ownerAnalytics.setVisibility(android.view.View.GONE);
+                        ownerWallet.setVisibility(android.view.View.GONE);
+                    }
+                });
+            }
+            public void err(String m){
+                runOnUiThread(()->{
+                    authStatus.setText("Azure token verification failed: "+m);
+                    ownerAnalytics.setVisibility(android.view.View.GONE);
+                    ownerWallet.setVisibility(android.view.View.GONE);
+                });
+            }
+        });
     }
 
     private void profile(){
