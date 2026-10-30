@@ -16,8 +16,23 @@ public class WelcomeActivity extends Activity {
         LanguageManager.apply(this);
         super.onCreate(state);
         AzureAuthManager.bindActivity(this);
-        if(AzureAuthManager.hasAccount(this)){startActivity(new Intent(this,AzureHomeActivity.class));finish();return;}
-        showWelcome();
+        // Wait for MSAL account restoration before routing. A stale local signed_in flag
+        // must never send a public user straight into the dashboard without an Azure account.
+        AzureAuthManager.initialize(this,
+            () -> runOnUiThread(() -> {
+                if (isFinishing()) return;
+                if (AzureAuthManager.hasAccount(this)) {
+                    startActivity(new Intent(this, AzureHomeActivity.class));
+                    finish();
+                } else {
+                    AzureAuthManager.clearStaleSignedInState(this);
+                    showWelcome();
+                }
+            }),
+            message -> runOnUiThread(() -> {
+                if (!isFinishing()) showWelcome();
+            })
+        );
     }
 
     private void showWelcome(){
