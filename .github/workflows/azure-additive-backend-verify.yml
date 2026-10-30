@@ -1484,20 +1484,20 @@ jobs:
         with:
           ref: azure-backend-additive
           fetch-depth: 1
-      - name: Lock exact Play Store V37 release identity
+      - name: Lock exact Play Store V38 release identity
         shell: bash
         run: |
           set -euo pipefail
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
-          grep -Fq "versionName '2.25'" app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+38' app/build.gradle
+          grep -Fq "versionName '2.26'" app/build.gradle
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/haUulU8x36wsEGKo1k7aLZtIW0g%3D"' app/src/main/res/raw/auth_config.json
           grep -Fq '"redirect_uri": "msauth://com.nikahbridge/WS%2BzloPDaXssn%2FRIrOAGmd4iV%2Bk%3D"' app/src/main/res/raw/auth_config_play_current.json
           grep -Fq '"authority_url": "https://bestnikahbredge.ciamlogin.com/c4ac0560-df59-48d4-af1b-bb0ed127ce6d"' app/src/main/res/raw/auth_config.json
           grep -Fq 'android:path="/haUulU8x36wsEGKo1k7aLZtIW0g="' app/src/main/AndroidManifest.xml
           grep -Fq 'android:path="/WS+zloPDaXssn/RIrOAGmd4iV+k="' app/src/main/AndroidManifest.xml
           grep -Fq 'return R.raw.auth_config_play_current;' app/src/main/java/com/nikahbridge/AzureAuthManager.java
-          echo "MASTER GATE V37: PASS — installed signer selects WS config when Play requires it"
+          echo "MASTER GATE V38: PASS — installed signer selects WS config when Play requires it"
 
   final-maestro-e2e:
     name: Maestro E2E
@@ -1578,12 +1578,12 @@ jobs:
           echo "FORTRESS BUDGET: LOCKED"
 
   final-release-locked:
-    name: Release 37 Final Locked
+    name: Release 38 Final Locked
     needs: [final-master-gate, final-maestro-e2e, final-self-healing, final-auto-rollback, final-fortress-budget]
     if: ${{ always() && needs.final-master-gate.result == 'success' && needs.final-maestro-e2e.result == 'success' && needs.final-self-healing.result == 'success' && needs.final-auto-rollback.result == 'success' && needs.final-fortress-budget.result == 'success' }}
     runs-on: ubuntu-24.04
     steps:
       - run: |
-          echo "AZURE ADDITIVE RELEASE V37: FINAL LOCKED"
+          echo "AZURE ADDITIVE RELEASE V38: FINAL LOCKED"
           echo "Master Gate -> Maestro E2E -> Self-Healing -> Auto-Rollback -> Fortress Budget"
-          echo "Play Store artifact in this run: azure-additive-play-store-aab-v37"
+          echo "Play Store artifact in this run: azure-additive-play-store-aab-v38"
