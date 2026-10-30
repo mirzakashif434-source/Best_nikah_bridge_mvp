@@ -37,13 +37,13 @@ jobs:
           grep -Fq 'compileSdk 36' "$B"
           grep -Fq 'targetSdk 36' "$B"
           grep -Fq 'minSdk 24' "$B"
-          grep -Fq 'versionCode 37' "$B"
+          grep -Fq 'versionCode 38' "$B"
           grep -Fq 'signingConfig signingConfigs.release' "$B"
           ! grep -Fq 'storePassword "' "$B"
           ! grep -Fq "storePassword '" "$B"
           ! grep -Fq 'keyPassword "' "$B"
           ! grep -Fq "keyPassword '" "$B"
-          echo "PACKAGE + SDK + VERSION CODE 36 + RELEASE SIGNING CONFIG: PASS"
+          echo "PACKAGE + SDK + VERSION CODE 38 + RELEASE SIGNING CONFIG: PASS"
 
       - name: Preserve Step 1-11 Azure and Play contracts
         shell: bash
@@ -51,8 +51,8 @@ jobs:
           set -euo pipefail
 
           grep -Fq "applicationId 'com.nikahbridge'" app/build.gradle
-          grep -Eq 'versionCode[[:space:]]+37' app/build.gradle
-          grep -Fq "versionName '2.25'" app/build.gradle
+          grep -Eq 'versionCode[[:space:]]+38' app/build.gradle
+          grep -Fq "versionName '2.26'" app/build.gradle
           grep -Fq 'compileSdk 36' app/build.gradle
           grep -Fq 'targetSdk 36' app/build.gradle
           grep -Fq 'minSdk 24' app/build.gradle
