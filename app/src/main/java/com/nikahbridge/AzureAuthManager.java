@@ -215,6 +215,14 @@ final class AzureAuthManager {
         }, message -> callback.accept(false));
     }
 
+    static void clearStaleSignedInState(Context context) {
+        if (context != null) {
+            context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
+                    .edit().putBoolean("signed_in", false).apply();
+        }
+        clearCachedToken();
+    }
+
     static void markSignedIn(Context context) {
         context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
                 .edit().putBoolean("signed_in", true).apply();
@@ -225,19 +233,17 @@ final class AzureAuthManager {
             synchronized (AzureAuthManager.class) {
                 if (cachedAccessToken != null && isTokenUsable(cachedAccessToken)) return true;
             }
-            boolean remembered = context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
-                    .getBoolean("signed_in", false);
-            if (app == null) return remembered;
+            if (app == null) return false;
             List<IAccount> accounts = app.getAccounts();
             boolean cachedAccount = accounts != null && !accounts.isEmpty();
             if (cachedAccount) {
                 setSignedInState(true);
                 return true;
             }
-            // Do not throw away a verified app session merely because MSAL is
-            // still restoring its account cache. The next API call will run the
-            // real token acquisition and correct stale state if needed.
-            return remembered;
+            // A local signed_in flag is not proof of a live Azure/MSAL account.
+            // Clear stale state so public users reach Welcome and explicitly sign in.
+            setSignedInState(false);
+            return false;
         } catch (Exception ignored) {
             return context.getSharedPreferences("azure_session", Context.MODE_PRIVATE)
                     .getBoolean("signed_in", false);
